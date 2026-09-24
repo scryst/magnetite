@@ -320,10 +320,23 @@ export class RisoHero {
     const x = from[0] + (target.x - from[0]) * e;
     const y = from[1] + (target.y - from[1]) * e;
     const frame = { focal, cx: x - bx * focal, cy: y + by * focal };
-    return { cam: makeCamera(yaw, pitch, frame), notchScale: NOTCH_SCALE + (1 - NOTCH_SCALE) * e, e, frame };
+    return {
+      cam: makeCamera(yaw, pitch, frame), notchScale: NOTCH_SCALE + (1 - NOTCH_SCALE) * e, e, frame,
+      at: { x, y, scale: (focal * MB.pt) / depth },
+    };
+  }
+
+  /**
+   * Where the dive has the notch's top edge now, {x, y, scale} as `setDive`
+   * takes them, or null at rest. The screen that comes on over the print is
+   * laid on this, so the two are one picture while the camera still moves.
+   */
+  notchAt() {
+    return this.frame ? this.camera(this.lidAngle ?? OPEN).at ?? null : null;
   }
 
   draw(sim, openness, lidAngle) {
+    this.lidAngle = lidAngle;
     const { cam, notchScale, e, frame } = this.camera(lidAngle);
     this.notchScale = notchScale;
     const P = cam.project;
