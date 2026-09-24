@@ -18,6 +18,15 @@ export function startPlayer(host, audio) {
   }
   draw();
   return {
+    /** What is playing, for the band's idle pill: seconds in, of how many, and its sleeve. */
+    now() {
+      const playing = tracks.find((track) => track.getAttribute('aria-pressed') === 'true');
+      return {
+        at: audio.currentTime || 0,
+        of: audio.duration > 0 ? audio.duration : 0,
+        art: playing ? playing.querySelector('img') : null,
+      };
+    },
     /** The sleeve at `index` is the one playing. */
     show(index) {
       tracks.forEach((track, i) => track.setAttribute('aria-pressed', String(i === index)));

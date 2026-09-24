@@ -2210,14 +2210,14 @@ const MUTANTS = {
   'the-camera-lands-on-the-player': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const RETRACT = 0.35;',
+    from: 'const RETRACT = 0.48;',
     to: 'const RETRACT = 0.9;',
   },
   // The player put away in a few pixels of scroll: a cut, not the app's move.
   'the-player-snaps-into-the-notch': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const RETRACT = 0.35;',
+    from: 'const RETRACT = 0.48;',
     to: 'const RETRACT = 0.01;',
   },
   // The move onto the band's notch left to its last pixels: a jump.
@@ -2290,6 +2290,13 @@ const MUTANTS = {
     file: CSS,
     from: '.get__sheet { opacity: 0; pointer-events: none; }',
     to: '.get__sheet { pointer-events: none; }',
+  },
+  // The sheet's paper left to its tooth alone: the film shows through it.
+  'the-download-is-only-tooth': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'flex-direction: column;\n  background: var(--paper) var(--tooth);',
+    to: 'flex-direction: column;\n  background: var(--tooth);',
   },
   // The bezel butted to the bar's edge: a hairline of the printed bar shows
   // between the riso edge and the desktop landing on it.

@@ -6,10 +6,11 @@
 //
 // Words in the bar are the ones the film's desktop shows, with the Finder in
 // front, the clock is the visitor's own, and the status item beside it is
-// Magnetite's mark.
+// Magnetite's mark. Round the notch is the idle pill the film lands on,
+// showing what the page's soundtrack is playing.
 
 import { Geometry } from './geometry.js';
-import { createPress, makePlates, clearPlates } from './press.js';
+import { createPress, makePlates, clearPlates, INK } from './press.js';
 
 const PANEL = { width: 640, height: 190 };
 const NOTCH = { width: 185, height: 32 };
@@ -18,6 +19,16 @@ const MENU_BAR = 37;
 /** CSS pixels of the bezel's ink under the desktop that lands on it. */
 const LIP = 2;
 const MENUS = ['Finder', 'File', 'Edit', 'View', 'Go', 'Window', 'Help'];
+/**
+ * The idle pill, in points, as the recording's desktop has it: its width
+ * about the notch, its foot's corners, the artwork's size and inset from its
+ * left, the time's inset from its right and its size.
+ */
+const PILL = { width: 284, radius: 8, art: 18, inset: 11, time: 12, text: 11.5 };
+/** Its body, in each plate's ink: the app's dark violet glass. */
+const PILL_INK = { pink: 0.55, blue: 0.6, black: 0.72 };
+const unit = (x) => Math.max(0, Math.min(1, x));
+const elapsed = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const SYSTEM = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
 export class RisoBand {
@@ -36,6 +47,10 @@ export class RisoBand {
     this.notch = null;
     this.scale = 1;
     this.dpr = 1;
+    /** () => {at, of, art}: what the soundtrack is playing (js/player.js). */
+    this.nowPlaying = null;
+    /** The artwork parted into the three plates, kept for its source and size. */
+    this.art = null;
     // Where the date does not fit beside the notch the bar keeps the time
     // alone, as a crowded Mac menu bar does.
     this.clocks = [
@@ -61,6 +76,48 @@ export class RisoBand {
     }
   }
 
+  /**
+   * `img` parted into the three inks at `px` square: black where it is dark,
+   * blue where it wants red taken out, pink where it wants green, as they
+   * multiply on paper (js/press.js). Kept until the sleeve or its size
+   * changes; null until the sleeve has loaded.
+   */
+  separate(img, px) {
+    const key = `${img.currentSrc || img.src}|${px}`;
+    if (this.art?.key === key) return this.art.plates;
+    if (!img.complete || !img.naturalWidth || px < 1) return null;
+    const source = document.createElement('canvas');
+    source.width = source.height = px;
+    const read = source.getContext('2d', { willReadFrequently: true });
+    read.drawImage(img, 0, 0, px, px);
+    const { data } = read.getImageData(0, 0, px, px);
+    const plates = {};
+    const inks = {};
+    for (const name of ['black', 'pink', 'blue']) {
+      plates[name] = document.createElement('canvas');
+      plates[name].width = plates[name].height = px;
+      inks[name] = plates[name].getContext('2d').createImageData(px, px);
+    }
+    // How much of the green each colour ink takes out; the blue takes all the red.
+    const blueG = 1 - INK.blue[1] / 255;
+    const pinkG = 1 - INK.pink[1] / 255;
+    for (let i = 0; i < data.length; i += 4) {
+      const [r, g] = [data[i] / 255, data[i + 1] / 255];
+      const k = 1 - Math.max(r, g, data[i + 2] / 255);
+      const lit = 1 - k || 1;
+      const blue = unit(1 - r / lit);
+      const pink = unit((1 - g / lit / (1 - blue * blueG)) / pinkG);
+      // Solid or nothing: a halftone at the band's pitch is a dozen dots
+      // across a sleeve, so each ink is cut as a spot colour instead.
+      inks.black.data[i + 3] = k > 0.5 ? 255 : 0;
+      inks.pink.data[i + 3] = pink > 0.5 ? 255 : 0;
+      inks.blue.data[i + 3] = blue > 0.5 ? 255 : 0;
+    }
+    for (const name of Object.keys(plates)) plates[name].getContext('2d').putImageData(inks[name], 0, 0);
+    this.art = { key, plates };
+    return plates;
+  }
+
   render(sim, openness = 0) {
     if (!this.press || !this.notch) return false;
     const { black: K, pink: P, blue: B } = clearPlates(this.plates, this.plateScale);
@@ -84,6 +141,68 @@ export class RisoBand {
     P.fillStyle = 'rgba(0,0,0,0.38)';
     P.fillRect(0, edge, w, bar);
 
+    // The idle pill: the playing track's artwork at its left, its time at its
+    // right, and how far in it is drawn along its foot in the blue plate, as
+    // the recording's desktop has it when the player goes back into the notch.
+    const playing = this.nowPlaying?.();
+    const pill = playing && { x: cx - (PILL.width * S) / 2, w: PILL.width * S, h: this.notch.h };
+    if (pill) {
+      const plates = { black: K, pink: P, blue: B };
+      const within = (c, draw) => {
+        c.save();
+        c.beginPath();
+        c.roundRect(pill.x, edge, pill.w, pill.h, [0, 0, PILL.radius * S, PILL.radius * S]);
+        c.clip();
+        draw(c);
+        c.restore();
+      };
+      for (const [key, c] of Object.entries(plates)) {
+        within(c, () => {
+          if (c !== K) c.clearRect(pill.x, edge, pill.w, pill.h);
+          c.fillStyle = `rgba(0,0,0,${PILL_INK[key]})`;
+          c.fillRect(pill.x, edge, pill.w, pill.h);
+        });
+      }
+      const line = Math.max(1.5, S);
+      const played = playing.of ? unit(playing.at / playing.of) * pill.w : 0;
+      if (played) {
+        for (const [key, c] of Object.entries(plates)) {
+          within(c, () => {
+            c.clearRect(pill.x, edge + pill.h - line, played, line);
+            if (key === 'blue') {
+              c.fillStyle = '#000';
+              c.fillRect(pill.x, edge + pill.h - line, played, line);
+            }
+          });
+        }
+      }
+      const size = PILL.art * S;
+      const ax = pill.x + PILL.inset * S;
+      const ay = edge + (pill.h - size) / 2;
+      const art = playing.art && this.separate(playing.art, Math.round(size * this.plateScale));
+      if (art) {
+        for (const [key, c] of Object.entries(plates)) {
+          c.save();
+          c.beginPath();
+          c.roundRect(ax, ay, size, size, 4 * S);
+          c.clip();
+          c.clearRect(ax, ay, size, size);
+          c.drawImage(art[key], ax, ay, size, size);
+          c.restore();
+        }
+      }
+      // The time in the paper, out of all three.
+      for (const c of Object.values(plates)) {
+        c.save();
+        c.globalCompositeOperation = 'destination-out';
+        c.font = `700 ${PILL.text * S}px ${SYSTEM}`;
+        c.textAlign = 'right';
+        c.textBaseline = 'middle';
+        c.fillText(elapsed(playing.at),pill.x + pill.w - PILL.time * S, edge + pill.h / 2);
+        c.restore();
+      }
+    }
+
     // Bezel, its ink run LIP under the bar's top edge: the desktop lands on
     // that edge at whatever fraction of a pixel the camera has, and the print's
     // own edge is softened by its screen, so butted exactly they left a hair
@@ -91,14 +210,14 @@ export class RisoBand {
     K.fillStyle = 'rgba(0,0,0,0.95)';
     K.fillRect(0, 0, w, edge + LIP);
 
-    // Menus left of the notch, as many as fit; the clock and status items right.
+    // Menus left of the pill, as many as fit; the clock and status items right.
     const size = 13 * S;
     const mid = edge + bar / 2;
     const gap = 20 * S;
     K.textBaseline = 'middle';
     K.fillStyle = '#000';
     let x = gap;
-    const stop = this.notch.x - 12 * S;
+    const stop = (pill ? pill.x : this.notch.x) - 12 * S;
     for (const [i, word] of MENUS.entries()) {
       K.font = `${i === 0 ? 700 : 500} ${size}px ${SYSTEM}`;
       const width = K.measureText(word).width;
@@ -108,7 +227,7 @@ export class RisoBand {
     }
     K.font = `500 ${size}px ${SYSTEM}`;
     const right = w - gap;
-    const start = this.notch.x + this.notch.w + 12 * S;
+    const start = (pill ? pill.x + pill.w : this.notch.x + this.notch.w) + 12 * S;
     const now = new Date();
     const clock = this.clocks.map((format) => format.format(now).replace(/,/g, ''))
       .find((text) => right - K.measureText(text).width > start);
