@@ -3538,7 +3538,7 @@ function theJourneyLandsWhereItHandsOver() {
   const getRule = /\[data-journey="on"\] \.get\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const sheetRule = /\[data-journey="on"\] \.get__sheet\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const z = (rule) => Number(/(?:^|;|\*\/)\s*z-index\s*:\s*(\d+)\s*;/.exec(rule)?.[1]);
-  require(z(getRule) < z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)\s*;/.test(sheetRule),
+  require(z(getRule) < z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)(?: var\(--tooth\))?\s*;/.test(sheetRule),
     'the journey\'s download is not under the film on paper — drawn up through the handover, it covers '
     + 'the desktop the camera is landing on, or shows the film through it');
   require(/(?:^|;|\*\/)\s*min-height\s*:\s*100svh\s*;/.test(sheetRule),

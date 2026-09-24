@@ -79,7 +79,7 @@ const RISE = 0.3;
  */
 const LEAVE = 1;
 const WORDS_OUT = 0.25;
-const RETRACT = 0.35;
+const RETRACT = 0.48;
 const MOVE = [0, 0.5];
 /**
  * Where the desktop starts going back to print: just before the camera lands,
@@ -288,6 +288,7 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     if (get) {
       get.toggleAttribute('data-drawn', drawn);
       get.style.setProperty('--held', `${held.toFixed(1)}px`);
+      get.style.setProperty('--gone', c.gone.toFixed(3));
     }
     // The pin is fixed, so the footage is always in the window as far as the
     // page's own observer knows (js/site.js plays it there). Out of the box
