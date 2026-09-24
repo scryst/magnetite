@@ -70,6 +70,7 @@ const SECURITY = 'site/.well-known/security.txt';
 const SIM = 'site/js/sim.js';
 const GEOM = 'site/js/geometry.js';
 const SITE_JS = 'site/js/site.js';
+const PLAYER_JS = 'site/js/player.js';
 const CSS = 'site/css/magnetite.css';
 const TYPE = 'site/css/type.css';
 const DATA = 'site/data/real-levels.js';
@@ -1492,6 +1493,12 @@ const MUTANTS = {
     from: '.foot {\n  display: grid;',
     to: '.foot {\n  height: 240px;\n  display: grid;',
   },
+  'the-scripted-foot-states-a-box': {
+    check: CREDIT,
+    file: CSS,
+    from: '.js .foot { padding-bottom: 104px; }',
+    to: '.js .foot { height: 240px; padding-bottom: 104px; }',
+  },
   // The tidy-looking attribute back on the licence link, which is the one
   // place it may never go: it states the terms of THIS document's main
   // content, so the film, the still and the mark all become CC BY 4.0 —
@@ -2028,7 +2035,7 @@ const MUTANTS = {
     to: ' data-soundtrack-audio></audio>\n'
       + '  <p class="soundtrack__eyebrow">Live ferrofluid</p>',
   },
-  // One transport, in the notch. The hero's old one coming back would be two
+  // One transport, in the circles. The hero's old one coming back would be two
   // players for one track.
   'a-second-transport-regrows-in-the-hero': {
     check: SOUNDTRACK,
@@ -2055,11 +2062,29 @@ const MUTANTS = {
     from: "soundtrackToggleLabel.textContent = playing ? 'Pause' : 'Play';",
     to: "soundtrackToggleLabel.textContent = 'Play';",
   },
-  'the-previous-button-steps-forward': {
+  'the-second-track-claims-to-be-playing': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'data-soundtrack-step="-1"',
-    to: 'data-soundtrack-step="1"',
+    from: 'data-soundtrack-track aria-pressed="false"',
+    to: 'data-soundtrack-track aria-pressed="true"',
+  },
+  'a-track-circle-is-named-over-its-title': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: 'data-soundtrack-track aria-pressed="true"',
+    to: 'data-soundtrack-track aria-label="Track one" aria-pressed="true"',
+  },
+  'the-pressed-circle-never-follows-the-track': {
+    check: SOUNDTRACK,
+    file: PLAYER_JS,
+    from: "String(i === index)",
+    to: "String(i === 0)",
+  },
+  'a-circle-shows-another-tracks-sleeve': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: 'src="media/cover-cyberpunk-renaissance.webp" alt=""',
+    to: 'src="media/cover-chrome-funk.webp" alt=""',
   },
   'the-second-track-points-at-nothing': {
     check: SOUNDTRACK,
@@ -2102,11 +2127,11 @@ const MUTANTS = {
     from: '  if (soundtrackMayListen()) enableSoundtrackAnalyser();',
     to: '  enableSoundtrackAnalyser();',
   },
-  'the-first-gesture-answers-the-notchs-own-play': {
+  'the-first-gesture-answers-the-players-own-play': {
     check: SOUNDTRACK,
     file: SITE_JS,
-    from: ".closest('[data-notch] button, [data-notch] input');",
-    to: ".closest('[data-notch] a');",
+    from: ".closest('[data-player] button');",
+    to: ".closest('[data-player] a');",
   },
   'soundtrack-changes-are-silent-to-assistive-technology': {
     check: SOUNDTRACK,
