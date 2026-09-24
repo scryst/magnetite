@@ -252,8 +252,9 @@ a { color: inherit; }
    the last of the push the recorded desktop comes on (--on), laid on the
    printed screen. It holds, filling the window, while the camera follows the
    footage in and out; its title and then its how-to come up over a dark foot
-   (--words, --how); then the menu bar below rises over it, the player going
-   back into the notch (--live) as it comes. */
+   (--words, --how); then they go, the player goes back into the notch
+   (--live), the camera lands on the band's notch standing under the desktop,
+   and the desktop goes back to print (--on) the way it came. */
 [data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
 /* The words beside the print go as the dive begins, before the machine
    turning toward the window can run into them. */
@@ -264,6 +265,7 @@ a { color: inherit; }
 [data-journey="on"][data-dived] .hero__copy { visibility: hidden; }
 .film[data-tunnel="on"] {
   --on: 0;
+  --reach: 1239px;
   --live: 1;
   --words: 0;
   --how: 0;
@@ -330,12 +332,18 @@ a { color: inherit; }
 /* The screen comes on through a halftone at the print's own pitch (--dot, in
    the desktop's points): its dots swell from nothing until they close, with a
    solid bloom spreading from the notch ahead of them, so the printed screen
-   turns into the lit one rather than fading under it. */
+   turns into the lit one rather than fading under it. It goes off the same
+   way back, the dots shrinking. How far the bloom reaches (--reach) is
+   js/tunnel.js's: the whole desktop coming on, nowhere going off. A dot's
+   soft edge is an eighth of the pitch, a screen pixel's antialiasing at any
+   scale rather than a blur that holds the dots closed when the camera is
+   close, and never wider than the dot, so at nothing there is none. */
 .film[data-tunnel="on"] .film__mac[data-dots] {
   --r: calc(var(--on) * var(--on) * 0.75 * var(--dot));
   mask-image:
-    radial-gradient(circle at 50% 0, #000 calc(var(--on) * 130% - 40%), transparent calc(var(--on) * 130% - 10%)),
-    radial-gradient(circle, #000 var(--r), transparent calc(var(--r) + 0.6px));
+    radial-gradient(circle at 50% 0, #000 calc((var(--on) * 1.3 - 0.4) * var(--reach)),
+      transparent calc((var(--on) * 1.3 - 0.1) * var(--reach))),
+    radial-gradient(circle, #000 var(--r), transparent calc(var(--r) + min(var(--dot) / 8, var(--r))));
   mask-size: 100% 100%, var(--dot) var(--dot);
   mask-repeat: no-repeat, repeat;
   mask-composite: add;
@@ -346,9 +354,9 @@ a { color: inherit; }
   width: 570px;
   height: 660px;
   aspect-ratio: auto;
-  /* As the menu bar rises (--live 1 to 0), the player goes back into the
+  /* As the handover begins (--live 1 to 0), the player goes back into the
      notch the way the app puts it away (see [data-retract] below), leaving
-     the still's idle notch for the band's to land on. */
+     the still's idle notch to land on the band's. */
   opacity: calc(var(--live) / 0.35);
   /* Its sides and foot feathered into the still, which is the same wallpaper
      there; its top edge is the display's. */
@@ -374,8 +382,8 @@ a { color: inherit; }
   clip-path: inset(0 calc(152px + var(--shadow) * 16px) calc(485px + var(--shadow) * 15px + var(--in) * 117px)
     calc(14px + var(--shadow) * 16px) round 0 0 calc(26px - var(--in) * 13px) calc(26px - var(--in) * 13px));
 }
-/* Covered by the menu bar, the pinned film is gone, words and all, rather
-   than showing again below the download as the page goes on. */
+/* Once the page has the download in hand, the pinned film is gone, words and
+   all, rather than showing again below the download as the page goes on. */
 .film[data-tunnel="on"][data-covered] .film__pin { visibility: hidden; }
 /* The hand in the film (js/touches.js), in the desktop's own points: two
    fingertips on the desktop under the player, index and middle, and a ring
@@ -437,12 +445,23 @@ a { color: inherit; }
 .film[data-tunnel="on"] .how b { color: var(--paper); }
 .film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
 .film[data-tunnel="on"] .film__motion:focus-visible { outline-color: var(--paper); }
-/* The download overlaps the film's last screen and rises over it, on paper,
-   the band first: a menu bar coming up from the window's foot to land on the
-   desktop's own, with its heading after it. */
+/* The download overlaps the film's last screen, on paper: its first screen is
+   the display's top edge seen close, across the middle of the window, with
+   the notch — the link — at the window's centre and the heading over it. It
+   is drawn up under the desktop through the handover (js/tunnel.js), held
+   wherever the camera has the desktop's notch, so above the desktop's edge
+   is its own bezel and heading, and the desktop, landed, goes back to print
+   over it notch on notch. */
 [data-journey="on"] .get {
+  /* Never narrower than the notch of a display filling the window, so the
+     desktop landed on it still fills the window below its edge, nor than the
+     notch in the close shot (js/tunnel.js's shots(): 1.8 CSS pixels a point
+     at most, the 372 by 290pt player clear of the window's sides and of the
+     300px of words), so the camera always pushes in to land. */
+  --notch-w: max(clamp(240px, 36vw, 560px), 100vw * 185 / 1512, 100svh * 185 / 982,
+    min(333px, (100vw - 32px) * 185 / 372, (100svh - 300px) * 185 / 290));
   position: relative;
-  z-index: 3;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   margin-top: -100vh;
@@ -454,8 +473,18 @@ a { color: inherit; }
   min-height: 100vh;
   min-height: 100svh;
 }
-[data-journey="on"] .get .band { order: -1; }
-[data-journey="on"] .get__title { margin-top: 9vh; }
+/* The heading fills the window above the bezel, so the notch under it is at
+   the window's centre. */
+[data-journey="on"] .get__title {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-height: calc(50vh - var(--bezel) - var(--notch-h) / 2);
+  min-height: calc(50svh - var(--bezel) - var(--notch-h) / 2);
+  margin-bottom: 0;
+  padding: 2vh 0;
+}
+[data-journey="on"] .get .notch-link { font-size: max(15px, var(--notch-h) * 0.34); }
 @media (max-width: 719px) {
   .film[data-tunnel="on"] .film__foot { font-size: 15px; }
 }
