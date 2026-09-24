@@ -107,11 +107,12 @@ export class RisoBand {
     // right, and how far in it is along its foot in the blue plate. Until the
     // soundtrack has played, and while the desktop is still going off over
     // the band, it is the recording's own pill, so the pill the desktop hands
-    // over is the one it shows. Never past the page's gutters.
+    // over is the one it shows. Its size is the recording's too, even where
+    // that runs past the page's gutters on a phone: the desktop lands on it,
+    // and a pill any narrower shows its figures and sleeve twice as it does.
     const live = this.nowPlaying?.();
     const playing = live && (live.played && !this.link.closest('[data-under]') ? live : this.recorded);
-    const pw = Math.min(PILL.width * S, w - 32);
-    const pill = playing && { x: cx - pw / 2, w: pw, h: this.notch.h };
+    const pill = playing && { x: cx - (PILL.width * S) / 2, w: PILL.width * S, h: this.notch.h };
     if (pill) {
       const plates = { black: K, pink: P, blue: B };
       const within = (c, draw) => {
