@@ -73,9 +73,9 @@ const RISE = 0.3;
  * goes back into the notch; from MOVE[0] the camera carries the notch in and
  * down onto the band's, at the window's centre, landing at MOVE[1]; and from
  * OFF to the end the desktop goes back to print. The camera sets off as the
- * words start to go, so no frame of it holds the empty desktop. LEAVE is a
- * window, so until it is drawn up the download is below the window's foot,
- * out of reach of the clicks the film lets through.
+ * words start to go, so no frame of it holds the empty desktop. Until it is
+ * drawn, LEAVE before the end, the download stands unseen and out of reach
+ * of the clicks the film lets through (css/magnetite.css).
  */
 const LEAVE = 1;
 const WORDS_OUT = 0.25;
@@ -88,12 +88,14 @@ const MOVE = [0, 0.5];
  */
 const OFF = 0.42;
 /**
- * How far out from the notch's top edge, in the desktop's points, the solid
- * bloom that lights it reaches. Coming on over the print's small screen, the
- * whole desktop: a bottom corner. Going off, full size across the window,
- * none: a bloom that size is a blur, so the dots go evenly everywhere.
+ * How far out from the notch's top edge, in the desktop's points, the
+ * halftone's edge travels. Coming on over the print's small screen, the solid
+ * bloom that lights it reaches the whole desktop: a bottom corner. Going off,
+ * full size across the window, the dots go from the notch out to the
+ * window's farthest corner below the desktop's edge (reach(), below), so the
+ * link clears first and the corners last.
  */
-const REACH = { on: Math.hypot(SCREEN.width / 2, SCREEN.height), off: 0 };
+const REACH = Math.hypot(SCREEN.width / 2, SCREEN.height);
 /** A dot's radius at --on 1, in pitches of the halftone (css/magnetite.css's --r). */
 export const DOT = 0.75;
 
@@ -159,21 +161,34 @@ export function camera(s, vw, vh, dock, t = 0, end = Infinity) {
     live: 1 - ease(unit(leave / RETRACT)),
     words: ease(unit((s - TITLE) / RISE)) * out,
     how: ease(unit((s - HOW) / RISE)) * out,
-    // Taken away evenly in what the dots show, not in their radius.
+    // Taken away evenly in what the dots show, not in their radius, while
+    // their edge goes out from the notch (`gone`, css/magnetite.css).
     on: showing(1 - unit((leave - OFF) / (LEAVE - OFF))),
+    gone: unit((leave - OFF) / (LEAVE - OFF)),
     covered: s >= end,
   };
 }
 
 /**
- * How far up the download is drawn, in CSS pixels, through the handover `s`
- * window heights past the pin, so that its notch, `dockY` below its top,
- * stands wherever the camera has the desktop's, `y`: from where it is a window
- * down, still out of sight, until `end`, where the page itself has brought it
- * there and the camera has landed on it.
+ * The download's sheet, `s` window heights past the pin: drawn from a window
+ * before `end`, where the page lets it go, and held (css/magnetite.css's
+ * --held, CSS pixels down from the window's top) so that its notch, `dockY`
+ * below its top, stands wherever the camera has the desktop's, `y`. The page
+ * holds it there, stuck to the window, so a scroll no script has heard of
+ * yet cannot move it off the desktop.
  */
-export function drawnUp(s, vh, end, y, dockY) {
-  return s >= end - LEAVE && s < end ? (end - s) * vh + dockY - y : 0;
+export function sheet(s, end, y, dockY) {
+  return { drawn: s >= end - LEAVE, held: y - dockY };
+}
+
+/**
+ * How far down the dots go out from the notch as the desktop goes off, in the
+ * desktop's points, going twice as far across: to the window's farthest
+ * corner below the desktop's edge, with the notch's top edge at (x, y) CSS
+ * pixels and the desktop at `scale`.
+ */
+export function reach(x, y, scale, vw, vh) {
+  return Math.hypot(Math.max(x, vw - x) / 2, Math.max(0, vh - y)) / scale;
 }
 
 /** The screen coming on: 0 dark, 1 lit, over the last ON of the dive. */
@@ -217,6 +232,7 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   const root = document.documentElement;
   root.dataset.journey = 'on';
   const get = dock && dock.closest('.get');
+  const leaf = get && get.querySelector('.get__sheet');
   // The notch's top edge, in the display's own points: centred, at the top.
   const notch = { x: SCREEN.width / 2, y: 0 };
   mac.style.transformOrigin = '0 0';
@@ -225,8 +241,6 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   let last = '';
   /** Seconds into the footage, as of the frame on screen. */
   let t = 0;
-  /** How far up the download is drawn, as last written. */
-  let up = 0;
   function place() {
     queued = 0;
     const vw = innerWidth;
@@ -237,16 +251,16 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     const dive = before > 0 ? unit(scrollY / before) : 1;
     const s = Math.max(0, -box.top) / vh;
     // The band's notch where it stands with the download at the window's top,
-    // and where in the scroll the page brings it there: both the same however
-    // far up it is drawn now.
-    const page = get && get.getBoundingClientRect();
+    // and where in the scroll the page brings it there, its sheet at the foot
+    // of its runway: both the same wherever the sheet is held now.
+    const page = leaf && leaf.getBoundingClientRect();
     const link = dock && dock.getBoundingClientRect();
     const at = page && link.width
       ? { x: link.left + link.width / 2, y: link.top - page.top, scale: link.width / NOTCH_WIDTH }
       : null;
-    const end = page ? (page.top + up - box.top) / vh : Infinity;
+    const end = page ? (get.getBoundingClientRect().bottom - page.height - box.top) / vh : Infinity;
     const c = camera(s, vw, vh, at, t, end);
-    const lift = at ? drawnUp(s, vh, end, c.y, at.y) : 0;
+    const { drawn, held } = sheet(s, end, c.y, at ? at.y : 0);
     // The print is only worth drawing until the desktop has covered it.
     hero?.setDive(dive, hold(vw, vh), scrollY, dive >= 1 && s >= SETTLE);
     // Until the pin, the desktop is laid on the print's own screen, wherever
@@ -258,27 +272,32 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     // pitch on the page, so a tile of it is that many CSS pixels over the
     // desktop's scale.
     const pitch = Math.max(3.6, Math.min(5.2, vw / 300)) / scale;
-    const far = dive < 1 ? REACH.on : REACH.off;
+    const far = dive < 1 ? REACH : reach(x, y, scale, vw, vh);
 
     // Every value written below, or a fade that moves while the camera holds
     // still (the words coming up in the hold) is skipped and stays where it was.
     const key = `${scale.toFixed(4)}|${x.toFixed(1)}|${y.toFixed(1)}|${on.toFixed(3)}|${pitch.toFixed(2)}|`
-      + `${far.toFixed(0)}|${lift.toFixed(1)}|${c.covered}|${c.live.toFixed(3)}|${c.words.toFixed(3)}|`
-      + `${c.how.toFixed(3)}|${dive.toFixed(3)}`;
+      + `${far.toFixed(0)}|${held.toFixed(1)}|${drawn}|${c.covered}|${c.live.toFixed(3)}|${c.words.toFixed(3)}|`
+      + `${c.how.toFixed(3)}|${c.gone.toFixed(3)}|${dive.toFixed(3)}`;
     if (key === last) return;
     last = key;
     mac.style.transform = `translate3d(${(x - notch.x * scale).toFixed(2)}px, `
       + `${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
-    // Drawn up out of sight, a window down under the lit desktop, and let go
-    // where the page has brought it up itself.
-    if (get) get.style.translate = lift ? `0 ${(-lift).toFixed(1)}px` : '';
-    up = Number(lift.toFixed(1));
+    // Drawn a window before the page has it, under the lit desktop, and held
+    // there by the page itself until the runway's foot lets it go.
+    if (get) {
+      get.toggleAttribute('data-drawn', drawn);
+      get.style.setProperty('--held', `${held.toFixed(1)}px`);
+    }
     // The pin is fixed, so the footage is always in the window as far as the
     // page's own observer knows (js/site.js plays it there). Out of the box
     // when none of it shows, it is paused rather than decoded unseen.
     mac.hidden = on === 0 || c.covered;
     mac.toggleAttribute('data-dots', on < 1);
+    // Past the pin the dots only ever go, and go from the notch out.
+    mac.toggleAttribute('data-going', dive >= 1);
     section.style.setProperty('--on', on.toFixed(3));
+    section.style.setProperty('--gone', c.gone.toFixed(3));
     section.style.setProperty('--dot', `${pitch.toFixed(2)}px`);
     section.style.setProperty('--reach', `${far.toFixed(0)}px`);
     section.style.setProperty('--live', c.live.toFixed(3));
