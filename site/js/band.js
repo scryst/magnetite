@@ -4,8 +4,9 @@
 // one simulation held retracted at its lip. The notch is the download link;
 // the link's box is the source of truth and the print is drawn to it.
 //
-// Words in the bar are the ones a Mac shows with Music in front, the clock is
-// the visitor's own, and the status item beside it is Magnetite's mark.
+// Words in the bar are the ones the film's desktop shows, with the Finder in
+// front, the clock is the visitor's own, and the status item beside it is
+// Magnetite's mark.
 
 import { Geometry } from './geometry.js';
 import { createPress, makePlates, clearPlates } from './press.js';
@@ -14,7 +15,7 @@ const PANEL = { width: 640, height: 190 };
 const NOTCH = { width: 185, height: 32 };
 /** Points tall, on a notched MacBook. */
 const MENU_BAR = 37;
-const MENUS = ['Music', 'File', 'Edit', 'Song', 'View', 'Controls', 'Account', 'Window', 'Help'];
+const MENUS = ['Finder', 'File', 'Edit', 'View', 'Go', 'Window', 'Help'];
 const SYSTEM = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
 export class RisoBand {
