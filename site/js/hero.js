@@ -179,7 +179,8 @@ export class RisoHero {
   /**
    * Where the machine and the words go. Wide: the headline and copy on the
    * left, the laptop on the right, the headline running up to the lid's upper
-   * corner and no further. Narrow: headline, laptop, copy, top to bottom.
+   * corner and no further. Narrow, or wide with no readable room beside the
+   * machine: headline, laptop, copy, top to bottom.
    */
   fit() {
     const { w, h } = this.box;
@@ -207,15 +208,27 @@ export class RisoHero {
       );
       const type = Math.min(h * HEADLINE.cap[0], (corner[0] - margin - w * 0.03) / em);
       const top = h * 0.1;
-      return {
-        wide, ...cam, type, margin, top,
-        copyTop: top + type * (tail + 0.6),
-        copyWidth: Math.min(440, corner[0] - margin - 40),
-      };
+      // The copy's lower lines sit beside the deck, which in perspective
+      // reaches well left of the lid's corner, so the copy clears the whole
+      // machine. The margin is for the turn toward the pointer.
+      const machineLeft = cam.cx + b.x0 * (cam.focal / 1000);
+      const copyWidth = Math.min(440, corner[0] - margin - 40, machineLeft - margin - 32);
+      // Too narrow to read beside it: stack instead, as a phone does.
+      if (copyWidth >= 320) {
+        return { wide, ...cam, type, margin, top, copyTop: top + type * (tail + 0.6), copyWidth };
+      }
+      return this.stacked(w, h, em, w * 0.05, place, tail);
     }
+    return this.stacked(w, h, em, margin, place, tail);
+  }
+
+  /** Headline, laptop, copy, top to bottom. */
+  stacked(w, h, em, margin, place, tail) {
+    const wide = false;
     const type = Math.min(h * HEADLINE.cap[1], (w - margin * 2) / em);
-    // Clear of the masthead, which a phone's short top margin would crowd.
-    const top = h * 0.06 + 22;
+    // Clear of the masthead, which a short top margin would crowd.
+    const masthead = globalThis.document?.querySelector('.masthead')?.offsetHeight ?? 0;
+    const top = Math.max(h * 0.06 + 22, masthead + 26);
     const machineTop = top + type * (tail + 0.25);
     const cam = place({ x0: w * 0.04, x1: w * 0.96, y0: machineTop, y1: machineTop + h * 0.38 });
     return { wide, ...cam, type, margin, top, copyTop: machineTop + h * 0.41, copyWidth: w - margin * 2 };
