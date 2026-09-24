@@ -307,36 +307,40 @@
   </section>
 
   <!-- ══ THE FILM ════════════════════════════════════════════════════════════
-       The shipping app, screen-recorded, in its own pixels on its own grey.
-       The one picture on the page that is never printed: it is the proof of
-       what the app looks like. Reduce Motion holds frame 0. -->
+       The shipping app, screen-recorded on a whole MacBook desktop, in its
+       own pixels. The one picture on the page that is never printed: it is
+       the proof of what the app looks like. Reduce Motion holds frame 0, the
+       player open. -->
   <section class="film" aria-labelledby="film-title" data-tunnel>
     <!-- Scrolled through, this is the middle of one camera move (js/tunnel.js):
-         the hero's printed laptop dives into its notch and its screen comes
-         on, the display in the footage's own grey with the footage under its
-         notch, laid on the printed screen; it holds with the notch hanging
-         from the top of the window, then rides down onto the menu bar below
-         until its notch is the band's notch, the download link. The swipes
-         the recording cannot show are drawn on it (js/touches.js). Without
-         scripts, or under Reduce Motion, it is the footage alone, as it was. -->
+         the hero's printed laptop dives until its screen is the window, and
+         the screen comes on, the recorded desktop laid on the printed one;
+         the camera then follows the footage, in on the player for each
+         gesture and back out to the whole desktop, and scrolling on, the
+         desktop rides down onto the menu bar below until its notch is the
+         band's notch, the download link. The gestures the recording cannot
+         show are drawn on it (js/touches.js). The desktop is a still of the
+         take's first frame; the footage covers the part of it that moves.
+         Without scripts, or under Reduce Motion, it is the desktop's top
+         and the footage alone, as they were. -->
     <div class="film__pin">
       <h2 class="film__title" id="film-title">Recorded on a MacBook. Not a mock-up.</h2>
       <div class="film__mac" data-tunnel-mac data-render-check-ignore>
-        <div class="film__screen">
-          <div class="film__stage" data-render-check-ignore>
-            <video class="film__video" id="demo-film" muted loop playsinline
-                   preload="metadata" width="1536" height="720"
-                   poster="media/demo-poster.webp" src="media/demo.mp4"
-                   aria-hidden="true"></video>
-          </div>
+        <img class="film__desk" src="media/desktop.webp" width="1512" height="982" alt="">
+        <div class="film__stage" data-render-check-ignore>
+          <video class="film__video" id="demo-film" muted loop playsinline
+                 preload="metadata" width="1140" height="1320"
+                 poster="media/film-poster.webp" src="media/film.mp4"
+                 aria-hidden="true"></video>
         </div>
-        <div class="film__base" aria-hidden="true"></div>
       </div>
       <p class="visually-hidden">
-        A screen recording of the real app, in real time, on a MacBook: black
-        liquid moves with the music while a track is skipped, the seek strip is
-        scrubbed, and two-finger swipes move backward and forward through the
-        queue.
+        A screen recording of the real app, in real time, on a MacBook desktop:
+        black liquid moves with the music in the player under the notch while
+        two-finger swipes skip forward and back and pause and play, the next
+        button is clicked and the seek strip scrubbed; then the pointer leaves,
+        the player goes back into the notch, and the pointer comes back up to
+        open it.
       </p>
       <div class="film__foot">
         <button type="button" class="film__motion" data-demo-motion>
@@ -457,9 +461,11 @@
     Film and soundtrack:
     <a href="https://punchdeck.bandcamp.com" rel="external">Punch Deck</a>,
     <a href="https://punchdeck.bandcamp.com/track/cyberpunk-renaissance"
-       rel="external">“Cyberpunk Renaissance”</a> and
+       rel="external">“Cyberpunk Renaissance”</a>,
     <a href="https://punchdeck.bandcamp.com/track/chrome-funk"
-       rel="external">“Chrome Funk”</a>, under
+       rel="external">“Chrome Funk”</a> and
+    <a href="https://punchdeck.bandcamp.com/track/neon-underworld"
+       rel="external">“Neon Underworld”</a>, under
     <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
     © 2026 scryst.
   </p>

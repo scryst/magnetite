@@ -458,7 +458,7 @@ export class RisoHero {
     B.stroke();
   }
 
-  /** The lid's face: bezel, the lit screen, the Dock, and the liquid. */
+  /** The lid's face: bezel, the lit screen, and the liquid. */
   screen(cam, lidPoint, sim, openness, { K, Pk, B }) {
     const P = cam.project;
     const lidFace = roundedOutline(MB.w, MB.lidH, MB.lidR, 3).map(([x, s]) => P(lidPoint(x, s, 0.01)));
@@ -482,17 +482,8 @@ export class RisoHero {
     };
     fountain(Pk, [[0, 0.95], [0.55, 0.45], [1, 0.06]]);
     fountain(B, [[0, 0.04], [0.5, 0.4], [1, 0.92]]);
-
-    // The Dock: paper tiles knocked through both inks, lightly blued.
-    const dockY = bottom + MB.screenH * 0.035;
-    const tile = MB.screenH * 0.06;
-    for (let i = 0; i < 9; i++) {
-      const x = (i - 4) * tile * 1.22;
-      const sq = roundedOutline(tile, tile, tile * 0.22, tile * 0.22, 4)
-        .map(([dx, ds]) => P(lidPoint(x + dx, dockY + ds, 0.03)));
-      clear(Pk, sq);
-      own(B, sq, i % 3 === 1 ? 0.55 : 0.18);
-    }
+    // No Dock: the desktop that comes on over this screen was recorded with
+    // it hidden, and a Dock that vanishes as the screen lights is a seam.
 
     // The liquid, in panel points, hung from the notch. Clipped exactly as the
     // app clips it: never above the display's edge, and never past the band

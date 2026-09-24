@@ -51,7 +51,7 @@ import {
 import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
-import { hold, camera } from '../js/tunnel.js';
+import { hold, camera, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS } from '../js/tunnel.js';
 import { CUES, HAND, touchesAt } from '../js/touches.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1758,8 +1758,9 @@ async function thePageExposesOnlyReadOnlyDiscoveryTools() {
  *  - The two files are real, and agree: the mp4's own track header and the
  *    still's own WebP frame header state the same frame, read here from the
  *    bytes, not from anyone's claim.
- *  - The stylesheet draws that frame at its own aspect and keeps at least two
- *    encoded pixels behind each CSS pixel at the desktop cap, avoiding browser
+ *  - The stylesheet draws that frame at its own aspect, lays it on the
+ *    desktop still exactly where it was shot, and keeps at least two encoded
+ *    pixels behind each CSS pixel at the desktop cap, avoiding browser
  *    upsampling on a 2x display.
  */
 function theDemoIsTheAppOnFilm() {
@@ -1828,10 +1829,14 @@ function theDemoIsTheAppOnFilm() {
   // line above, measured. `node site/test/posterprobe.mjs` is the half that
   // decodes; like cardprobe it is a tool you run on purpose.
 
-  // The stage's top-level rule; the phone's crop of it lives in a media block
-  // and is indented, so it is not this match.
+  // The top-level rules; the phone's crop lives in a media block and is
+  // indented, so it is not this match. The window (.film__mac) is a crop of
+  // the desktop in display points, the still (.film__desk) is the whole
+  // display in them, and the footage (.film__stage) is FOOTAGE's box of it:
+  // each placed as calc(points / window points * 100%).
   const css = readFileSync(join(here, '..', 'css', 'magnetite.css'), 'utf8');
-  const stage = /(?:^|\n)\.film__stage\s*\{([^}]*)\}/.exec(css)?.[1] || '';
+  const rule = (name, text = css) => new RegExp(`(?:^|\\n)\\.${name}\\s*\\{([^}]*)\\}`).exec(text)?.[1] || '';
+  const stage = rule('film__stage');
   const aspect = /aspect-ratio:\s*(\d+)\s*\/\s*(\d+)/.exec(stage);
   require(aspect, 'the stylesheet no longer states the film\'s box — with the tag\'s size '
     + 'attributes overridden by width:100%, the aspect is what holds the page still while '
@@ -1839,11 +1844,37 @@ function theDemoIsTheAppOnFilm() {
   require(+aspect[1] * filmH === +aspect[2] * filmW,
     `the stylesheet draws the film at ${aspect[1]}/${aspect[2]} but the footage is `
     + `${filmW}x${filmH} — the box and the pixels disagree`);
-  const cap = /max-width:\s*(\d+)px/.exec(stage);
-  require(cap, 'the stylesheet no longer caps the stage — the film needs its one-to-one width');
-  require(+cap[1] >= 700 && +cap[1] * 2 <= filmW,
-    `the stage caps at ${cap[1]}px against ${filmW} source pixels — the product proof must `
-    + 'remain materially large without browser upsampling on a 2x display');
+  require(filmW === FOOTAGE.width * 2 && filmH === FOOTAGE.height * 2,
+    `the footage is ${filmW}x${filmH}, not two pixels a point of the ${FOOTAGE.width}x`
+    + `${FOOTAGE.height} points js/tunnel.js lays it on the desktop as`);
+  const mac = rule('film__mac');
+  const cap = +(/max-width:\s*(\d+)px/.exec(mac)?.[1] ?? NaN);
+  const macPoints = +(/aspect-ratio:\s*(\d+)\s*\//.exec(mac)?.[1] ?? NaN);
+  require(cap > 0 && macPoints > 0,'the stylesheet no longer caps the film\'s window, or states its '
+    + 'width in display points — the footage needs its one-to-one width');
+  // Desktop and phone crops alike: the footage sits on the still where it was
+  // shot, or the pointer and the notch show twice where the two meet.
+  const phone = /@media \(max-width: 719px\) \{\s*\/\*[^*]*\*\/\s*\.film \{[\s\S]*?\n\}/.exec(css)?.[0] ?? '';
+  const crops = [[macPoints, css]];
+  const phoneWindow = +(/\.film__mac \{ aspect-ratio: (\d+) \//.exec(phone)?.[1] ?? NaN);
+  require(phoneWindow > 0, 'could not read the phone\'s crop of the film from magnetite.css');
+  crops.push([phoneWindow, phone.replace(/\n {2}/g, '\n')]);
+  for (const [points, text] of crops) {
+    const placed = (name, prop) => {
+      const m = new RegExp(`${prop}:\\s*calc\\((-?\\d+) / (\\d+) \\* 100%\\)`).exec(rule(name, text));
+      require(m && +m[2] === points, `the ${points}pt crop does not place .${name}'s ${prop} in its own points`);
+      return +m[1];
+    };
+    require(placed('film__desk', 'width') === 1512 && placed('film__stage', 'width') === FOOTAGE.width,
+      `the ${points}pt crop draws the desktop or the footage at a size other than its own points`);
+    require(placed('film__stage', 'left') - placed('film__desk', 'left') === FOOTAGE.x,
+      `the ${points}pt crop lays the footage ${placed('film__stage', 'left') - placed('film__desk', 'left')}pt `
+      + `into the desktop, not the ${FOOTAGE.x} it was shot at`);
+  }
+  const stageAtCap = cap * FOOTAGE.width / macPoints;
+  require(cap >= 700 && stageAtCap * 2 <= filmW,
+    `the film's window caps at ${cap}px, drawing ${filmW} source pixels at ${stageAtCap}px — the `
+    + 'product proof must remain materially large without browser upsampling on a 2x display');
 
   const source = readFileSync(join(here, '..', 'js', 'site.js'), 'utf8');
   const code = codeOnly(source);
@@ -3410,18 +3441,25 @@ function theMarkIsTheIconsOwnContour() {
  * The journey lands where it hands over, and never stands in the way.
  *
  * One camera from the hero to the download (js/tunnel.js), with two places
- * where one picture becomes another: the printed screen becomes the display
- * with the footage in it, and the footage becomes the band's notch, the
- * download link. Each only reads as one camera if both sides agree on the
- * same place and size, so this drives the pure camera from a phone to a wide
- * display, with the band scrolling up underneath the way the page scrolls
- * it: the dive aims at the hold and the display is laid on the print's own
- * screen until then, the notch hangs from the top of the window as it does
- * from a display, the hold never enlarges the footage past its own pixels,
- * the pull lands on the band exactly and only lets the footage go once it
- * has, and nothing jumps: stepped a scrolled pixel at a time, a fade takes at
- * least fifty pixels of scroll, the footage moves at most four pixels for
- * each one scrolled, and its size changes by at most a percent.
+ * where one picture becomes another: the printed screen becomes the recorded
+ * desktop, and the desktop becomes the band's notch, the download link. Each
+ * only reads as one camera if both sides agree on the same place and size, so
+ * this drives the pure camera from a phone to a wide display, with the band
+ * scrolling up underneath the way the page scrolls it: the dive aims at the
+ * wide shot and the desktop is laid on the print's own screen until then, the
+ * notch hangs from the top of the window as it does from a display, the wide
+ * shot fills the window with the desktop, the close shot never draws a point
+ * of the footage past 1.8 CSS pixels and keeps the player clear of the words,
+ * the pull lands on the band exactly and only lets the desktop go once the
+ * footage has gone and it has landed, and nothing jumps: stepped a scrolled
+ * pixel at a time, a fade takes at least fifty pixels of scroll, the desktop
+ * moves at most four pixels for each one scrolled, and its size changes by at
+ * most a percent.
+ *
+ * Between the two, the camera keeps the footage's time, not the scroll's: in
+ * on the player while it is played, out to the whole desktop as it goes into
+ * the notch, and in again before the loop wraps, so the seam is one shot and
+ * every zoom takes a second and a half or more — a move, not a cut.
  *
  * And the download is the page's point, so the journey keeps out of its way:
  * the footage and the desktop are gone before the band's notch is two thirds
@@ -3435,7 +3473,7 @@ function theJourneyLandsWhereItHandsOver() {
   require(/hero\?\.setDive\(dive, at, scrollY,/.test(source) && /const at = hold\(vw, vh\);/.test(source),
     'the hero dives somewhere other than where the footage holds — the printed notch and the '
     + 'footage no longer meet');
-  require(/scrollY, dive >= 1 && p >= FADE\);/.test(source),
+  require(/scrollY, dive >= 1 && p >= SETTLE\);/.test(source),
     'the print is not put away once the desktop has covered it — as the pull lets the desktop go, '
     + 'the hero\'s zoomed screen shows through behind the download');
   require(/const laid = dive < 1 \? hero\?\.notchAt\(\) : null;/.test(source)
@@ -3448,9 +3486,9 @@ function theJourneyLandsWhereItHandsOver() {
   const placed = braceBlock(source, source.indexOf('function place(')) ?? '';
   const key = /const key = ([\s\S]*?);\n/.exec(placed)?.[1] ?? '';
   const written = [...placed.matchAll(/setProperty\('(--[\w-]+)', ([^;]+)\);/g)];
-  require(key && written.length >= 5, 'could not read the placement\'s skip key and the values it writes');
+  require(key && written.length >= 4, 'could not read the placement\'s skip key and the values it writes');
   for (const [, property, value] of written) {
-    const names = [...value.matchAll(/(?<![\w.])(on|solid|c\.\w+|at\.\w+)\b/g)].map((m) => m[1]);
+    const names = [...value.matchAll(/(?<![\w.])(on|c\.\w+|at\.\w+)\b/g)].map((m) => m[1]);
     require(names.length, `could not tell what ${property} is written from`);
     for (const name of names) {
       require(new RegExp(`(?<![\\w.])${name.replace('.', '\\.')}\\b`).test(key),
@@ -3466,69 +3504,114 @@ function theJourneyLandsWhereItHandsOver() {
   // The film's scroll: its height in the stylesheet, less the window it pins.
   const tall = Number(/(?:^|;|\*\/)\s*height\s*:\s*(\d+)vh\s*;/.exec(filmRule)?.[1]);
   require(tall > 100, 'could not read the journeying film\'s height from magnetite.css');
-  const film = { width: 512, height: 240 };
+  // The journey's footage is FOOTAGE's box of the desktop, which js/touches.js
+  // draws the hand in: the same points, or the fingers land beside the player.
+  const stageRule = /\.film\[data-tunnel="on"\] \.film__stage\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const px = (prop) => +(new RegExp(`(?:^|[;\\s])${prop}:\\s*(\\d+)px;`).exec(stageRule)?.[1] ?? NaN);
+  require(px('left') === FOOTAGE.x && px('width') === FOOTAGE.width && px('height') === FOOTAGE.height,
+    `the journey lays the footage at ${px('left')}pt, ${px('width')}x${px('height')}, not at FOOTAGE's `
+    + `${FOOTAGE.x}pt, ${FOOTAGE.width}x${FOOTAGE.height} — it is not where it was shot on the still`);
+
+  // The camera on the footage's clock.
+  const seconds = filmSeconds();
+  require(focus(0) === 1 && focus(seconds) === 1 && SHOTS.in[1] <= seconds,
+    `the camera is not close at both ends of the film's ${seconds.toFixed(2)}s — the loop wraps `
+    + 'from one shot to another, a cut every lap');
+  require(SHOTS.out[1] <= SHOTS.in[0] && focus((SHOTS.out[1] + SHOTS.in[0]) / 2) === 0,
+    'the camera never goes out to the whole desktop while the player goes into the notch');
+  for (let t = 0; t + 1 / 60 <= seconds; t += 1 / 60) {
+    require(Math.abs(focus(t + 1 / 60) - focus(t)) <= 1 / 30,
+      `the camera cuts at ${t.toFixed(2)}s — a zoom quicker than a second and a half is a cut`);
+  }
+  const shotAt = { close: 0, wide: (SHOTS.out[1] + SHOTS.in[0]) / 2 };
+
   for (const [vw, vh] of [[390, 844], [682, 863], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
     const at = hold(vw, vh);
-    require(at.scale > 0 && at.scale <= 1.5,
-      `${vw}x${vh}: the footage holds at ${at.scale.toFixed(3)}x its points, past the 1.5 its own `
-      + 'pixels allow');
+    const { wide, close } = shots(vw, vh);
     require(at.y === 0 && at.x === vw / 2,
       `${vw}x${vh}: the held notch is at (${at.x}, ${at.y}), not hanging from the middle of the `
       + 'window\'s top edge — a notch in the middle of a desktop is no display');
-    require(film.width * at.scale <= vw - 32 && film.height * at.scale <= vh * 0.6,
-      `${vw}x${vh}: the held footage does not leave the window room for its words`);
+    // The display is 1512 by 982 points.
+    require(at.scale === wide && 1512 * wide >= vw - 1e-9 && 982 * wide >= vh - 1e-9,
+      `${vw}x${vh}: the wide shot leaves the page showing round the desktop that is meant to be the screen`);
+    require(close >= wide && close <= 1.8,
+      `${vw}x${vh}: the close shot draws a point at ${close.toFixed(3)} CSS pixels — past 1.8, the `
+      + 'footage\'s two pixels a point are upsampled soft on a 2x display');
+    require(close === wide || (PLAYER.width * close <= vw - 32 && PLAYER.height * close <= vh - WORDS),
+      `${vw}x${vh}: the close shot runs the player into the window's edge or under its words`);
     // The band's notch as the page moves it: the download overlaps the film's
-    // last screen, so it rises from below the window to the top as p runs out.
+    // last screen, so the band's top reaches the window's as p runs out, and
+    // goes on up. A step is one pixel of scroll.
     const notchW = Math.min(320, Math.max(180, vw * 0.23));
+    const bezel = 0.42 * notchW * 32 / 185;
     const run = vh * (tall / 100 - 1);
-    const dockAt = (p) => ({ x: vw / 2, y: 0.42 * notchW * 32 / 185 + run * (1 - p), scale: notchW / 185 });
-    const start = camera(0, vw, vh, dockAt(0));
-    require(start.dark === 0 && start.fade === 1 && start.words === 0
-        && start.x === at.x && start.y === at.y && start.scale === at.scale,
-    `${vw}x${vh}: the camera is not at the hold, the footage whole and the window not yet filled, `
-      + 'where the dive hands it over');
-    // A step of p is at most one pixel of scroll.
-    const steps = Math.ceil(run);
-    const frames = Array.from({ length: steps + 1 }, (_, i) => camera(i / steps, vw, vh, dockAt(i / steps)));
-    require(frames.some((c) => c.fade === 1 && c.dark === 1 && c.words === 1
-        && c.x === at.x && c.y === at.y && c.scale === at.scale),
-    `${vw}x${vh}: the footage never holds, whole on the desktop with its words up, where the dive aimed`);
-    const end = frames[steps];
-    const dock = dockAt(1);
-    require(Math.abs(end.x - dock.x) < 1e-6 && Math.abs(end.y - dock.y) < 1e-6
-        && Math.abs(end.scale - dock.scale) < 1e-9 && end.fade === 0 && end.dark === 0,
-    `${vw}x${vh}: the pull ends at (${end.x.toFixed(1)}, ${end.y.toFixed(1)}) x${end.scale.toFixed(3)}, `
-      + `not on the band's notch at (${dock.x.toFixed(1)}, ${dock.y.toFixed(1)}) x${dock.scale.toFixed(3)}`);
-    for (let i = 1; i <= steps; i++) {
-      const [a, b] = [frames[i - 1], frames[i]];
-      const d = dockAt(i / steps);
-      require(b.fade > 0 || Math.hypot(b.x - d.x, b.y - d.y) < 1,
-        `${vw}x${vh}: the footage has gone at p=${(i / steps).toFixed(3)}, before it reached the band`);
-      require(d.y > vh * 0.7 || (b.fade === 0 && b.dark === 0 && b.words === 0),
-        `${vw}x${vh}: at p=${(i / steps).toFixed(3)} the band's notch is ${Math.round(d.y)}px down a `
-        + `${vh}px window and the footage or the desktop is still over it — the download is covered `
-        + 'while it is in reach');
-      require(Math.abs(b.fade - a.fade) <= 0.02 && Math.abs(b.dark - a.dark) <= 0.02
-          && Math.hypot(b.x - a.x, b.y - a.y) <= 4
-          && Math.abs(Math.log(b.scale / a.scale)) <= 0.01,
-      `${vw}x${vh}: the camera jumps at p=${(i / steps).toFixed(4)}`);
+    const last = Math.ceil(run + bezel + vh * 0.2);
+    const dockAt = (s) => ({ x: vw / 2, y: bezel + run - s, scale: notchW / 185 });
+    for (const [shot, t] of Object.entries(shotAt)) {
+      const film = shot === 'close' ? close : wide;
+      const frames = Array.from({ length: last + 1 }, (_, s) => camera(Math.min(1, s / run), vw, vh, dockAt(s), t));
+      const start = frames[0];
+      require(start.live === 1 && start.fade === 1 && start.words === 0
+          && start.x === at.x && start.y === at.y && start.scale === at.scale,
+      `${vw}x${vh}: the camera is not on the wide shot, the footage whole and its words not yet up, `
+        + 'where the dive hands it over');
+      require(frames.some((c) => c.live === 1 && c.fade === 1 && c.words === 1
+          && c.x === at.x && c.y === at.y && Math.abs(Math.log(c.scale / film)) < 1e-9),
+      `${vw}x${vh}: the camera never holds on the footage's own ${shot} shot with its words up`);
+      const end = frames[last];
+      const dock = dockAt(last);
+      require(Math.abs(end.x - dock.x) < 1e-6 && Math.abs(end.y - dock.y) < 1e-6
+          && Math.abs(end.scale - dock.scale) < 1e-9 && end.fade === 0 && end.live === 0,
+      `${vw}x${vh}: the pull ends at (${end.x.toFixed(1)}, ${end.y.toFixed(1)}) x${end.scale.toFixed(3)}, `
+        + `not on the band's notch at (${dock.x.toFixed(1)}, ${dock.y.toFixed(1)}) x${dock.scale.toFixed(3)}`);
+      for (let s = 1; s <= last; s++) {
+        const [a, b] = [frames[s - 1], frames[s]];
+        const d = dockAt(s);
+        require(b.fade > 0 || Math.hypot(b.x - d.x, b.y - d.y) < 1,
+          `${vw}x${vh}: the desktop has gone ${s}px in, before it reached the band`);
+        require(b.fade === 1 || b.live === 0,
+          `${vw}x${vh}: ${s}px in, the desktop starts to go with the footage still on it — what lands `
+          + 'on the band must be the idle still, its player back in the notch as the band\'s is');
+        require(b.words === 0 || b.k > 0 || Math.abs(Math.log(b.scale / film)) < 1e-9,
+          `${vw}x${vh}: ${s}px in, the words are up while the camera is still settling on the `
+          + `${shot} shot — they cross the zoom instead of standing under the footage`);
+        require(d.y > vh * 0.7 || (b.fade === 0 && b.words === 0),
+          `${vw}x${vh}: ${s}px in, the band's notch is ${Math.round(d.y)}px down a ${vh}px window and `
+          + 'the desktop or its words are still over it — the download is covered while it is in reach');
+        require(Math.abs(b.fade - a.fade) <= 0.02 && Math.abs(b.live - a.live) <= 0.02
+            && Math.abs(b.words - a.words) <= 0.02
+            && Math.hypot(b.x - a.x, b.y - a.y) <= 4
+            && Math.abs(Math.log(b.scale / a.scale)) <= 0.01,
+        `${vw}x${vh}: the camera jumps ${s}px in, on the ${shot} shot`);
+      }
     }
   }
+}
+
+/** The length of media/film.mp4 in seconds, read from its own movie header. */
+function filmSeconds() {
+  const mp4 = readFileSync(join(here, '..', 'media', 'film.mp4'));
+  const at = mp4.indexOf('mvhd');
+  require(at > 4 && mp4[at + 4] === 0, 'media/film.mp4 has no version-0 movie header');
+  return mp4.readUInt32BE(at + 20) / mp4.readUInt32BE(at + 16);
 }
 
 /**
  * The hand drawn on the film goes the way the app reads it.
  *
  * The recording cannot show a two-finger swipe, only what it did, so the page
- * draws the fingers on the footage (js/touches.js). Drawn the wrong way, they
- * would teach the wrong gesture on the one page that explains it: the app
- * reads fingers moving right as forward, so a forward cue must carry them
- * right and a back cue left, never back towards rest before it fires. Every line
+ * draws the fingers on the desktop under the player (js/touches.js). Drawn the
+ * wrong way, they would teach the wrong gesture on the one page that explains
+ * it: the app reads fingers moving right as forward and a vertical swipe as
+ * pause and play, so a forward cue must carry them right, a back cue left and
+ * a pause straight down, never back towards rest before it fires. Every line
  * of the how-to the drawing lights has to exist, in the markup and the
  * stylesheet, or it lights nothing; everything drawn stays on the footage's
- * 512 by 240 points; between cues nothing shows; and only the journey draws
- * it, since only there is the footage laid out in its own points, and Reduce
- * Motion never starts the journey.
+ * box of the desktop and inside the player the close shot frames, and the
+ * camera is close whenever a touch is drawn, or it is too small to read;
+ * between cues nothing shows; and only the journey draws it, since only there
+ * is the footage laid out in its own points, and Reduce Motion never starts
+ * the journey.
  */
 function theHandInTheFilmGoesTheWayTheAppReadsIt() {
   const swift = readFileSync(join(here, '..', '..', 'Sources', 'NotchApp', 'Notch',
@@ -3536,24 +3619,44 @@ function theHandInTheFilmGoesTheWayTheAppReadsIt() {
   require(/let action: Action = x > 0 \? \.skipForward : \.skipBackward/.test(swift),
     'SwipeRecogniser no longer states that fingers moving right skip forward — the drawn '
     + 'fingers in js/touches.js follow that rule, so check it again before trusting them');
+  require(/if ay >= threshold, ay > ax \* dominance \{[^}]*return Step\(action: \.togglePlayback\)/.test(swift),
+    'SwipeRecogniser no longer states that a vertical swipe pauses and plays — the drawn '
+    + 'fingers in js/touches.js follow that rule, so check it again before trusting them');
   const swipes = CUES.filter((c) => c.kind === 'swipe');
-  require(swipes.some((c) => c.dir === 1) && swipes.some((c) => c.dir === -1),
-    'the film draws a swipe only one way, though the footage skips both ways');
+  require(swipes.some((c) => c.axis === 'x' && c.dir === 1) && swipes.some((c) => c.axis === 'x' && c.dir === -1)
+      && swipes.some((c) => c.axis === 'y'),
+  'the film draws the swipes only some of the ways the footage does them: forward, back, and pause');
   for (const cue of swipes) {
+    const [along, across] = cue.axis === 'x' ? ['dx', 'dy'] : ['dy', 'dx'];
+    const way = cue.axis === 'y' ? 'down, pause' : cue.dir > 0 ? 'forward, right' : 'back, left';
     let was = 0;
-    for (let t = cue.down + cue.travel; t <= cue.up; t += 0.02) {
+    for (let t = cue.down + 0.01; t <= cue.up + 0.2; t += 0.01) {
       const { hand, doing } = touchesAt(t);
-      require(Math.sign(hand.dx) === cue.dir && Math.abs(hand.dx) >= HAND.reach * 0.75,
-        `at ${t.toFixed(2)}s the fingers are ${hand.dx.toFixed(1)}pt from rest, for a swipe `
-        + `that goes ${cue.dir > 0 ? 'forward, right' : 'back, left'} — the drawing shows the `
-        + 'other gesture, or none');
-      require(Math.abs(hand.dx) >= was,
+      require(hand[across] === 0 && (hand[along] === 0 || Math.sign(hand[along]) === cue.dir),
+        `at ${t.toFixed(2)}s the fingers are (${hand.dx.toFixed(1)}, ${hand.dy.toFixed(1)})pt from rest, `
+        + `for a swipe that goes ${way} — the drawing shows another gesture`);
+      require(Math.abs(hand[along]) >= was,
         `at ${t.toFixed(2)}s the fingers turn back before the swipe fires — the app counts `
         + 'distance travelled, so the drawing says it would not');
-      was = Math.abs(hand.dx);
-      require(hand.shown === 1 && doing === 'swipe',
+      was = Math.abs(hand[along]);
+      require(hand.shown > 0 && doing === 'swipe',
         `at ${t.toFixed(2)}s the fingers are down in the footage but not drawn, or the how-to `
         + 'does not say so');
+    }
+    const fired = touchesAt(cue.up).hand;
+    require(fired.shown === 1 && Math.abs(fired[along]) >= HAND.reach * 0.75,
+      `as the ${way} swipe fires at ${cue.up}s the fingers are ${Math.abs(fired[along]).toFixed(1)}pt `
+      + 'from rest — too little of a swipe to read as one');
+  }
+  // Drawn only in the close shot: the swipes, the click and the scrub, from
+  // the touch landing until it has lifted and gone.
+  for (const cue of CUES.filter((c) => c.kind !== 'hover')) {
+    const from = cue.down ?? cue.at;
+    const to = (cue.up ?? cue.at + 0.5) + 0.22;
+    for (let t = from; t <= to; t += 0.02) {
+      require(focus(t) === 1,
+        `at ${t.toFixed(2)}s the ${cue.kind} is drawn while the camera is out on the whole desktop, `
+        + 'where it is too small to read');
     }
   }
   const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
@@ -3564,19 +3667,37 @@ function theHandInTheFilmGoesTheWayTheAppReadsIt() {
       && (site.match(/startTouches\(/g) || []).length === 1,
     'the fingers are drawn without the journey — outside it the footage is not in its own '
     + 'points, so they land beside what they point at, and Reduce Motion gets them too');
+  // The box it may draw in, in display points: the footage's, and within it
+  // the player as the close shot frames it, hanging from the notch's middle.
+  const box = {
+    left: Math.max(FOOTAGE.x, 756 - PLAYER.width / 2),
+    right: Math.min(FOOTAGE.x + FOOTAGE.width, 756 + PLAYER.width / 2),
+    top: FOOTAGE.y,
+    bottom: Math.min(FOOTAGE.y + FOOTAGE.height, PLAYER.height),
+  };
+  const inside = (x, y) => x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
+  const seconds = filmSeconds();
   const lit = new Set();
-  for (let t = 0; t < 27; t += 1 / 30) {
+  for (let t = 0; t < seconds; t += 1 / 60) {
     const { hand, ring, doing } = touchesAt(t);
     if (doing) lit.add(doing);
     if (hand.shown > 0) {
-      for (const x of [HAND.x + hand.dx - 23, HAND.x + hand.dx + 23]) {
-        require(x >= 0 && x <= 512, `at ${t.toFixed(2)}s the fingers leave the footage`);
-      }
+      // The pair's box: 46 by 24 about its middle, the middle fingertip 2pt higher, 1pt lower.
+      const x = HAND.x + hand.dx;
+      const y = HAND.y + hand.dy;
+      require(inside(x - 23, y - 14) && inside(x + 23, y + 13),
+        `at ${t.toFixed(2)}s the fingers are drawn at ${x.toFixed(0)},${y.toFixed(0)}, off the footage `
+        + 'or out of the close shot');
     }
     if (ring.shown > 0) {
-      require(ring.x >= 0 && ring.x <= 512 && ring.y >= 0 && ring.y <= 240,
-        `at ${t.toFixed(2)}s the ring is at ${ring.x.toFixed(0)},${ring.y.toFixed(0)}, off the footage`);
+      require(inside(ring.x, ring.y),
+        `at ${t.toFixed(2)}s the ring is at ${ring.x.toFixed(0)},${ring.y.toFixed(0)}, off the footage `
+        + 'or out of the close shot');
     }
+  }
+  for (const cue of CUES) {
+    require(Math.max(cue.up ?? 0, cue.at ?? 0, cue.to ?? 0) < seconds,
+      `a ${cue.kind} cue runs past the film's ${seconds.toFixed(2)}s`);
   }
   require(lit.size > 0, 'the drawing never lights a line of the how-to');
   for (const how of lit) {

@@ -1369,8 +1369,8 @@ const MUTANTS = {
   'film-loses-its-still': {
     check: FILM,
     file: PAGE,
-    from: ' poster="media/demo-poster.webp" src="media/demo.mp4"',
-    to: ' src="media/demo.mp4"',
+    from: ' poster="media/film-poster.webp" src="media/film.mp4"',
+    to: ' src="media/film.mp4"',
   },
   'film-renderer-stays-behind-the-waterfall': {
     check: FILM,
@@ -1378,23 +1378,37 @@ const MUTANTS = {
     from: '<link rel="modulepreload" href="js/geometry.js">',
     to: '',
   },
-  // The stage forgets the footage's scale: at 920px the encode is shown past
+  // The window forgets the footage's scale: at 920px the encode is shown past
   // one-to-one on a 2x display and the panel's type melts — the exact resample
-  // the cap exists to make impossible. Stated ahead of the stage's own cap, so
-  // it is the one the rule reads whatever that cap is today.
+  // the cap exists to make impossible. Stated ahead of the window's own cap,
+  // so it is the one the rule reads whatever that cap is today.
   'film-shown-resampled': {
     check: FILM,
     file: CSS,
-    from: '.film__stage {\n  position: relative;\n  max-width: ',
-    to: '.film__stage {\n  position: relative;\n  max-width: 920px;\n  max-width: ',
+    from: '.film__mac {\n  position: relative;\n  max-width: ',
+    to: '.film__mac {\n  position: relative;\n  max-width: 920px;\n  max-width: ',
   },
   // The box drifts off the footage's proportions, and the page jumps when the
   // first frame arrives and the video takes the shape the stage never had.
   'film-box-disagrees-with-the-footage': {
     check: FILM,
     file: CSS,
-    from: '  aspect-ratio: 1536 / 720;',
-    to: '  aspect-ratio: 1536 / 760;',
+    from: '  aspect-ratio: 570 / 660;',
+    to: '  aspect-ratio: 570 / 700;',
+  },
+  // The footage slides off the still on a phone: the pointer and the notch
+  // show twice where the two pictures meet.
+  'film-slips-off-the-still-on-a-phone': {
+    check: FILM,
+    file: CSS,
+    from: '.film__stage { left: calc(4 / 440 * 100%);',
+    to: '.film__stage { left: calc(14 / 440 * 100%);',
+  },
+  'film-slips-off-the-still': {
+    check: FILM,
+    file: CSS,
+    from: '  left: calc(134 / 700 * 100%);',
+    to: '  left: calc(144 / 700 * 100%);',
   },
   // The lookup drifts off the tag's id: film is null, the guard never runs,
   // and the mid-page demo is a permanent poster with every other gate green.
@@ -1530,12 +1544,16 @@ const MUTANTS = {
   'the-works-lose-the-marks-that-name-them': {
     check: BORROWED,
     file: PAGE,
-    from: 'rel="external">“Cyberpunk Renaissance”</a> and\n'
+    from: 'rel="external">“Cyberpunk Renaissance”</a>,\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/chrome-funk"\n'
-      + '       rel="external">“Chrome Funk”</a>',
-    to: 'rel="external">Cyberpunk Renaissance</a> and\n'
+      + '       rel="external">“Chrome Funk”</a> and\n'
+      + '    <a href="https://punchdeck.bandcamp.com/track/neon-underworld"\n'
+      + '       rel="external">“Neon Underworld”</a>',
+    to: 'rel="external">Cyberpunk Renaissance</a>,\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/chrome-funk"\n'
-      + '       rel="external">Chrome Funk</a>',
+      + '       rel="external">Chrome Funk</a> and\n'
+      + '    <a href="https://punchdeck.bandcamp.com/track/neon-underworld"\n'
+      + '       rel="external">Neon Underworld</a>',
   },
   // An em dash after a breakable space: at some phone measure it starts its
   // own line, orphaned from the name it belongs to.
@@ -2036,8 +2054,31 @@ const MUTANTS = {
   'the-notch-floats-mid-screen': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'return { x: vw / 2, y: 0, scale };',
-    to: 'return { x: vw / 2, y: (vh - FILM.height * scale) / 2, scale };',
+    from: 'return { x: vw / 2, y: 0, scale: shots(vw, vh).wide };',
+    to: 'return { x: vw / 2, y: vh * 0.3, scale: shots(vw, vh).wide };',
+  },
+  // The journey's footage off its box of the desktop, where the hand is drawn.
+  'the-journey-lays-the-footage-off-the-still': {
+    check: JOURNEY,
+    file: CSS,
+    from: '  left: 540px;\n  width: 570px;',
+    to: '  left: 548px;\n  width: 570px;',
+  },
+  // The wide shot sized to the window's width alone: on anything taller than
+  // the display's own proportion, the page shows under the desktop.
+  'the-wide-shot-leaves-the-page-showing': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const wide = Math.max(vw / SCREEN.width, vh / SCREEN.height);',
+    to: 'const wide = vw / SCREEN.width;',
+  },
+  // The close shot framed by the window's height alone runs the player under
+  // the words at its foot.
+  'the-close-shot-runs-under-the-words': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '(vh - WORDS) / PLAYER.height',
+    to: '(vh * 0.8) / PLAYER.height',
   },
   'the-skip-freezes-the-words': {
     check: JOURNEY,
@@ -2060,26 +2101,48 @@ const MUTANTS = {
   'the-print-returns-behind-the-pull': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'scrollY, dive >= 1 && p >= FADE);',
-    to: 'scrollY, dive >= 1 && c.dark >= 0.999);',
+    from: 'scrollY, dive >= 1 && p >= SETTLE);',
+    to: 'scrollY, dive >= 1 && c.fade >= 0.999);',
   },
   'the-footage-holds-past-its-pixels': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const SHARPEST = 1.5;',
-    to: 'const SHARPEST = 2;',
+    from: 'const CLOSEST = 1.8;',
+    to: 'const CLOSEST = 2.2;',
   },
-  'the-desktop-fills-before-the-pin': {
+  'the-words-cross-the-settling-zoom': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'dark: unit(p / FADE) * (1 - k),',
-    to: 'dark: unit(p / FADE + 0.3) * (1 - k),',
+    from: 'words: unit((p - SETTLE) / 0.1) * (1 - unit(k / 0.2)),',
+    to: 'words: unit(p / 0.1) * (1 - unit(k / 0.2)),',
   },
   'the-footage-cuts-in': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const FADE = 0.12;',
-    to: 'const FADE = 0.004;',
+    from: 'const SETTLE = 0.12;',
+    to: 'const SETTLE = 0.0004;',
+  },
+  // The desktop starts to go while the footage is still on it: what lands on
+  // the band is a player mid-gesture, not the idle notch the band has.
+  'the-desktop-goes-with-the-footage-on-it': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'live: unit(1 - k / 0.35),',
+    to: 'live: unit(1 - k / 0.9),',
+  },
+  // The push in finishing after the film has wrapped: every lap starts on a cut.
+  'the-loop-wraps-on-a-cut': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'in: [28.3, 30] }',
+    to: 'in: [29.8, 31.5] }',
+  },
+  // The pull back done in a third of a second: a cut, not a move.
+  'the-zoom-is-a-cut': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'out: [20.3, 22]',
+    to: 'out: [20.3, 20.6]',
   },
   'the-pull-stops-short-of-the-band': {
     check: JOURNEY,
@@ -2099,8 +2162,35 @@ const MUTANTS = {
   'the-fingers-swipe-the-wrong-way': {
     check: HAND,
     file: TOUCHES_JS,
-    from: 'hand.dx = cue.dir * HAND.reach',
-    to: 'hand.dx = -cue.dir * HAND.reach',
+    from: 'const along = cue.dir * HAND.reach',
+    to: 'const along = -cue.dir * HAND.reach',
+  },
+  // The pause drawn with a sideways drift: a diagonal the app reads as neither.
+  'the-pause-swipe-drifts-sideways': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: "if (cue.axis === 'x') hand.dx = along;\n      else hand.dy = along;",
+    to: "hand.dx = along;\n      if (cue.axis === 'y') hand.dy = along;",
+  },
+  'the-app-reads-a-vertical-swipe-as-a-skip': {
+    check: HAND,
+    file: SWIPE_SWIFT,
+    from: '            return Step(action: .togglePlayback)',
+    to: '            return Step(action: .skipForward)',
+  },
+  // The click drawn while the camera is out on the whole desktop.
+  'a-touch-is-drawn-in-the-wide-shot': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: "{ kind: 'click', at: 12.873,",
+    to: "{ kind: 'click', at: 21.5,",
+  },
+  // The fingers rested lower: a swipe down carries them out of the close shot.
+  'the-fingers-leave-the-close-shot': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: 'export const HAND = { x: 756, y: 215, reach: 56 };',
+    to: 'export const HAND = { x: 756, y: 245, reach: 56 };',
   },
   'the-fingers-lift-before-the-swipe-fires': {
     check: HAND,
@@ -2117,8 +2207,8 @@ const MUTANTS = {
   'the-fingers-ease-back-before-it-fires': {
     check: HAND,
     file: TOUCHES_JS,
-    from: '(0.8 * out(u) + 0.2 * push + 0.1 * gone)',
-    to: '(1.1 * out(u) - 0.2 * push + 0.1 * gone)',
+    from: '(inOut(unit((t - cue.down) / (cue.up - cue.down))) + 0.1 * gone)',
+    to: '(Math.sin(Math.PI * unit((t - cue.down) / (cue.up - cue.down))) + 0.1 * gone)',
   },
   'the-app-reads-a-swipe-the-other-way': {
     check: HAND,

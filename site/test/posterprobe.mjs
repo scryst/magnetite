@@ -1,5 +1,5 @@
 /**
- * Is site/media/demo-poster.webp actually the first frame of site/media/demo.mp4?
+ * Is site/media/film-poster.webp actually the first frame of site/media/film.mp4?
  *
  *   node site/test/posterprobe.mjs
  *
@@ -58,8 +58,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const film = join(here, '..', 'media', 'demo.mp4');
-const still = join(here, '..', 'media', 'demo-poster.webp');
+const film = join(here, '..', 'media', 'film.mp4');
+const still = join(here, '..', 'media', 'film-poster.webp');
 
 // Loose on purpose. The separation measured today is far below this; the point
 // is to catch a poster cut from a frame that is not in the candidate set, not
@@ -76,7 +76,7 @@ if (!have('ffmpeg') || !have('ffprobe')) {
   process.exit(2);
 }
 
-for (const [what, path] of [['demo.mp4', film], ['demo-poster.webp', still]]) {
+for (const [what, path] of [['film.mp4', film], ['film-poster.webp', still]]) {
   if (!existsSync(path)) {
     process.stderr.write(`posterprobe: ${what} is missing at ${path}\n`);
     process.exit(1);
@@ -153,8 +153,8 @@ if (best.n !== 0) {
   process.stderr.write(`posterprobe: the poster is closest to frame ${best.n} (mad `
     + `${best.mad.toFixed(4)}), not to frame 0 (mad ${zero.mad.toFixed(4)}). The page shows this `
     + 'picture until the video decodes, so the demo jumps the moment it starts playing. '
-    + 'Recut it, then encode it: ffmpeg -y -i site/media/demo.mp4 -vframes 1 /tmp/demo-poster.png '
-    + '&& cwebp -quiet -m 6 -q 95 /tmp/demo-poster.png -o site/media/demo-poster.webp\n');
+    + 'Recut it, then encode it: ffmpeg -y -i site/media/film.mp4 -vframes 1 /tmp/film-poster.png '
+    + '&& cwebp -quiet -m 6 -q 95 /tmp/film-poster.png -o site/media/film-poster.webp\n');
   process.exit(1);
 }
 

@@ -5,7 +5,7 @@ Retracted, it belongs entirely to the menu-bar band; expanded, it is a full
 player whose black ferrofluid responds to real system audio and then settles
 back into the notch. Works with Spotify and Apple Music.
 
-![Magnetite open under the MacBook notch](site/media/demo-poster.webp)
+![Magnetite open under the MacBook notch](site/media/film-poster.webp)
 
 **[magnetite.app](https://magnetite.app)** · MIT License · macOS 26 on Apple silicon
 
