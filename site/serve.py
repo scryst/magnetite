@@ -39,13 +39,21 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
             super().log_message(fmt, *args)
 
 
+class Server(ThreadingHTTPServer):
+    # The stdlib listen backlog is 5. The page asks for a dozen modules, its
+    # fonts, the film and the soundtrack at once, and past five macOS resets
+    # the rest: one reset module fails the whole graph, and the page loads
+    # dead one time in three with nothing but a network error to show for it.
+    request_queue_size = 128
+
+
 def main() -> None:
     # argv wins; PORT is what preview harnesses hand out when several sessions
     # each need their own instance of this server.
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", "4173"))
     root = Path(__file__).resolve().parent
     handler = partial(NoCacheHandler, directory=str(root))
-    with ThreadingHTTPServer(("127.0.0.1", port), handler) as httpd:
+    with Server(("127.0.0.1", port), handler) as httpd:
         print(f"site: http://localhost:{port}/  (no-store, serving {root})", flush=True)
         httpd.serve_forever()
 

@@ -242,6 +242,14 @@ const MUTANTS = {
     from: '    steps += 1;',
     to: '    steps += 1.0000001;',
   },
+  // A step only once the whole of it is banked: on a 60Hz display's rounded
+  // frame times, a third of the frames take none and the next take two.
+  'the-clock-steps-in-lumps': {
+    check: CLOCKED,
+    file: CLOCK,
+    from: 'while (bank >= simStep * (1 - STEP_SLACK)) {',
+    to: 'while (bank >= simStep) {',
+  },
   // The defect as it actually shipped, restored: the step counter converted to
   // seconds and multiplied back into a frame index. `(246 / 60) * 30` is
   // 122.99999999999999, so captured frame 122 takes three steps and 123 takes
@@ -2051,6 +2059,51 @@ const MUTANTS = {
     from: 'const laid = dive < 1 ? hero?.notchAt() : null;',
     to: 'const laid = null;',
   },
+  // Focus the eye cannot see: the demo's button under the print, the
+  // download under the film.
+  'the-hidden-demo-button-takes-focus': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: "if (!motion.matches(':focus-visible') || section.hasAttribute('data-words')) return;",
+    to: 'return;',
+  },
+  'the-pill-runs-off-a-phone': {
+    check: JOURNEY,
+    file: CSS,
+    from: '(100vw - 2 * var(--gutter)) * 185 / 284)',
+    to: '(100vw - 2 * var(--gutter)) * 185 / 200)',
+  },
+  'the-film-words-stand-as-ghosts': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: "section.toggleAttribute('data-title', c.words > 0.5 && !c.covered);",
+    to: "section.style.setProperty('--words', c.words.toFixed(3));",
+  },
+  'the-reload-shows-the-page-short': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'scrollTo(0, Number(restoring) || 0);',
+    to: '',
+  },
+  'the-resize-loses-the-beat': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: "else if ('s' in keep) y = top + keep.s * vh;",
+    to: "else if ('s' in keep) y = scrollY;",
+  },
+  'the-download-takes-focus-under-the-film': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'mark.getBoundingClientRect().top > 1) mark.scrollIntoView();',
+    to: 'mark.getBoundingClientRect().top > 1) mark.focus();',
+  },
+  // Queued behind the page's loop, the dive reached the print a frame late.
+  'the-print-trails-the-scroll': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: "addEventListener('scroll', () => place(), { passive: true });",
+    to: "addEventListener('scroll', () => requestAnimationFrame(place), { passive: true });",
+  },
   'the-notch-floats-mid-screen': {
     check: JOURNEY,
     file: TUNNEL_JS,
@@ -2595,6 +2648,47 @@ const MUTANTS = {
     file: SITE_JS,
     from: '  if (soundtrackMayListen()) enableSoundtrackAnalyser();',
     to: '  enableSoundtrackAnalyser();',
+  },
+  // Music the browser let start on load: routed into a context before the
+  // browser says it runs, it goes silent; never asked for, the liquid replays
+  // its capture over the song until the visitor clicks.
+  'the-unasked-analyser-takes-a-suspended-context': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: "if (context.state === 'running' && !soundtrackAnalyserPromise) enableSoundtrackAnalyser(context);",
+    to: 'if (!soundtrackAnalyserPromise) enableSoundtrackAnalyser(context);',
+  },
+  'music-started-on-load-is-never-heard': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: '    if (!soundtrackAnalyserPromise) listenUnasked();',
+    to: '',
+  },
+  'the-circles-sit-on-the-words': {
+    check: SOUNDTRACK,
+    file: 'site/js/corner.js',
+    from: "if (under) soundtrack.toggleAttribute('data-aside', true);",
+    to: "if (under) soundtrack.toggleAttribute('data-aside', false);",
+  },
+  'the-unheard-song-plays-on': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: '          soundtrackAudio.pause();\n          return;',
+    to: '          return;',
+  },
+  'the-unheard-song-resumes-partway-in': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: '        player.rewind();\n',
+    to: '',
+  },
+  'the-unheard-song-is-announced-as-paused': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    // The way it was: unmuted at once, before the queued pause event.
+    from: "          soundtrackAudio.addEventListener('pause', () => { soundtrackAudio.muted = false; }, { once: true });\n"
+      + '          soundtrackAudio.pause();\n          return;',
+    to: '          soundtrackAudio.pause();',
   },
   'the-first-gesture-answers-the-players-own-play': {
     check: SOUNDTRACK,

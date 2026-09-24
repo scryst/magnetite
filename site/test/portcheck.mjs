@@ -235,6 +235,27 @@ function theReplayClockIsTheAppsClock() {
   require(Math.abs(at60 - simHz * 10) <= 1,
     `ten seconds at ${simHz}Hz should be about ${simHz * 10} steps, not ${at60}`);
 
+  // And evenly. Frame times reach the page rounded to a tenth of a
+  // millisecond, so a 60Hz display hands over 16.7, 16.7, 16.6: every frame
+  // has to take exactly one step, and a 120Hz one never two in a frame. A
+  // frame with none followed by one with two is the liquid holding and jumping.
+  const lumps = (hz) => {
+    let state = { bank: 0, steps: 0 };
+    const per = new Set();
+    for (let i = 1; i < hz * 10; i++) {
+      const dt = (Math.round((i * 1000) / hz * 10) - Math.round(((i - 1) * 1000) / hz * 10)) / 10000;
+      const before = state.steps;
+      state = bankSteps(state, dt, step);
+      per.add(state.steps - before);
+    }
+    return [...per].sort();
+  };
+  const even60 = lumps(60);
+  const even120 = lumps(120);
+  require(even60.join() === '1' && even120.join() === '0,1',
+    `on rounded frame times a 60Hz display takes [${even60}] steps a frame and a 120Hz one `
+    + `[${even120}] — the liquid holds for a frame and then jumps two`);
+
   // And the hold: every captured frame gets the same whole number of steps, so
   // the second one sees no change, exactly as it does on the machine.
   //
@@ -1622,6 +1643,43 @@ function theSoundtrackUsesTheAppsBands() {
   `${analyserCalls - guarded} call(s) build the analyser without asking whether the visitor is `
     + 'acting — outside a gesture that is a suspended AudioContext, and routing the element into '
     + 'it silences the music the page just started');
+  // The one exception: music the browser let start on load. The context is
+  // asked for empty and handed over only once the browser reports it running,
+  // or the liquid replays its capture over a song until the visitor clicks.
+  const handedCalls = [...bare.matchAll(/enableSoundtrackAnalyser\((\w+)\);/g)];
+  const handedRunning = [...bare.matchAll(
+    /if \((\w+)\.state === 'running' && !soundtrackAnalyserPromise\) enableSoundtrackAnalyser\(\1\);/g,
+  )];
+  require(handedCalls.length === 1 && handedRunning.length === 1
+      && /if \(!soundtrackAnalyserPromise\) listenUnasked\(\);/.test(bare),
+  'music the browser started on load is never heard by the analyser, or is routed into a context '
+    + 'the browser has not said is running — the liquid replays its capture over the song, or '
+    + 'the song goes silent');
+  // And never music the liquid cannot hear: held muted while the browser
+  // answers, and stopped, not a note sounded, where the context stays shut —
+  // from its top, and unmuted only after the stop's own event, which is
+  // queued rather than fired: unmuted first, the page said "Soundtrack
+  // paused." of music nobody had heard.
+  const shut = /context\.close\(\)\.catch\(\(\) => \{\}\);\s*if \(!soundtrackAnalyserPromise\) \{([^]{0,500}?)\breturn;\s*\}\s*\}/
+    .exec(bare)?.[1] ?? '';
+  require(/soundtrackAudio\.muted = true;\s*const context = new AudioContext\(\);/.test(bare)
+      && /\bsoundtrackAudio\.pause\(\);\s*$/.test(shut),
+  'music the browser let start on load plays on while the liquid cannot hear it — the page shows '
+    + 'the capture moving to a song that is not the one playing');
+  require(/\bplayer\.rewind\(\);/.test(shut),
+    'music stopped unheard on load resumes partway in when the visitor starts it');
+  require(/soundtrackAudio\.addEventListener\('pause', \(\) => \{ soundtrackAudio\.muted = false; \}, \{ once: true \}\);\s*soundtrackAudio\.pause\(\);\s*$/
+    .test(shut),
+  'the page announces "Soundtrack paused." of music the visitor never heard — it unmutes before '
+    + 'the stop\'s queued pause event is handled');
+  // The circles give their corner up to whatever a visitor reads or presses
+  // there, and the keyboard brings them back.
+  const corner = readFileSync(join(here, '..', 'js', 'corner.js'), 'utf8');
+  require(/if \(under\) soundtrack\.toggleAttribute\('data-aside', true\);/.test(corner)
+      && /const CORNER_WORDS = '\.masthead a, \.hero__copy > \*, \.film__title, \.film__foot, \.get__title, '/.test(corner)
+      && /if \(soundtrack\) startCorner\(soundtrack, /.test(code)
+      && /\.js \.player\[data-aside\]:not\(:focus-within\) \{ opacity: 0; pointer-events: none; \}/.test(css),
+  'the soundtrack\'s circles sit over the words and buttons the page scrolls under them');
   // The first gesture is left to the player's own circles when it lands on
   // them: answering it here too starts the music and the Play it hit pauses it.
   require(/closest\('\[data-player\] button'\)/.test(code)
@@ -1816,7 +1874,7 @@ function theDemoIsTheAppOnFilm() {
     'js/site.js', 'js/sim.js', 'js/geometry.js', 'js/press.js', 'js/hero.js', 'js/band.js',
     'data/real-levels.js', 'js/clock.js', 'js/visibility.js', 'js/bands.js',
     'js/finale.js', 'js/liquid.js', 'js/filings.js', 'js/wordmark.js',
-    'js/player.js', 'js/tunnel.js', 'js/touches.js',
+    'js/player.js', 'js/tunnel.js', 'js/touches.js', 'js/corner.js',
   ]) {
     require(html.includes(`<link rel="modulepreload" href="${module}">`),
       `${module} is left behind the initial module-discovery waterfall`);
@@ -3488,6 +3546,38 @@ function theJourneyLandsWhereItHandsOver() {
   require(/hero\?\.setDive\(dive, hold\(vw, vh\), scrollY,/.test(source),
     'the hero dives somewhere other than where the footage holds — the printed notch and the '
     + 'footage no longer meet');
+  // The dive is set in the scroll event, before the page's loop prints the
+  // frame. Queued as an animation frame instead, it ran after the print: the
+  // printed headline trailed the page by each frame's whole scroll step.
+  require(/addEventListener\('scroll', \(\) => place\(\), \{ passive: true \}\);/.test(source)
+      && !/requestAnimationFrame\(place\)/.test(source),
+  'the dive is placed an animation frame after the scroll, behind the print — the printed headline '
+    + 'trails the page by a whole scroll step and wobbles as a trackpad\'s pace changes');
+  // The keyboard gets what the eye gets. The demo's button, tabbed onto while
+  // its words are down, is brought to where they are up, and the download
+  // tabbed onto early to where the page has it: each once took focus under
+  // the print or the film, unseen.
+  require(/motion\?\.addEventListener\('focus', \(\) => \{\s*if \(!motion\.matches\(':focus-visible'\) \|\| section\.hasAttribute\('data-words'\)\) return;[\s\S]{0,160}scrollTo\(\{ top: section\.getBoundingClientRect\(\)\.top \+ scrollY \+ \(HOW \+ RISE\) \* vh/.test(source)
+      && !/motion\.tabIndex/.test(source),
+    'the demo\'s button takes keyboard focus while it is hidden under the print, or is left out of '
+    + 'the tab order, where the film\'s only control cannot be reached');
+  // The words are up or down, never held between: a visitor who stops mid
+  // fade saw a ghost of them over the desktop.
+  require(/section\.toggleAttribute\('data-title', c\.words > 0\.5 && !c\.covered\);/.test(source)
+      && /section\.toggleAttribute\('data-words', c\.how > 0\.5 && !c\.covered\);/.test(source)
+      && !/setProperty\('--(?:words|how)'/.test(source),
+    'the film\'s words fade with the scroll again — stopped mid fade, they stand as ghosts');
+  // Reloaded mid-journey, the first frame shown is the settled one, and a
+  // resize keeps the same beat on screen.
+  require(/const restoring = root\.getAttribute\('data-restoring'\);\s*if \(restoring !== null\) \{\s*scrollTo\(0, Number\(restoring\) \|\| 0\);\s*place\(\);/.test(source)
+      && /\[data-restoring\] \{ visibility: hidden;/.test(readFileSync(join(here, '..', 'css', 'magnetite.css'), 'utf8')),
+    'a reload mid-journey shows the page short and out of place before the browser puts it back');
+  require(/else if \('s' in keep\) y = top \+ keep\.s \* vh;/.test(source)
+      && /if \(dive < 1\) spot = \{ dive \};\s*else if \(s < end\) spot = \{ s \};/.test(source),
+    'a resize mid-journey loses the visitor\'s place — the same scroll on a new window is a different beat');
+  require(/dock\?\.addEventListener\('focus', \(\) => \{\s*if \(mark && dock\.matches\(':focus-visible'\) && mark\.getBoundingClientRect\(\)\.top > 1\) mark\.scrollIntoView\(\);/.test(source),
+    'the download tabbed onto before the page has it keeps focus under the film, where its ring '
+    + 'cannot be seen');
   require(/scrollY, dive >= 1 && s >= SETTLE\);/.test(source),
     'the print is not put away once the desktop has covered it — as the pull lets the desktop go, '
     + 'the hero\'s zoomed screen shows through behind the download');
@@ -3594,12 +3684,17 @@ function theJourneyLandsWhereItHandsOver() {
   // window at least, and as the close shot's; its depth 32 of its 185 points;
   // and at the window's centre under a heading that fills the window above
   // its bezel.
-  const notchRule = /(?:^|;|\*\/)\s*--notch-w\s*:\s*max\(clamp\((\d+)px, (\d+)vw, (\d+)px\), 100vw \* 185 \/ 1512, 100svh \* 185 \/ 982,\s*min\((\d+)px, \(100vw - (\d+)px\) \* 185 \/ (\d+), \(100svh - (\d+)px\) \* 185 \/ (\d+)\)\)\s*;/
+  const notchRule = /(?:^|;|\*\/)\s*--notch-w\s*:\s*max\(min\(clamp\((\d+)px, (\d+)vw, (\d+)px\), \(100vw - 2 \* var\(--gutter\)\) \* 185 \/ (\d+)\),\s*100vw \* 185 \/ 1512, 100svh \* 185 \/ 982,\s*min\((\d+)px, \(100vw - (\d+)px\) \* 185 \/ (\d+), \(100svh - (\d+)px\) \* 185 \/ (\d+)\)\)\s*;/
     .exec(getRule)?.slice(1).map(Number);
   require(notchRule, 'the journey\'s band does not size its notch as a display\'s filling the window and '
-    + 'the close shot\'s at least — landed on it, the desktop leaves paper beside or under it, or the '
-    + 'camera pulls out to land');
-  const [least, share, most, closeW, sides, playerW, foot, playerH] = notchRule;
+    + 'the close shot\'s at least, and its pill inside the gutters — landed on it, the desktop leaves '
+    + 'paper beside or under it, the camera pulls out to land, or the pill runs off a phone');
+  const [least, share, most, pillW, closeW, sides, playerW, foot, playerH] = notchRule;
+  const bandJs = readFileSync(join(here, '..', 'js', 'band.js'), 'utf8');
+  require(Number(/const PILL = \{ width: (\d+),/.exec(bandJs)?.[1]) === pillW,
+    `the band's notch is fitted for a pill ${pillW} points wide, and js/band.js draws another`);
+  const gutterRule = /--gutter:\s*max\((\d+)px, ([\d.]+)vw\);/.exec(css)?.slice(1).map(Number);
+  require(gutterRule, 'could not read the page\'s gutter from magnetite.css');
   const baseRule = /(?:^|\n)\.get\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const deep = Number(/(?:^|;|\*\/)\s*--notch-h\s*:\s*calc\(var\(--notch-w\) \* (\d+) \/ 185\)\s*;/.exec(baseRule)?.[1]);
   require(deep > 0, 'could not read the band\'s notch depth from magnetite.css');
@@ -3708,7 +3803,7 @@ function theJourneyLandsWhereItHandsOver() {
   }
   const shotAt = { close: 0, wide: (SHOTS.out[1] + SHOTS.in[0]) / 2 };
 
-  for (const [vw, vh] of [[390, 844], [682, 863], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
+  for (const [vw, vh] of [[320, 640], [390, 844], [682, 863], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
     const at = hold(vw, vh);
     const { wide, close } = shots(vw, vh);
     require(at.y === 0 && at.x === vw / 2,
@@ -3724,8 +3819,13 @@ function theJourneyLandsWhereItHandsOver() {
       `${vw}x${vh}: the close shot runs the player into the window's edge or under its words`);
     // The band's notch as the page lays it, where it stands with the download
     // at the window's top: centred, the heading and bezel above it.
-    const notchW = Math.max(Math.min(most, Math.max(least, vw * share / 100)), vw * 185 / 1512, vh * 185 / 982,
+    const gutter = Math.max(gutterRule[0], vw * gutterRule[1] / 100);
+    const notchW = Math.max(Math.min(most, Math.max(least, vw * share / 100), (vw - 2 * gutter) * 185 / pillW),
+      vw * 185 / 1512, vh * 185 / 982,
       Math.min(closeW, (vw - sides) * 185 / playerW, (vh - foot) * 185 / playerH));
+    require(notchW * pillW / 185 <= vw - 2 * gutter + 1e-9,
+      `${vw}x${vh}: the band's idle pill is ${(notchW * pillW / 185).toFixed(0)}px wide, past the page's `
+      + 'gutters — its sleeve and its time are cut at the window\'s edges');
     const dock = { x: vw / 2, y: vh / 2 - notchW * deep / 185 / 2, scale: notchW / 185 };
     // Landed there, the dots go out as far as the window's farthest corner
     // below the desktop's edge, measured the way the band's ellipse is.
