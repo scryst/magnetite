@@ -2083,8 +2083,22 @@ const MUTANTS = {
   'the-skip-freezes-the-words': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: '|${c.words.toFixed(3)}|${c.how.toFixed(3)}',
-    to: '|${c.how.toFixed(3)}',
+    from: '|${c.live.toFixed(3)}|${c.words.toFixed(3)}|`',
+    to: '|${c.live.toFixed(3)}|`',
+  },
+  // The bloom's reach and the download's lift left out of the key: a frame
+  // where only they change keeps the old ones.
+  'the-skip-freezes-the-reach': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '`${far.toFixed(0)}|',
+    to: '`',
+  },
+  'the-skip-freezes-the-lift': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '|${lift.toFixed(1)}|',
+    to: '|',
   },
   // The halftone's pitch left out of the key: a resize that changes it alone
   // keeps the old dots.
@@ -2094,12 +2108,45 @@ const MUTANTS = {
     from: '|${pitch.toFixed(2)}|',
     to: '|',
   },
-  // The download under the film: the desktop lies over the band and its link.
-  'the-download-rises-under-the-film': {
+  // The download over the film: drawn up through the handover, it covers the
+  // desktop the camera is landing on.
+  'the-download-covers-the-landing': {
     check: JOURNEY,
     file: CSS,
-    from: '  position: relative;\n  z-index: 3;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
-    to: '  position: relative;\n  z-index: 1;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
+    from: '  position: relative;\n  z-index: 1;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
+    to: '  position: relative;\n  z-index: 3;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
+  },
+  // The heading short of half the window: the notch, and the camera landing
+  // on it, above the window's centre.
+  'the-link-lands-off-centre': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'min-height: calc(50svh - var(--bezel) - var(--notch-h) / 2);',
+    to: 'min-height: calc(40svh - var(--bezel) - var(--notch-h) / 2);',
+  },
+  // The band's notch narrower than the close shot's on a tablet: the camera
+  // pulls out to land on the link.
+  'the-camera-pulls-out-onto-the-link': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'min(333px, (100vw - 32px) * 185 / 372',
+    to: 'min(300px, (100vw - 32px) * 185 / 372',
+  },
+  // A dot's soft edge left at 0.6pt when it has gone: a pink haze on the band
+  // that goes in one frame as the pin does.
+  'the-halftone-leaves-a-haze': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'transparent calc(var(--r) + min(var(--dot) / 8, var(--r)))',
+    to: 'transparent calc(var(--r) + 0.6px)',
+  },
+  // The soft edge in the desktop's points: close, a blur that holds the dots
+  // shut while the scroll goes on.
+  'the-halftone-blurs-shut-close': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'transparent calc(var(--r) + min(var(--dot) / 8, var(--r)))',
+    to: 'transparent calc(var(--r) + min(0.6px, var(--r)))',
   },
   // The download as tall as its content: landed, the pinned how-to shows
   // under it until the pin goes.
@@ -2152,27 +2199,75 @@ const MUTANTS = {
     from: 'const SETTLE = 0.3;',
     to: 'const SETTLE = 0.0004;',
   },
-  // The player still going into the notch as the band lands: what the band
-  // covers is a player mid-gesture, not the idle notch the band has.
-  'the-band-lands-on-the-player': {
+  // The player still going into the notch as the camera lands: what lands on
+  // the band's notch is a player mid-gesture, not the idle notch the band has.
+  'the-camera-lands-on-the-player': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const RETRACT = 0.4;',
-    to: 'const RETRACT = 1.2;',
+    from: 'const RETRACT = 0.35;',
+    to: 'const RETRACT = 0.9;',
   },
   // The player put away in a few pixels of scroll: a cut, not the app's move.
   'the-player-snaps-into-the-notch': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const RETRACT = 0.4;',
+    from: 'const RETRACT = 0.35;',
     to: 'const RETRACT = 0.01;',
   },
-  // The push onto the band's notch left to its last pixels: a jump.
+  // The move onto the band's notch left to its last pixels: a jump.
   'the-camera-snaps-onto-the-band': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const PUSH = 0.1;',
-    to: 'const PUSH = 0.995;',
+    from: 'const MOVE = [0, 0.5];',
+    to: 'const MOVE = [0.495, 0.5];',
+  },
+  // The camera setting off once the words have gone: it holds the emptied
+  // desktop.
+  'the-camera-waits-on-the-empty-desktop': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const MOVE = [0, 0.5];',
+    to: 'const MOVE = [0.1, 0.5];',
+  },
+  // The desktop going back to print evenly in the dots' radius: what they
+  // show goes as its square, so a last haze lingers while the scroll goes on.
+  'the-last-dots-linger': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'on: showing(1 - unit((leave - OFF) / (LEAVE - OFF))),',
+    to: 'on: Math.sqrt(1 - unit((leave - OFF) / (LEAVE - OFF))),',
+  },
+  // The desktop not quite gone as the page takes the download: the pin goes
+  // with some of it still lit.
+  'the-pin-goes-with-the-desktop-lit': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'on: showing(1 - unit((leave - OFF) / (LEAVE - OFF))),',
+    to: 'on: showing(1 - unit((leave - OFF) / (LEAVE + 0.1 - OFF))),',
+  },
+  // The stylesheet's dots a size the camera does not read them at: what it
+  // takes away evenly is not what shows.
+  'the-dots-are-another-size': {
+    check: JOURNEY,
+    file: CSS,
+    from: '--r: calc(var(--on) * var(--on) * 0.75 * var(--dot));',
+    to: '--r: calc(var(--on) * var(--on) * 0.7 * var(--dot));',
+  },
+  // The download let into the window before it is drawn up: under the
+  // desktop, its link takes the clicks the film lets through.
+  'the-link-is-under-the-desktop-early': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const LEAVE = 1;',
+    to: 'const LEAVE = 0.7;',
+  },
+  // Drawn up to where the camera would land rather than where it is: the
+  // band's notch parts from the desktop's as the camera moves.
+  'the-band-parts-from-the-desktop': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '? (end - s) * vh + dockY - y : 0;',
+    to: '? (end - s) * vh : 0;',
   },
   // The push in finishing after the film has wrapped: every lap starts on a cut.
   'the-loop-wraps-on-a-cut': {
@@ -2188,19 +2283,19 @@ const MUTANTS = {
     from: 'out: [20.3, 22]',
     to: 'out: [20.3, 20.6]',
   },
-  'the-pull-stops-short-of-the-band': {
+  'the-camera-stops-short-of-the-band': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const k = ease(unit((rise - PUSH) / (1 - PUSH)));',
-    to: 'const k = 0.97 * ease(unit((rise - PUSH) / (1 - PUSH)));',
+    from: 'const k = dock ? ease(unit((leave - MOVE[0]) / (MOVE[1] - MOVE[0]))) : 0;',
+    to: 'const k = dock ? 0.97 * ease(unit((leave - MOVE[0]) / (MOVE[1] - MOVE[0]))) : 0;',
   },
-  // The desktop given up before the band is up: it goes with the camera
-  // still short of the band's notch.
-  'the-desktop-goes-before-it-docks': {
+  // The desktop going back to print with the camera still well short of the
+  // band's notch: the two notches and menu bars show at two sizes.
+  'the-desktop-goes-before-it-lands': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'covered: dock ? dock.top <= 0 : false,',
-    to: 'covered: dock ? dock.top <= vh * 0.1 : false,',
+    from: 'const OFF = 0.42;',
+    to: 'const OFF = 0.2;',
   },
 
   // The hand drawn on the film: the gesture it teaches has to be the one the

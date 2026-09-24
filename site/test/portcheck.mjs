@@ -51,7 +51,7 @@ import {
 import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
-import { hold, camera, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS } from '../js/tunnel.js';
+import { hold, camera, drawnUp, shown, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS, DOT } from '../js/tunnel.js';
 import { CUES, HAND, touchesAt } from '../js/touches.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -3444,18 +3444,26 @@ function theMarkIsTheIconsOwnContour() {
  * where one picture becomes another: the printed screen becomes the recorded
  * desktop, and the desktop's notch becomes the band's, the download link. Each
  * only reads as one camera if both sides agree on the same place and size, so
- * this drives the pure camera from a phone to a wide display, with the band
- * rising over the desktop from the window's foot the way the page scrolls it:
- * the dive aims at the wide shot and the desktop is laid on the print's own
- * screen until then, the notch hangs from the top of the window as it does
- * from a display, the wide shot fills the window with the desktop, the close
- * shot never draws a point of the footage past 1.8 CSS pixels and keeps the
- * player clear of the words, the title and then the how-to are up before the
- * band comes for them, the player is back in the notch and the camera on the
- * band's notch exactly as the band covers the window, and nothing jumps:
- * stepped a scrolled pixel at a time, a fade takes at least fifty pixels of
- * scroll, the desktop moves at most four pixels for each one scrolled, and its
- * size changes by at most a percent.
+ * this drives the pure camera from a phone to a wide display the way the page
+ * scrolls it: the dive aims at the wide shot and the desktop is laid on the
+ * print's own screen until then, the notch hangs from the top of the window as
+ * it does from a display, the wide shot fills the window with the desktop, the
+ * close shot never draws a point of the footage past 1.8 CSS pixels and keeps
+ * the player clear of the words, and the title and then the how-to are up
+ * while the camera holds.
+ *
+ * Then the handover. The download is drawn up under the desktop, its notch
+ * wherever the camera has the desktop's, and the camera pushes in and down
+ * onto it: the words and the player away first, it lands with the link at the
+ * window's centre, larger than any shot the film held and still with the
+ * desktop filling the window below its edge, and the desktop goes back to
+ * print there, to nothing by the time the page has the download in hand, so
+ * letting the pin go changes nothing on screen. No stretch of it sits: every
+ * twentieth of a window scrolled moves the camera or a fade, what the dots
+ * show among them. And nothing jumps: stepped a scrolled pixel at a time, a fade
+ * takes at least fifty pixels of scroll, the desktop and the band's notch move
+ * at most four pixels for each one scrolled, and the desktop's size changes by
+ * at most a percent.
  *
  * Between the two, the camera keeps the footage's time, not the scroll's: in
  * on the player while it is played, out to the whole desktop as it goes into
@@ -3463,13 +3471,15 @@ function theMarkIsTheIconsOwnContour() {
  * every zoom takes a second and a half or more — a move, not a cut.
  *
  * And the download is the page's point, so the journey keeps out of its way:
- * the download rises over the film, on paper and at least a window tall, the
- * pinned film goes once it is covered, and the film, a picture laid under the
- * download's first screen, lets the clicks meant for the band through. Each
- * was broken once: the footage covered the link until it reached the top
- * edge, the transparent film took every click, a download shorter than the
- * window showed the pinned how-to under it, and the pin, left up, showed its
- * words again under the download as the page went on.
+ * the download is on paper and at least a window tall, below the window until
+ * it is drawn up, the pinned film goes once it is covered, and the film, a
+ * picture laid over the download's first screen, lets the clicks meant for
+ * the band through. Each was broken once: the footage covered the link until
+ * it reached the top edge, the transparent film took every click, a download
+ * shorter than the window showed the pinned how-to under it, the pin, left
+ * up, showed its words again under the download as the page went on, and the
+ * halftone kept a soft dot at nothing, a pink haze on the band that went in
+ * one frame as the pin did.
  */
 function theJourneyLandsWhereItHandsOver() {
   const source = readFileSync(join(here, '..', 'js', 'tunnel.js'), 'utf8');
@@ -3492,10 +3502,12 @@ function theJourneyLandsWhereItHandsOver() {
     ...placed.matchAll(/setProperty\('(--[\w-]+)', ([^;]+)\);/g),
     ...placed.matchAll(/toggleAttribute\('([\w-]+)', ([^;]+)\);/g),
     ...placed.matchAll(/\.(hidden) = ([^;]+);/g),
+    ...placed.matchAll(/\.style\.(transform|translate) = ([^;]+);/g),
   ];
-  require(key && written.length >= 12, 'could not read the placement\'s skip key and the values it writes');
+  require(key && written.length >= 15, 'could not read the placement\'s skip key and the values it writes');
   for (const [, property, value] of written) {
-    const names = [...value.matchAll(/(?<![\w.])(on|dive|pitch|c\.\w+|at\.\w+)\b/g)].map((m) => m[1]);
+    const names = [...value.matchAll(/(?<![\w.])(on|dive|pitch|far|lift|x|y|scale|c\.\w+|at\.\w+)\b/g)]
+      .map((m) => m[1]);
     require(names.length, `could not tell what ${property} is written from`);
     for (const name of names) {
       require(new RegExp(`(?<![\\w.])${name.replace('.', '\\.')}\\b`).test(key),
@@ -3518,19 +3530,50 @@ function theJourneyLandsWhereItHandsOver() {
   require(px('left') === FOOTAGE.x && px('width') === FOOTAGE.width && px('height') === FOOTAGE.height,
     `the journey lays the footage at ${px('left')}pt, ${px('width')}x${px('height')}, not at FOOTAGE's `
     + `${FOOTAGE.x}pt, ${FOOTAGE.width}x${FOOTAGE.height} — it is not where it was shot on the still`);
-  // The download rises over the film: above it, opaque, a window tall at
-  // least; and the pin goes once it is covered.
+  // The download lies under the film, on paper, a window tall at least: the
+  // desktop lands on it and goes back to print over it; and the pin goes once
+  // the page has it.
   const getRule = /\[data-journey="on"\] \.get\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const z = (rule) => Number(/(?:^|;|\*\/)\s*z-index\s*:\s*(\d+)\s*;/.exec(rule)?.[1]);
-  require(z(getRule) > z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)\s*;/.test(getRule),
-    'the journey\'s download does not rise over the film on paper — the desktop shows on or through '
-    + 'the band, and the link is under it');
+  require(z(getRule) < z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)\s*;/.test(getRule),
+    'the journey\'s download is not under the film on paper — drawn up through the handover, it covers '
+    + 'the desktop the camera is landing on, or shows the film through it');
   require(/(?:^|;|\*\/)\s*min-height\s*:\s*100svh\s*;/.test(getRule),
     'the journey\'s download can be shorter than the window — landed, it leaves the pinned how-to '
     + 'showing under it until the pin goes');
   require(/\.film\[data-tunnel="on"\]\[data-covered\] \.film__pin\s*\{\s*visibility\s*:\s*hidden\s*;\s*\}/.test(css),
     'the pinned film stays up once the download has covered it — its words show again under the '
     + 'download as the page goes on');
+  // The band's notch as the page lays it: as wide as a display's filling the
+  // window at least, and as the close shot's; its depth 32 of its 185 points;
+  // and at the window's centre under a heading that fills the window above
+  // its bezel.
+  const notchRule = /(?:^|;|\*\/)\s*--notch-w\s*:\s*max\(clamp\((\d+)px, (\d+)vw, (\d+)px\), 100vw \* 185 \/ 1512, 100svh \* 185 \/ 982,\s*min\((\d+)px, \(100vw - (\d+)px\) \* 185 \/ (\d+), \(100svh - (\d+)px\) \* 185 \/ (\d+)\)\)\s*;/
+    .exec(getRule)?.slice(1).map(Number);
+  require(notchRule, 'the journey\'s band does not size its notch as a display\'s filling the window and '
+    + 'the close shot\'s at least — landed on it, the desktop leaves paper beside or under it, or the '
+    + 'camera pulls out to land');
+  const [least, share, most, closeW, sides, playerW, foot, playerH] = notchRule;
+  const baseRule = /(?:^|\n)\.get\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const deep = Number(/(?:^|;|\*\/)\s*--notch-h\s*:\s*calc\(var\(--notch-w\) \* (\d+) \/ 185\)\s*;/.exec(baseRule)?.[1]);
+  require(deep > 0, 'could not read the band\'s notch depth from magnetite.css');
+  const titleRule = /\[data-journey="on"\] \.get__title\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  require(/(?:^|;|\*\/)\s*min-height\s*:\s*calc\(50svh - var\(--bezel\) - var\(--notch-h\) \/ 2\)\s*;/.test(titleRule),
+    'the journey\'s heading does not fill the window above the bezel — the download\'s notch, and the '
+    + 'camera landing on it, is not at the window\'s centre');
+  // The halftone the desktop goes off through: a dot's radius DOT pitches
+  // times the square of --on, which js/tunnel.js reads what the dots show
+  // from, and its soft edge a share of the pitch and no wider than the dot.
+  const dotsRule = /\.film\[data-tunnel="on"\] \.film__mac\[data-dots\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const dot = Number(/(?:^|;|\*\/)\s*--r\s*:\s*calc\(var\(--on\) \* var\(--on\) \* ([\d.]+) \* var\(--dot\)\)\s*;/
+    .exec(dotsRule)?.[1]);
+  require(dot === DOT, `the halftone's dots are ${dot} pitches at their largest in magnetite.css and ${DOT} in `
+    + 'js/tunnel.js — the desktop goes off unevenly, closed a while and then a lingering haze');
+  require(/radial-gradient\(circle, #000 var\(--r\), transparent calc\(var\(--r\) \+ min\(var\(--dot\) \/ \d+, var\(--r\)\)\)\)/
+    .test(dotsRule),
+  'the halftone\'s dots keep a soft edge at nothing, or one in the desktop\'s points — gone back to '
+    + 'print the desktop leaves a haze on the band that goes in one frame with the pin, or, close, the '
+    + 'blur holds the dots shut while the scroll goes on');
 
   // The camera on the footage's clock.
   const seconds = filmSeconds();
@@ -3559,37 +3602,97 @@ function theJourneyLandsWhereItHandsOver() {
       + 'footage\'s two pixels a point are upsampled soft on a 2x display');
     require(close === wide || (PLAYER.width * close <= vw - 32 && PLAYER.height * close <= vh - WORDS),
       `${vw}x${vh}: the close shot runs the player into the window's edge or under its words`);
-    // The band's notch as the page moves it: the download overlaps the film's
-    // last screen, so its top, the band's, starts `run` down from the
-    // window's top at the pin and comes up a pixel for each one scrolled,
-    // the link hanging a bezel under it. A step is one pixel of scroll.
-    const notchW = Math.min(320, Math.max(180, vw * 0.23));
-    const bezel = 0.42 * notchW * 32 / 185;
+    // The band's notch as the page lays it, where it stands with the download
+    // at the window's top: centred, the heading and bezel above it.
+    const notchW = Math.max(Math.min(most, Math.max(least, vw * share / 100)), vw * 185 / 1512, vh * 185 / 982,
+      Math.min(closeW, (vw - sides) * 185 / playerW, (vh - foot) * 185 / playerH));
+    const dock = { x: vw / 2, y: vh / 2 - notchW * deep / 185 / 2, scale: notchW / 185 };
+    // The download overlaps the film's last screen, so its top starts `run`
+    // down from the window's top at the pin and comes up a pixel for each one
+    // scrolled, reaching the window's top at `end`, less however far up the
+    // handover has it drawn. A step is one pixel of scroll.
     const run = vh * (tall / 100 - 1);
+    const end = run / vh;
     const last = Math.ceil(run + vh * 0.2);
-    const dockAt = (s) => ({ x: vw / 2, y: run - s + bezel, scale: notchW / 185, top: run - s });
     for (const [shot, t] of Object.entries(shotAt)) {
       const film = shot === 'close' ? close : wide;
-      const frames = Array.from({ length: last + 1 }, (_, s) => camera(s / vh, vw, vh, dockAt(s), t));
+      const frames = Array.from({ length: last + 1 }, (_, s) => {
+        const c = camera(s / vh, vw, vh, dock, t, end);
+        const lift = drawnUp(s / vh, vh, end, c.y, dock.y);
+        return { ...c, lift, top: run - s - lift, dots: shown(DOT * c.on * c.on) };
+      });
       const start = frames[0];
-      require(start.live === 1 && start.words === 0 && start.how === 0 && !start.covered
+      require(start.live === 1 && start.words === 0 && start.how === 0 && start.on === 1 && !start.covered
           && start.x === at.x && start.y === at.y && start.scale === at.scale,
       `${vw}x${vh}: the camera is not on the wide shot, the footage whole and its words not yet up, `
         + 'where the dive hands it over');
-      require(frames.some((c) => c.live === 1 && c.words === 1 && c.how === 1
+      require(frames.some((c) => c.live === 1 && c.words === 1 && c.how === 1 && c.lift === 0
           && c.x === at.x && c.y === at.y && Math.abs(Math.log(c.scale / film)) < 1e-9),
       `${vw}x${vh}: the camera never holds on the footage's own ${shot} shot with its title and `
-        + 'how-to up before the band comes for them');
-      const landed = frames.findIndex((c) => c.covered);
-      require(landed > 0, `${vw}x${vh}: the band never covers the desktop`);
-      const end = frames[landed];
-      const dock = dockAt(landed);
-      require(Math.abs(end.x - dock.x) < 1e-6 && Math.abs(end.y - dock.y) < 1e-6
-          && Math.abs(Math.log(end.scale / dock.scale)) < 1e-9 && end.live === 0,
-      `${vw}x${vh}: the band covers the desktop with the camera at (${end.x.toFixed(1)}, `
-        + `${end.y.toFixed(1)}) x${end.scale.toFixed(3)} and the player ${end.live ? 'still out' : 'away'}, `
-        + `not on the band's notch at (${dock.x.toFixed(1)}, ${dock.y.toFixed(1)}) x${dock.scale.toFixed(3)} `
-        + 'with the player back in the notch as the band\'s is');
+        + 'how-to up before the handover');
+      const drawn = frames.findIndex((c) => c.lift !== 0);
+      const covered = frames.findIndex((c) => c.covered);
+      require(drawn > 0 && covered > drawn,
+        `${vw}x${vh}: the download is never drawn up under the desktop before the page brings it`);
+      const onDock = (c) => Math.abs(c.x - dock.x) < 1e-6 && Math.abs(c.y - dock.y) < 1e-6
+        && Math.abs(Math.log(c.scale / dock.scale)) < 1e-9;
+      const landed = frames.findIndex(onDock);
+      require(landed > drawn && landed <= covered && frames[landed].live === 0
+          && frames[landed].words === 0 && frames[landed].how === 0,
+      `${vw}x${vh}: the camera does not land on the band's notch, with the player and the words away, `
+        + 'before the page has the download in hand');
+      // It lands no further out than any shot the film held, so it never
+      // pulls out onto the link, with the desktop still filling the window
+      // below its edge.
+      const inward = dock.scale >= close * (1 - 1e-9);
+      require(inward && 1512 * dock.scale >= vw - 1e-9 && dock.y + 982 * dock.scale >= vh - 1e-9,
+        `${vw}x${vh}: the camera lands on the band's notch at x${dock.scale.toFixed(3)}, `
+        + (inward ? 'leaving paper beside or under the desktop'
+          : `no closer than the close shot's x${close.toFixed(3)} — it pulls out onto the link`));
+      const off = frames[covered];
+      require(onDock(off) && off.on === 0 && off.live === 0 && off.words === 0 && off.how === 0,
+        `${vw}x${vh}: the page takes the download over with the camera at (${off.x.toFixed(1)}, `
+        + `${off.y.toFixed(1)}) x${off.scale.toFixed(3)} and the desktop ${(off.on * 100).toFixed(0)}% on — `
+        + 'letting the pin go jumps');
+      for (let s = 0; s <= last; s++) {
+        const f = frames[s];
+        if (s < drawn) {
+          require(f.top >= vh - 1e-6,
+            `${vw}x${vh}: ${s}px in, the download is in the window before it is drawn up — the clicks the `
+            + 'film lets through land on a link under the desktop');
+        } else if (s < covered) {
+          require(Math.abs(f.top + dock.y - f.y) < 1e-6 && 1512 * f.scale >= vw - 1e-9
+              && f.y + 982 * f.scale >= vh - 1e-9,
+          `${vw}x${vh}: ${s}px in, the band's notch is at ${(f.top + dock.y).toFixed(1)}, not under the `
+            + `desktop's at ${f.y.toFixed(1)}, or the desktop leaves the window's foot or sides bare`);
+          // The band shows through only as the desktop goes, which it does
+          // only with the camera all but landed: short of it, the two notches
+          // and menu bars show at two sizes.
+          require(f.on === 1 || (Math.abs(Math.log(f.scale / dock.scale)) <= 0.025
+              && Math.abs(f.y - dock.y) <= 0.025 * vh),
+          `${vw}x${vh}: ${s}px in, the desktop goes back to print with the camera at `
+            + `x${f.scale.toFixed(3)}, ${f.y.toFixed(1)}px down, short of the band's notch — the two show at `
+            + 'two sizes');
+          // The camera is on its way as soon as the words start to go, so no
+          // frame holds the desktop emptied of them.
+          require(f.words >= frames[drawn - 1].words || f.y > at.y,
+            `${vw}x${vh}: ${s}px in, the words are going with the camera still on the ${shot} shot — it `
+            + 'holds the emptied desktop');
+        } else {
+          require(f.lift === 0, `${vw}x${vh}: ${s}px in, the download is still drawn up after the page has it`);
+        }
+      }
+      // No stretch of the handover sits: every twentieth of a window moves the
+      // desktop two pixels or its size half a percent, or a fade three
+      // hundredths.
+      const span = Math.round(vh / 20);
+      for (let s = drawn; s + span <= covered; s++) {
+        const [a, b] = [frames[s], frames[s + span]];
+        require(Math.hypot(b.x - a.x, b.y - a.y) >= 2 || Math.abs(Math.log(b.scale / a.scale)) >= 0.005
+            || ['live', 'words', 'how', 'dots'].some((k) => Math.abs(b[k] - a[k]) >= 0.03),
+        `${vw}x${vh}: from ${s}px in, a twentieth of a window of scroll moves nothing on the ${shot} `
+          + 'shot — the handover sits');
+      }
       for (let s = 1; s <= last; s++) {
         const [a, b] = [frames[s - 1], frames[s]];
         require(!a.covered || b.covered, `${vw}x${vh}: ${s}px in, the desktop comes back after the band covered it`);
@@ -3597,10 +3700,10 @@ function theJourneyLandsWhereItHandsOver() {
         require(b.live < 1 || b.words + b.how === 0 || close === wide
             || b.y + PLAYER.height * b.scale <= vh - WORDS,
         `${vw}x${vh}: ${s}px in, the player runs under the words on the ${shot} shot`);
-        require(Math.abs(b.live - a.live) <= 0.02 && Math.abs(b.words - a.words) <= 0.02
-            && Math.abs(b.how - a.how) <= 0.02
+        require(['live', 'words', 'how', 'dots'].every((k) => Math.abs(b[k] - a[k]) <= 0.02)
             && Math.hypot(b.x - a.x, b.y - a.y) <= 4
-            && Math.abs(Math.log(b.scale / a.scale)) <= 0.01,
+            && Math.abs(Math.log(b.scale / a.scale)) <= 0.01
+            && (s <= drawn || Math.abs(b.top - a.top) <= 4),
         `${vw}x${vh}: the camera jumps ${s}px in, on the ${shot} shot`);
       }
     }

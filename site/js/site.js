@@ -215,8 +215,8 @@ for (const entry of views) printed(entry.view.canvas, entry.view.press ? 'press'
 // beside is paused — the canvases' own frugality.
 const film = document.getElementById('demo-film');
 // Scrolled into: the hero's camera dives into its notch, the recorded desktop
-// takes over and the camera follows the footage in and out, then the band
-// rises over the desktop and its notch, the download, lands on the desktop's.
+// takes over and the camera follows the footage in and out, then lands on the
+// band's notch, the download, at the window's centre, and the desktop goes.
 // The camera reads the film's clock; playback stays the page's below.
 const tunnel = startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion, hero, dock: download, film });
 // Only in the journey, where the desktop is laid out in its own points: the
