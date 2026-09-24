@@ -104,6 +104,8 @@ const BAND_PORT = 'thePortAgreesWithTheTap';
 const BAND_SINES = 'eachBandAnswersItsOwnSine';
 const BAND_PARTITION = 'thePartitionCoversWithoutOverlap';
 const BAND_PUMP = 'thePumpDecaysToHonestSilence';
+const JOURNEY = 'theJourneyLandsWhereItHandsOver';
+const TUNNEL_JS = 'site/js/tunnel.js';
 const BAND_CHECKS = [BAND_PORT, BAND_SINES, BAND_PARTITION, BAND_PUMP];
 
 const MUTANTS = {
@@ -2013,6 +2015,52 @@ const MUTANTS = {
     to: '  if (!reduceMotion) renderStill();',
   },
 
+  // The journey's handovers: the printed notch into the footage, and the
+  // footage into the band's notch. Each is one camera only if both sides
+  // agree on the place and the size.
+  'the-dive-aims-off-the-hold': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'hero?.setDive(dive, hold(vw, vh), scrollY,',
+    to: 'hero?.setDive(dive, hold(vw, vh * 0.9), scrollY,',
+  },
+  'the-print-returns-behind-the-pull': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'scrollY, dive >= 1 && p >= FADE);',
+    to: 'scrollY, dive >= 1 && c.dark >= 0.999);',
+  },
+  'the-footage-holds-past-its-pixels': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const SHARPEST = 1.5;',
+    to: 'const SHARPEST = 2;',
+  },
+  'the-footage-shows-before-the-pin': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const shown = unit(p / FADE);',
+    to: 'const shown = unit(p / FADE + 0.3);',
+  },
+  'the-footage-cuts-in': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const FADE = 0.12;',
+    to: 'const FADE = 0.004;',
+  },
+  'the-pull-stops-short-of-the-band': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const k = dock ? ease(unit((p - PULL) / (1 - PULL))) : 0;',
+    to: 'const k = dock ? 0.97 * ease(unit((p - PULL) / (1 - PULL))) : 0;',
+  },
+  'the-footage-leaves-before-it-docks': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'film: shown * (1 - unit((k - 0.86) / 0.14)),',
+    to: 'film: shown * (1 - unit((k - 0.3) / 0.5)),',
+  },
+
   // The page asks to play on load; the pause is the visitor's. The markup
   // starting the element itself would play at a visitor who paused last time,
   // since only the script remembers that.
@@ -2252,7 +2300,7 @@ const MUTANTS = {
   },
 };
 
-const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, WEBMCP, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, ...BAND_CHECKS];
+const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, WEBMCP, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, ...BAND_CHECKS];
 
 /**
  * Every check portcheck runs is a check this harness has watched fail.

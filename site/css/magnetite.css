@@ -225,19 +225,22 @@ a { color: inherit; }
   .how li { max-width: none; }
 }
 
-/* The tunnel (js/tunnel.js). The section pins; the machine is laid out at
-   its true size in points and moved by one transform; --dark (0-1) closes
-   the page round the footage, centred on --cx/--cy with radii --rx/--ry;
-   --title and --words fade the words in and out. */
+/* The journey (js/tunnel.js). The hero's print stays where it is while its
+   words scroll away and the camera dives into its notch; the film pins and
+   the footage fades in over the printed notch, the page going dark round it
+   (--dark, an ellipse centred on --cx/--cy with radii --rx/--ry); then the
+   page comes back and the footage rides down onto the band's notch. */
+[data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
 .film[data-tunnel="on"] {
   --dark: 0;
-  --title: 1;
+  --film: 0;
   --words: 0;
-  height: 320vh;
+  position: relative;
+  z-index: 2;
+  height: 340vh;
+  margin-top: 40vh;
   padding: 0;
 }
-/* The frame darkens with the tunnel too, so the paper above the display's
-   top edge goes with the rest of the page instead of glowing over it. */
 .film[data-tunnel="on"] .film__pin {
   position: sticky;
   top: 0;
@@ -256,67 +259,42 @@ a { color: inherit; }
   opacity: var(--dark);
   pointer-events: none;
 }
+/* One line where the window allows, so it stays clear of the footage held
+   under it on a short screen. */
 .film[data-tunnel="on"] .film__title {
   position: absolute;
-  top: max(64px, 11vh);
+  top: max(40px, 7vh);
   left: var(--gutter);
   right: var(--gutter);
+  z-index: 3;
+  max-width: none;
   margin: 0 auto;
-  opacity: var(--title);
-  transform: translateY(calc(-28px * (1 - var(--title))));
+  color: var(--paper);
+  opacity: var(--words);
 }
 .film[data-tunnel="on"] .film__mac {
   position: absolute;
   top: 0;
   left: 0;
-  width: 1544px;
-  will-change: transform;
+  width: 512px;
+  opacity: var(--film);
+  will-change: transform, opacity;
 }
-/* A 14-inch MacBook Pro seen square on: the screen in points, a black bezel,
-   an aluminium rim, and the base's lip with its thumb scoop below. */
-.film[data-tunnel="on"] .film__screen {
-  position: relative;
-  width: 1512px;
-  height: 982px;
-  border: 16px solid #050505;
-  border-radius: 34px 34px 22px 22px;
-  background: var(--film-ground);
-  box-shadow: 0 0 0 2px #B9BAC0;
-}
+.film[data-tunnel="on"] .film__screen { position: relative; width: 512px; height: 240px; }
 .film[data-tunnel="on"] .film__stage {
   position: absolute;
-  top: 0;
-  left: 500px;
-  width: 512px;
+  inset: 0;
   max-width: none;
   margin: 0;
   border-radius: 0;
 }
 .film[data-tunnel="on"] .film__video { inset: 0; width: 100%; height: 100%; }
-.film[data-tunnel="on"] .film__base {
-  position: relative;
-  display: block;
-  height: 22px;
-  margin: 2px -72px 0;
-  border-radius: 2px 2px 26px 26px / 2px 2px 20px 20px;
-  background: linear-gradient(#DCDDE1, #A7A8AE 70%, #8E8F95);
-}
-.film[data-tunnel="on"] .film__base::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 220px;
-  height: 9px;
-  margin-left: -110px;
-  border-radius: 0 0 12px 12px;
-  background: linear-gradient(#9C9DA3, #C4C5CA);
-}
+/* Above the soundtrack's circles, which hold the window's bottom edge. */
 .film[data-tunnel="on"] .film__foot {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: max(28px, 7vh);
+  bottom: max(96px, 7vh);
   z-index: 3;
   margin: 0 auto;
   color: var(--paper);
@@ -327,10 +305,20 @@ a { color: inherit; }
 .film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
 .film[data-tunnel="on"] .how li { color: rgb(236 235 230 / 0.72); }
 .film[data-tunnel="on"] .how b { color: var(--paper); }
+/* The download overlaps the film's last screen, so the band is there to be
+   docked onto as the pin lets go; the band comes first, a menu bar at the
+   top of the screen, and its heading after it. */
+[data-journey="on"] .get {
+  display: flex;
+  flex-direction: column;
+  margin-top: -100vh;
+  margin-top: -100svh;
+  padding-top: 0;
+}
+[data-journey="on"] .get .band { order: -1; }
+[data-journey="on"] .get__title { margin-top: 9vh; }
 @media (max-width: 719px) {
-  .film[data-tunnel="on"] .film__stage { aspect-ratio: auto; height: 240px; }
-  .film[data-tunnel="on"] .film__video { inset: 0; width: 100%; height: 100%; }
-  .film[data-tunnel="on"] .film__foot { bottom: 20px; font-size: 15px; }
+  .film[data-tunnel="on"] .film__foot { font-size: 15px; }
 }
 
 /* ── The menu bar ───────────────────────────────────────────────────────── */
