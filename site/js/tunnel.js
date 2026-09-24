@@ -10,10 +10,15 @@
 // the notch hanging from its top, and from there the camera follows the
 // footage rather than the scroll: in on the player as the pointer rises to
 // it, held there through every gesture, back out to the whole desktop as the
-// player goes into the notch. Scrolling on, the menu bar below rises over the
-// desktop from the window's foot, the player goes back into the notch, and
-// the camera pushes in until the desktop's notch is the size of the band's,
-// so that the band's notch — the download link — lands exactly on it.
+// player goes into the notch. Scrolling on, the words go, the player goes back
+// into the notch, and the camera carries the desktop's notch in and down onto
+// the band's — the download link — at the window's centre. The download is
+// drawn up under the desktop the whole way, its notch wherever the camera has
+// the desktop's, so above the desktop's top edge is the band's bezel and the
+// heading over it. As it lands, the desktop goes back to print the way it
+// came, through the halftone, its dots shrinking evenly until they are gone,
+// so the recorded menu bar becomes the printed one in place and the idle
+// notch becomes the link.
 //
 // The desktop is a still of the take's own first frame and the footage covers
 // only the part of it that moves: the player under the notch and the
@@ -62,10 +67,35 @@ const SETTLE = 0.3;
 const TITLE = 0.12;
 const HOW = 0.24;
 const RISE = 0.3;
-/** The share of the band's rise over which the player goes back into the notch. */
-const RETRACT = 0.4;
-/** The share of the band's rise before the camera starts its push onto the band's notch. */
-const PUSH = 0.1;
+/**
+ * The handover, in window heights before the download's top reaches the
+ * window's: over its first WORDS_OUT the words go and over RETRACT the player
+ * goes back into the notch; from MOVE[0] the camera carries the notch in and
+ * down onto the band's, at the window's centre, landing at MOVE[1]; and from
+ * OFF to the end the desktop goes back to print. The camera sets off as the
+ * words start to go, so no frame of it holds the empty desktop. LEAVE is a
+ * window, so until it is drawn up the download is below the window's foot,
+ * out of reach of the clicks the film lets through.
+ */
+const LEAVE = 1;
+const WORDS_OUT = 0.25;
+const RETRACT = 0.35;
+const MOVE = [0, 0.5];
+/**
+ * Where the desktop starts going back to print: just before the camera lands,
+ * where it is within a couple of percent of the band's notch, so no frame of
+ * the camera's slowing holds still.
+ */
+const OFF = 0.42;
+/**
+ * How far out from the notch's top edge, in the desktop's points, the solid
+ * bloom that lights it reaches. Coming on over the print's small screen, the
+ * whole desktop: a bottom corner. Going off, full size across the window,
+ * none: a bloom that size is a blur, so the dots go evenly everywhere.
+ */
+const REACH = { on: Math.hypot(SCREEN.width / 2, SCREEN.height), off: 0 };
+/** A dot's radius at --on 1, in pitches of the halftone (css/magnetite.css's --r). */
+export const DOT = 0.75;
 
 const unit = (x) => Math.max(0, Math.min(1, x));
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
@@ -106,36 +136,77 @@ export function focus(t) {
 /**
  * Where the camera is `s` window heights past the pin, with the footage `t`
  * seconds in: the notch's top edge and scale, how much of the player is out
- * of the notch, and how far up the title and the how-to are. `dock` is the
- * band's notch, {x, y, scale} with `top`, the band's own top edge, wherever
- * they are on screen now; the band rises over the desktop from the window's
- * foot (`rise` 0) to its top (`rise` 1), where it covers it.
+ * of the notch, how far up the title and the how-to are, and how much of the
+ * desktop is still lit (`on`, 0 gone back to print). `dock` is the band's
+ * notch, {x, y, scale}, where it stands when the download is at the window's
+ * top, and `end` is where that is, in the same window heights as `s`. From
+ * there on the desktop is `covered`: the page has the download in hand.
  */
-export function camera(s, vw, vh, dock, t = 0) {
+export function camera(s, vw, vh, dock, t = 0, end = Infinity) {
   const at = hold(vw, vh);
   const { wide, close } = shots(vw, vh);
   // In log space, so a zoom reads as one steady move. The footage's own shot
   // comes in over the film's first scroll, from where the dive left it.
   const film = wide * (close / wide) ** focus(t);
   const held = wide * (film / wide) ** ease(unit(s / SETTLE));
-  const rise = dock ? unit(1 - dock.top / vh) : 0;
-  const k = ease(unit((rise - PUSH) / (1 - PUSH)));
+  const leave = s - (end - LEAVE);
+  const k = dock ? ease(unit((leave - MOVE[0]) / (MOVE[1] - MOVE[0]))) : 0;
+  const out = 1 - ease(unit(leave / WORDS_OUT));
   return {
     x: dock ? at.x + (dock.x - at.x) * k : at.x,
-    // The notch hangs as far below the band's top as the band's own does.
-    y: dock ? at.y + (dock.y - dock.top - at.y) * k : at.y,
+    y: dock ? at.y + (dock.y - at.y) * k : at.y,
     scale: dock ? held * (dock.scale / held) ** k : held,
-    live: 1 - ease(unit(rise / RETRACT)),
-    words: ease(unit((s - TITLE) / RISE)),
-    how: ease(unit((s - HOW) / RISE)),
-    covered: dock ? dock.top <= 0 : false,
-    rise,
+    live: 1 - ease(unit(leave / RETRACT)),
+    words: ease(unit((s - TITLE) / RISE)) * out,
+    how: ease(unit((s - HOW) / RISE)) * out,
+    // Taken away evenly in what the dots show, not in their radius.
+    on: showing(1 - unit((leave - OFF) / (LEAVE - OFF))),
+    covered: s >= end,
   };
+}
+
+/**
+ * How far up the download is drawn, in CSS pixels, through the handover `s`
+ * window heights past the pin, so that its notch, `dockY` below its top,
+ * stands wherever the camera has the desktop's, `y`: from where it is a window
+ * down, still out of sight, until `end`, where the page itself has brought it
+ * there and the camera has landed on it.
+ */
+export function drawnUp(s, vh, end, y, dockY) {
+  return s >= end - LEAVE && s < end ? (end - s) * vh + dockY - y : 0;
 }
 
 /** The screen coming on: 0 dark, 1 lit, over the last ON of the dive. */
 export function lit(dive) {
   return unit((dive - (1 - ON)) / ON);
+}
+
+/**
+ * How much of the desktop the halftone shows with its dots `r` pitches
+ * across: each a circle clipped to its own square of the grid, so past half
+ * a pitch it loses the four caps outside the square, and whole at a root half.
+ */
+export function shown(r) {
+  if (r >= Math.SQRT1_2) return 1;
+  const cap = r > 0.5 ? r * r * Math.acos(0.5 / r) - 0.5 * Math.sqrt(r * r - 0.25) : 0;
+  return Math.PI * r * r - 4 * cap;
+}
+
+/**
+ * The --on at which the halftone shows `share` of the desktop. Going off by
+ * radius, the dots stay all but closed for the first tenth and leave a haze
+ * that lingers at the end; by share, each stretch of scroll takes as much.
+ */
+function showing(share) {
+  if (share >= 1) return 1;
+  if (share <= 0) return 0;
+  let [lo, hi] = [0, 1];
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (shown(DOT * mid * mid) < share) lo = mid;
+    else hi = mid;
+  }
+  return hi;
 }
 
 export function startTunnel(section, { reduceMotion = false, hero = null, dock = null, film = null } = {}) {
@@ -145,7 +216,7 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   section.dataset.tunnel = 'on';
   const root = document.documentElement;
   root.dataset.journey = 'on';
-  const band = dock && dock.closest('.band');
+  const get = dock && dock.closest('.get');
   // The notch's top edge, in the display's own points: centred, at the top.
   const notch = { x: SCREEN.width / 2, y: 0 };
   mac.style.transformOrigin = '0 0';
@@ -154,6 +225,8 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   let last = '';
   /** Seconds into the footage, as of the frame on screen. */
   let t = 0;
+  /** How far up the download is drawn, as last written. */
+  let up = 0;
   function place() {
     queued = 0;
     const vw = innerWidth;
@@ -163,31 +236,43 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     const before = box.top + scrollY;
     const dive = before > 0 ? unit(scrollY / before) : 1;
     const s = Math.max(0, -box.top) / vh;
+    // The band's notch where it stands with the download at the window's top,
+    // and where in the scroll the page brings it there: both the same however
+    // far up it is drawn now.
+    const page = get && get.getBoundingClientRect();
     const link = dock && dock.getBoundingClientRect();
-    const top = band ? band.getBoundingClientRect().top : Infinity;
-    const at = link && link.width
-      ? { x: link.left + link.width / 2, y: link.top, scale: link.width / NOTCH_WIDTH, top }
+    const at = page && link.width
+      ? { x: link.left + link.width / 2, y: link.top - page.top, scale: link.width / NOTCH_WIDTH }
       : null;
-    const c = camera(s, vw, vh, at, t);
+    const end = page ? (page.top + up - box.top) / vh : Infinity;
+    const c = camera(s, vw, vh, at, t, end);
+    const lift = at ? drawnUp(s, vh, end, c.y, at.y) : 0;
     // The print is only worth drawing until the desktop has covered it.
     hero?.setDive(dive, hold(vw, vh), scrollY, dive >= 1 && s >= SETTLE);
     // Until the pin, the desktop is laid on the print's own screen, wherever
     // the dive has it; from the pin on, it is the camera's.
-    const on = lit(dive);
+    const on = Math.min(lit(dive), c.on);
     const laid = dive < 1 ? hero?.notchAt() : null;
     const { x, y, scale } = laid || c;
-    // The halftone the screen comes on through: the print's own pitch on the
-    // page, so a tile of it is that many CSS pixels over the desktop's scale.
+    // The halftone the screen comes on and goes off through: the print's own
+    // pitch on the page, so a tile of it is that many CSS pixels over the
+    // desktop's scale.
     const pitch = Math.max(3.6, Math.min(5.2, vw / 300)) / scale;
+    const far = dive < 1 ? REACH.on : REACH.off;
 
     // Every value written below, or a fade that moves while the camera holds
     // still (the words coming up in the hold) is skipped and stays where it was.
     const key = `${scale.toFixed(4)}|${x.toFixed(1)}|${y.toFixed(1)}|${on.toFixed(3)}|${pitch.toFixed(2)}|`
-      + `${c.covered}|${c.live.toFixed(3)}|${c.words.toFixed(3)}|${c.how.toFixed(3)}|${dive.toFixed(3)}`;
+      + `${far.toFixed(0)}|${lift.toFixed(1)}|${c.covered}|${c.live.toFixed(3)}|${c.words.toFixed(3)}|`
+      + `${c.how.toFixed(3)}|${dive.toFixed(3)}`;
     if (key === last) return;
     last = key;
     mac.style.transform = `translate3d(${(x - notch.x * scale).toFixed(2)}px, `
       + `${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+    // Drawn up out of sight, a window down under the lit desktop, and let go
+    // where the page has brought it up itself.
+    if (get) get.style.translate = lift ? `0 ${(-lift).toFixed(1)}px` : '';
+    up = Number(lift.toFixed(1));
     // The pin is fixed, so the footage is always in the window as far as the
     // page's own observer knows (js/site.js plays it there). Out of the box
     // when none of it shows, it is paused rather than decoded unseen.
@@ -195,6 +280,7 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     mac.toggleAttribute('data-dots', on < 1);
     section.style.setProperty('--on', on.toFixed(3));
     section.style.setProperty('--dot', `${pitch.toFixed(2)}px`);
+    section.style.setProperty('--reach', `${far.toFixed(0)}px`);
     section.style.setProperty('--live', c.live.toFixed(3));
     section.style.setProperty('--words', c.words.toFixed(3));
     section.style.setProperty('--how', c.how.toFixed(3));
