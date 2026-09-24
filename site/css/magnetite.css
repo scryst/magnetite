@@ -88,11 +88,6 @@ a { color: inherit; }
   .masthead { padding-top: 18px; }
   .masthead__name { height: 17px; }
 }
-/* Where the notch's peek would reach the name or the link, the masthead
-   drops below it rather than sharing the top edge. */
-@media (max-width: 919px) {
-  .js .masthead { padding-top: 50px; }
-}
 
 /* ── The print ──────────────────────────────────────────────────────────── */
 
@@ -427,151 +422,100 @@ a { color: inherit; }
 }
 .finale[data-pour="ready"] .finale__still { visibility: hidden; }
 
-/* ── The notch ──────────────────────────────────────────────────────────── */
+/* ── The soundtrack ─────────────────────────────────────────────────── */
 
-/* The app's player at the app's size, one CSS pixel to the point. js/notch.js
-   sizes the box to the shell every frame and writes --open and --peek (0-1);
-   the canvas behind draws the shell, the glass, the ink and the trace, and
-   these are the words and controls laid over it. Scripts only: without them
-   there is nothing to play the soundtrack with. */
-.notch { display: none; }
-.js .notch {
-  --open: 0;
-  --peek: 0;
-  --content: clamp(0, (var(--open) - 0.55) / 0.45, 1);
+/* Circles at the foot of the window, stickered in paper so they hold on the
+   paper, the dark film and the prints alike. The ring is the track's progress
+   in the pink plate's ink; the sleeve with a ring is the one playing. */
+.player { display: none; }
+.js .player {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  right: max(16px, calc(env(safe-area-inset-right) + 8px), calc(var(--gutter) - 8px));
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
   z-index: 20;
-  display: block;
-  height: 0;
-  color: #fff;
-  font: 500 12.5px/1 var(--sans);
-}
-.notch__ink,
-.notch__shell {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.notch__ink { pointer-events: none; }
-.notch__shell {
-  width: 185px;
-  height: 32px;
-  overflow: hidden;
-  border-radius: 0 0 9px 9px;
-}
-.notch__sleeve {
-  position: absolute;
-  top: calc(7px + 49px * var(--open));
-  left: calc(11px + 5px * var(--open));
-  width: calc(19px + 69px * var(--open));
-  height: calc(19px + 69px * var(--open));
-  border-radius: calc(5.5px + 6.5px * var(--open));
-  opacity: clamp(0, var(--peek) + var(--open), 1);
-  object-fit: cover;
-}
-.notch__peek-clock,
-.notch__time {
-  position: absolute;
-  top: 0;
-  line-height: 33px;
-  font: 500 10.5px/32px ui-rounded, var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.62);
-}
-.notch__peek-clock {
-  right: 11px;
-  font-size: 10px;
-  line-height: 33px;
-  opacity: calc(var(--peek) * (1 - var(--open) * 2));
-}
-.notch[data-playing="false"] .notch__peek-clock { color: rgba(255, 255, 255, 0.4); }
-.notch__time { opacity: var(--content); }
-.notch__time--elapsed { left: 16px; }
-.notch__time--remaining { right: 16px; }
-.notch__body { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-.notch:not([data-open]) .notch__body { pointer-events: none; }
-.notch__track {
-  position: absolute;
-  top: 56px;
-  left: 116px;
-  right: 16px;
-  margin: 0;
-  opacity: var(--content);
-  transform: translateY(calc(8px * (1 - var(--content))));
-}
-.notch__title,
-.notch__artist {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.notch__title { height: 19px; font-size: 15px; font-weight: 600; line-height: 19px; margin-top: -3px; }
-.notch__artist { height: 16px; color: rgba(255, 255, 255, 0.76); line-height: 16px; }
-.notch__transport {
-  position: absolute;
-  top: 109px;
-  left: 50%;
   display: flex;
   align-items: center;
-  transform: translateX(-50%);
-  opacity: var(--content);
+  gap: 8px;
 }
-/* Each disc keeps a ring of hit area round it, so the three touch. */
-.notch__button {
+.player__toggle,
+.player__track {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
   padding: 0;
   border: 0;
-  background: none;
-  color: #fff;
+  border-radius: 50%;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.notch__button::before {
+.player__toggle {
+  width: 64px;
+  height: 64px;
+  background: none;
+  color: var(--paper);
+  transition: transform 0.15s;
+}
+/* The disc, inside the ring's room so nothing reaches past the button. */
+.player__toggle::before {
   content: "";
   grid-area: 1 / 1;
-  width: 26px;
-  height: 26px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.28);
-  transition: background-color 0.15s;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--paper);
 }
-.notch__button:hover::before { background: rgba(255, 255, 255, 0.24); }
-.notch__button svg { grid-area: 1 / 1; width: 9.5px; height: 9.5px; fill: currentColor; }
-.notch__button--primary { width: 39px; height: 39px; }
-.notch__button--primary::before { width: 31px; height: 31px; background: rgba(255, 255, 255, 0.2); }
-.notch__button--primary svg { width: 12.5px; height: 12.5px; }
-.notch__button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 50%; }
-.notch__pause,
-.notch__button[data-playing="true"] .notch__play { display: none; }
-.notch__button[data-playing="true"] .notch__pause { display: block; }
-/* The strip is a real range input along the lip; the canvas draws it. */
-.notch__seek {
+.player__toggle:active { transform: scale(0.94); }
+.player__toggle svg:not(.player__ring) { position: relative; grid-area: 1 / 1; width: 15px; height: 15px; fill: currentColor; }
+.player__pause,
+.player__toggle[data-playing="true"] .player__play { display: none; }
+.player__toggle[data-playing="true"] .player__pause { display: block; }
+.player__ring {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 0;
-  height: 14px;
-  margin: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  cursor: pointer;
-  opacity: var(--content);
+  inset: 0;
+  transform: rotate(-90deg);
+  fill: none;
+  stroke: #FF48B0;
+  stroke-width: 3;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pointer-events: none;
+  transition: stroke-dashoffset 0.25s linear;
 }
-.notch__seek::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: transparent; }
-.notch__seek::-moz-range-thumb { width: 14px; height: 14px; border: 0; background: transparent; }
-.notch__seek:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
-.notch__seek:disabled { cursor: default; }
+.player__tracks { display: flex; gap: 12px; margin: 0; padding: 0 5px 0 0; list-style: none; }
+.player__track {
+  width: 36px;
+  height: 36px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.player__track img { grid-area: 1 / 1; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.player__track[aria-pressed="false"] img { filter: grayscale(1) contrast(1.1); opacity: 0.8; }
+.player__track[aria-pressed="false"]:hover img { filter: none; opacity: 1; }
+.player__track[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4.5px #FF48B0; }
+/* The name is the button's, and shows above it under the pointer or the
+   keyboard's ring. */
+.player__name {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 13px/1.2 var(--sans);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+  pointer-events: none;
+}
+.player__track:hover .player__name,
+.player__track:focus-visible .player__name { opacity: 1; transform: none; }
+/* The page's last words clear the circles. */
+.js .foot { padding-bottom: 104px; }
 
-@media print { .notch { display: none !important; } }
+@media print { .player { display: none !important; } }
 
 /* ── Foot ───────────────────────────────────────────────────────────────── */
 
@@ -606,14 +550,13 @@ a { color: inherit; }
     border: 1px solid ButtonText;
   }
   .finale canvas { display: none; }
-  /* The shell is drawn black on a canvas, which forced colours cannot reach,
-     so under them it is the system's own surface and its words its text. */
-  .notch__ink { display: none; }
-  .notch__shell { background: Canvas; border: 1px solid CanvasText; border-top: 0; }
-  .notch__peek-clock, .notch__time, .notch__artist { color: CanvasText; }
+  .player__toggle::before, .player__track { border: 2px solid ButtonText; }
+  .player__ring { stroke: Highlight; }
+  .player__track[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .film__motion { display: none; }
+  .player__ring, .player__name, .player__toggle { transition: none; }
   .hero[data-print="ready"] .hero__copy { animation: none; }
 }

@@ -40,7 +40,7 @@ export function buildWebMcpTools({ documentRef = globalThis.document, windowRef 
         },
         purpose: 'A native macOS music player that lives in the camera notch.',
         behavior: 'One continuous black ferrofluid reservoir reacts to a real tap on system audio.',
-        soundtrack: 'A player in the page\'s notch plays two tracks that drive its liquid through the app\'s twelve-band analyser. It asks to play on load, starts on the visitor\'s first gesture where the browser requires one, and remembers a pause.',
+        soundtrack: 'Circles at the foot of the page play, pause and choose between two tracks, which drive the liquid through the app\'s twelve-band analyser. It asks to play on load, starts on the visitor\'s first gesture where the browser requires one, and remembers a pause.',
         licenseCost: 'Free and open source (MIT License)',
         sourceCode: 'https://github.com/scryst/magnetite',
         protectedBoundary: 'These website tools are read-only. They do not download, install, launch, control audio, or change the native Magnetite app.'

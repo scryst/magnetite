@@ -22,7 +22,7 @@ import { bankSteps, replayFrame, replayCadence, smoothStep, driveStill } from '.
 import { shouldDraw, applyWatch, filmTransport, prefersReducedMotion } from './visibility.js';
 import { LevelPump } from './bands.js';
 import { startFinale } from './finale.js';
-import { NotchView } from './notch.js';
+import { startPlayer } from './player.js';
 import { startTunnel } from './tunnel.js';
 
 /**
@@ -190,26 +190,13 @@ let bandOpenness = 0;
 let bandWant = 0;
 if (band) views.push({ view: band, sim, openness: () => bandOpenness });
 
-// The notch at the top of the window: the soundtrack's player, and the third
-// camera on the one sim. Not a print, so forced colours keep it — its words
-// and controls are the page's, and the canvas only draws the shell under them.
-const soundtrack = document.querySelector('[data-notch]');
+// The soundtrack's circles at the foot of the window. Not a print, so forced
+// colours keep them.
+const soundtrack = document.querySelector('[data-player]');
 const soundtrackAudio = soundtrack && soundtrack.querySelector('[data-soundtrack-audio]');
-const notchCanvas = soundtrack && soundtrack.querySelector('[data-notch-ink]');
-/**
- * The Reduce Motion still (see `renderStill`). Declared here, above the
- * notch, because the notch asks for a repaint while this module is still
- * starting — and a `let` read before its line has run throws, which took the
- * whole page's script down with it under the preference.
- */
+const player = soundtrack && soundtrackAudio && startPlayer(soundtrack, soundtrackAudio);
+/** The Reduce Motion still (see `renderStill`), built once on first use. */
 let still = null;
-const notch = notchCanvas && soundtrackAudio && new NotchView(notchCanvas, soundtrack, soundtrackAudio, {
-  reduceMotion,
-  // Under the preference there is no loop to draw a state change, so the
-  // notch asks for its own frame, painted with the held still.
-  repaint: () => { if (reduceMotion && still) notch.render(still); },
-});
-if (notch) views.push({ view: notch, sim, openness: () => notch.openness });
 
 for (const entry of views) printed(entry.view.canvas, entry.view.press ? 'press' : 'none');
 
@@ -290,7 +277,7 @@ if (film && !reduceMotion) {
 
 // ── The soundtrack ─────────────────────────────────────────────────────────
 //
-// The page asks to play its music as it loads, from the notch at the top of
+// The page asks to play its music as it loads, from the circles at the foot of
 // the window. Browsers refuse sound until the visitor has done something, so
 // a refused start waits for the visitor's first click, tap or key; a pause is
 // remembered, and a visitor who paused is not played at again. Once playing,
@@ -301,19 +288,14 @@ if (film && !reduceMotion) {
 const soundtrackToggle = soundtrack && soundtrack.querySelector('[data-soundtrack-toggle]');
 const soundtrackToggleLabel = soundtrack
   && soundtrack.querySelector('[data-soundtrack-toggle-label]');
-const soundtrackSteps = soundtrack
-  ? [...soundtrack.querySelectorAll('[data-soundtrack-step]')]
+const soundtrackButtons = soundtrack
+  ? [...soundtrack.querySelectorAll('[data-soundtrack-track]')]
   : [];
-const soundtrackTracks = soundtrack
-  ? [...soundtrack.querySelectorAll('[data-soundtrack-track]')].map((item) => ({
-    title: item.dataset.title,
-    artist: item.dataset.artist,
-    src: item.dataset.src,
-    cover: item.dataset.cover,
-    tint: item.dataset.tint,
-    duration: Number(item.dataset.duration) || 0,
-  }))
-  : [];
+const soundtrackTracks = soundtrackButtons.map((item) => ({
+  title: item.dataset.title,
+  artist: item.dataset.artist,
+  src: item.dataset.src,
+}));
 const soundtrackStatus = soundtrack && soundtrack.querySelector('[data-soundtrack-status]');
 /** Where a visitor's pause is kept, so a return visit does not play at them. */
 const SOUNDTRACK_PAUSED = 'magnetite.soundtrack.paused';
@@ -373,7 +355,7 @@ function selectSoundtrack(index, play = false) {
   if (!soundtrackAudio || soundtrackTracks.length === 0) return;
   soundtrackIndex = (index + soundtrackTracks.length) % soundtrackTracks.length;
   const track = soundtrackTracks[soundtrackIndex];
-  notch?.show(track);
+  player?.show(soundtrackIndex);
   if (soundtrackAudio.getAttribute('src') !== track.src) {
     soundtrackAudio.src = track.src;
     soundtrackAudio.load();
@@ -415,7 +397,7 @@ function enableSoundtrackAnalyser() {
 }
 
 /**
- * `asked` is a press of the notch's own controls. Only then is a refusal
+ * `asked` is a press of the player's own circles. Only then is a refusal
  * worth saying out loud: the page asking on load and being told no is the
  * browser's ordinary answer, not news.
  */
@@ -431,13 +413,13 @@ function playSoundtrack(asked = false) {
 
 /**
  * The visitor's first gesture, anywhere on the page, is the one a browser
- * that refused the load's request is waiting for. A press on the notch's own
- * controls is left to them — answering it here too would start the music and
+ * that refused the load's request is waiting for. A press on the player's own
+ * circles is left to them — answering it here too would start the music and
  * let the Play it landed on pause it again.
  */
 function soundtrackGesture(event) {
   const own = event.target instanceof Element
-    && event.target.closest('[data-notch] button, [data-notch] input');
+    && event.target.closest('[data-player] button');
   if (soundtrackAudio.paused) {
     if (!own && !soundtrackWasPaused()) playSoundtrack();
   } else if (soundtrackMayListen()) {
@@ -456,19 +438,20 @@ if (soundtrackAudio && soundtrackToggle) {
     if (soundtrackAudio.paused) playSoundtrack(true);
     else soundtrackAudio.pause();
   });
-  // Skipping strikes the ink the way the app's buttons do: the reservoir
-  // heaves toward the direction of travel.
-  for (const button of soundtrackSteps) {
+  // Choosing a track strikes the ink the way the app's skip does: the
+  // reservoir heaves toward the direction of travel. The one already playing
+  // is the Play circle's to pause, not this one's.
+  soundtrackButtons.forEach((button, index) => {
     button.addEventListener('click', () => {
-      const step = Number(button.dataset.soundtrackStep) || 1;
+      const step = index - soundtrackIndex;
       rememberSoundtrackPause(false);
-      selectSoundtrack(soundtrackIndex + step, true);
-      if (!reduceMotion) sim.surge(0.8, Math.sign(step));
+      if (step === 0 && !soundtrackAudio.paused) return;
+      selectSoundtrack(index, true);
+      if (step && !reduceMotion) sim.surge(0.8, Math.sign(step));
     });
-  }
+  });
   soundtrackAudio.addEventListener('play', () => {
     soundtrackPlaying = true;
-    if (notch) notch.loaded = true;
     finale?.wake();
     setSoundtrackTransport(true);
     const track = soundtrackTracks[soundtrackIndex];
@@ -699,9 +682,6 @@ function frame(now) {
   for (let s = stepsDrawn; s < steps; s++) {
     sim.advance(smoothed(levelsAt(s)), SIM_STEP);
     bandOpenness += (bandWant - bandOpenness) * BAND_K;
-    // A camera with a gesture of its own — the notch opening — eases it on
-    // this clock too.
-    for (const entry of views) entry.view.step?.(SIM_STEP);
   }
   stepsDrawn = steps;
   for (const entry of views) {
