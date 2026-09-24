@@ -359,30 +359,35 @@
        The top edge of the display at page scale, with the liquid retracted
        into the notch, where the app keeps it when nothing is open. The notch
        is the download: the print is drawn to the link's own box. -->
-  <section class="get" id="download" aria-labelledby="get-title">
-    <h2 class="get__title" id="get-title">Idle, it never leaves the menu bar.</h2>
-    <div class="band" data-print-host>
-      <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
-      <a class="notch-link" data-download rel="external"
-         href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2"
-         aria-describedby="requires first-launch">Download<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span></a>
+  <section class="get" aria-labelledby="get-title">
+    <!-- Where the page has the download: the link to it lands here, not on
+         the runway the journey holds it through. -->
+    <span class="get__mark" id="download"></span>
+    <div class="get__sheet">
+      <h2 class="get__title" id="get-title">Idle, it never leaves the menu bar.</h2>
+      <div class="band" data-print-host>
+        <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
+        <a class="notch-link" data-download rel="external"
+           href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2"
+           aria-describedby="requires first-launch">Download<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span></a>
+      </div>
+      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>
+      <!-- The installer fetches the same release with curl, which does not
+           quarantine, so the app opens on the first try. One click selects the
+           whole command. -->
+      <div class="get__install" id="install">
+        <p>Or install it from Terminal:</p>
+        <code class="install">curl -fsSL <span class="install__tail">https://magnetite.app/install.sh | sh</span></code>
+      </div>
+      <!-- Only while the served zip is unnotarised: portcheck reads the zip for
+           the stapled ticket and requires this paragraph exactly when the
+           Gatekeeper dialog will appear. -->
+      <p class="get__note" data-firstlaunch id="first-launch">
+        The zip isn’t notarised yet, so macOS blocks its first launch once:
+        approve it under System Settings › Privacy &amp; Security › Open Anyway.
+        The Terminal install skips that step.
+      </p>
     </div>
-    <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>
-    <!-- The installer fetches the same release with curl, which does not
-         quarantine, so the app opens on the first try. One click selects the
-         whole command. -->
-    <div class="get__install" id="install">
-      <p>Or install it from Terminal:</p>
-      <code class="install">curl -fsSL <span class="install__tail">https://magnetite.app/install.sh | sh</span></code>
-    </div>
-    <!-- Only while the served zip is unnotarised: portcheck reads the zip for
-         the stapled ticket and requires this paragraph exactly when the
-         Gatekeeper dialog will appear. -->
-    <p class="get__note" data-firstlaunch id="first-launch">
-      The zip isn’t notarised yet, so macOS blocks its first launch once:
-      approve it under System Settings › Privacy &amp; Security › Open Anyway.
-      The Terminal install skips that step.
-    </p>
   </section>
 
   <!-- ══ THE NAME ════════════════════════════════════════════════════════════
