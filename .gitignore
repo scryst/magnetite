@@ -1,0 +1,5 @@
+tools/.notchruler.bin
+build.noindex/
+.build/
+__pycache__/
+.vercel/

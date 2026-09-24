@@ -1,0 +1,20 @@
+#!/bin/bash
+# Measure the physical notch, and optionally draw guides over it.
+#
+#   tools/notchruler                       print metrics for every display
+#   tools/notchruler --overlay             draw guides on screen for 20s
+#   tools/notchruler --overlay --seconds 60
+#
+# Compiles on first run and caches the binary next to the source.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+SRC="notchruler.swift"
+BIN=".notchruler.bin"
+
+if [[ ! -x "$BIN" || "$SRC" -nt "$BIN" ]]; then
+  echo "compiling notchruler…" >&2
+  xcrun swiftc -O -target arm64-apple-macos26.0 "$SRC" -o "$BIN"
+fi
+
+exec "./$BIN" "$@"
