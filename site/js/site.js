@@ -196,6 +196,8 @@ if (band) views.push({ view: band, sim, openness: () => bandOpenness });
 const soundtrack = document.querySelector('[data-player]');
 const soundtrackAudio = soundtrack && soundtrack.querySelector('[data-soundtrack-audio]');
 const player = soundtrack && soundtrackAudio && startPlayer(soundtrack, soundtrackAudio);
+// The band's idle pill shows what the circles are playing.
+if (band && player) band.nowPlaying = player.now;
 /** The Reduce Motion still (see `renderStill`), built once on first use. */
 let still = null;
 
