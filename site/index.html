@@ -98,7 +98,7 @@
 <link rel="modulepreload" href="js/liquid.js">
 <link rel="modulepreload" href="js/filings.js">
 <link rel="modulepreload" href="js/wordmark.js">
-<link rel="modulepreload" href="js/notch.js">
+<link rel="modulepreload" href="js/player.js">
 <link rel="modulepreload" href="js/tunnel.js">
 </head>
 <body>
@@ -462,49 +462,28 @@
   </p>
 </footer>
 
-<!-- ══ THE NOTCH ═════════════════════════════════════════════════════════════
-     The page's soundtrack, played by the app's own player: fixed to the top of
-     the window at the app's size, retracted until the music starts, peeking
-     while a track is loaded, open under the pointer, the keyboard or a tap.
-     It asks to play as the page loads; a browser that wants a gesture first
-     gets it from the visitor's first click or key, and a pause is remembered.
-     The liquid is the page's one simulation, driven by the track itself. -->
-<section class="notch" data-notch aria-label="Soundtrack" data-playing="false">
-  <canvas class="notch__ink" data-notch-ink aria-hidden="true" data-render-check-ignore></canvas>
-  <!-- Clipped on purpose: shut, the shell hides the open player's words. -->
-  <div class="notch__shell" data-notch-shell data-render-check-ignore>
-    <img class="notch__sleeve" data-notch-sleeve src="media/cover-chrome-funk.webp" alt="" width="88" height="88">
-    <span class="notch__peek-clock" data-notch-peek-clock aria-hidden="true">0:00</span>
-    <div class="notch__body">
-      <span class="notch__time notch__time--elapsed" data-notch-elapsed aria-hidden="true">0:00</span>
-      <span class="notch__time notch__time--remaining" data-notch-remaining aria-hidden="true">-3:21</span>
-      <p class="notch__track">
-        <span class="notch__title" data-notch-title>Chrome Funk</span>
-        <span class="notch__artist" data-notch-artist>Punch Deck</span>
-      </p>
-      <div class="notch__transport">
-        <button type="button" class="notch__button" data-soundtrack-step="-1" aria-label="Previous track">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2.2v7.6L.6 6zM11.4 2.2v7.6L6 6z"/></svg>
-        </button>
-        <button type="button" class="notch__button notch__button--primary" data-soundtrack-toggle data-playing="false">
-          <svg class="notch__play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.4l7.6 4.6L3 10.6z"/></svg>
-          <svg class="notch__pause" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.4" y="1.6" width="2.6" height="8.8" rx=".7"/><rect x="7" y="1.6" width="2.6" height="8.8" rx=".7"/></svg>
-          <span class="visually-hidden" data-soundtrack-toggle-label>Play</span>
-        </button>
-        <button type="button" class="notch__button" data-soundtrack-step="1" aria-label="Next track">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M.6 2.2v7.6L6 6zM6 2.2v7.6L11.4 6z"/></svg>
-        </button>
-      </div>
-      <input class="notch__seek" data-notch-seek type="range" min="0" max="1000" step="1" value="0" aria-label="Seek" disabled>
-    </div>
-  </div>
-  <ol class="notch__queue" hidden>
-    <li data-soundtrack-track data-title="Chrome Funk" data-artist="Punch Deck"
-        data-src="media/chrome-funk.mp3" data-cover="media/cover-chrome-funk.webp"
-        data-tint="#3FA9CF" data-duration="201.37">Chrome Funk</li>
-    <li data-soundtrack-track data-title="Cyberpunk Renaissance" data-artist="Punch Deck"
-        data-src="media/cyberpunk-renaissance.mp3" data-cover="media/cover-cyberpunk-renaissance.webp"
-        data-tint="#F28C38" data-duration="190.66">Cyberpunk Renaissance</li>
+<!-- ══ THE SOUNDTRACK ═══════════════════════════════════════════════════════
+     Circles at the foot of the window: one plays and pauses, its ring the
+     track's progress, and one per track chooses it by its sleeve. It asks to
+     play as the page loads; a browser that wants a gesture first gets it from
+     the visitor's first click or key, and a pause is remembered. The music
+     drives the page's one simulation through the app's own analyser. -->
+<section class="player" data-player aria-label="Soundtrack">
+  <button type="button" class="player__toggle" data-soundtrack-toggle data-playing="false">
+    <svg class="player__ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" pathLength="1" data-player-ring/></svg>
+    <svg class="player__play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.4l7.6 4.6L3 10.6z"/></svg>
+    <svg class="player__pause" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.4" y="1.6" width="2.6" height="8.8" rx=".7"/><rect x="7" y="1.6" width="2.6" height="8.8" rx=".7"/></svg>
+    <span class="visually-hidden" data-soundtrack-toggle-label>Play</span>
+  </button>
+  <ol class="player__tracks">
+    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="true"
+        data-title="Chrome Funk" data-artist="Punch Deck"
+        data-src="media/chrome-funk.mp3" data-cover="media/cover-chrome-funk.webp"><img
+        src="media/cover-chrome-funk.webp" alt="" width="36" height="36"><span class="player__name">Chrome Funk</span></button></li>
+    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="false"
+        data-title="Cyberpunk Renaissance" data-artist="Punch Deck"
+        data-src="media/cyberpunk-renaissance.mp3" data-cover="media/cover-cyberpunk-renaissance.webp"><img
+        src="media/cover-cyberpunk-renaissance.webp" alt="" width="36" height="36"><span class="player__name">Cyberpunk Renaissance</span></button></li>
   </ol>
   <audio hidden preload="none" src="media/chrome-funk.mp3" data-soundtrack-audio></audio>
   <p class="visually-hidden" data-soundtrack-status aria-live="polite"></p>
