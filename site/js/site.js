@@ -24,6 +24,7 @@ import { LevelPump } from './bands.js';
 import { startFinale } from './finale.js';
 import { startPlayer } from './player.js';
 import { startTunnel } from './tunnel.js';
+import { startTouches } from './touches.js';
 
 /**
  * The rate the capture was TAKEN at, which is not the rate the page draws at.
@@ -216,7 +217,10 @@ const film = document.getElementById('demo-film');
 // Scrolled into: the hero's camera dives into its notch, the footage takes
 // over and holds, then rides down onto the band's notch, the download. Nothing
 // to do with playback, which stays the page's below.
-startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion, hero, dock: download });
+const tunnel = startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion, hero, dock: download });
+// Only in the journey, where the footage is laid out in its own points: the
+// hand that the recording could not show, drawn on it (js/touches.js).
+if (tunnel) startTouches(film, document.querySelector('.how'));
 const filmToggle = document.querySelector('[data-demo-motion]');
 const filmToggleLabel = filmToggle
   && filmToggle.querySelector('[data-demo-motion-label]');

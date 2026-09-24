@@ -78,6 +78,7 @@ const OG = 'site/test/og.html';
 const ICON_HTML = 'site/test/icon.html';
 const FAVICON = 'site/favicon.svg';
 const METRICS_SWIFT = 'Sources/NotchApp/Notch/ScreenMetrics.swift';
+const SWIPE_SWIFT = 'Sources/NotchApp/Notch/SwipeRecogniser.swift';
 const CLOCK = 'site/js/clock.js';
 const VIS = 'site/js/visibility.js';
 const BLANK = 'theOffscreenEconomyNeverBlanksThePage';
@@ -106,6 +107,8 @@ const BAND_PARTITION = 'thePartitionCoversWithoutOverlap';
 const BAND_PUMP = 'thePumpDecaysToHonestSilence';
 const JOURNEY = 'theJourneyLandsWhereItHandsOver';
 const TUNNEL_JS = 'site/js/tunnel.js';
+const HAND = 'theHandInTheFilmGoesTheWayTheAppReadsIt';
+const TOUCHES_JS = 'site/js/touches.js';
 const BAND_CHECKS = [BAND_PORT, BAND_SINES, BAND_PARTITION, BAND_PUMP];
 
 const MUTANTS = {
@@ -2091,6 +2094,45 @@ const MUTANTS = {
     to: 'fade: unit((0.7 - k) / 0.5),',
   },
 
+  // The hand drawn on the film: the gesture it teaches has to be the one the
+  // app reads, and it is drawn only where the footage is in its own points.
+  'the-fingers-swipe-the-wrong-way': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: 'hand.dx = cue.dir * HAND.reach',
+    to: 'hand.dx = -cue.dir * HAND.reach',
+  },
+  'the-fingers-lift-before-the-swipe-fires': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: 'const gone = unit((t - cue.up) / LIFT);\n      hand.shown',
+    to: 'const gone = unit((t - cue.up + 0.3) / LIFT);\n      hand.shown',
+  },
+  'the-fingers-draw-outside-the-journey': {
+    check: HAND,
+    file: SITE_JS,
+    from: 'if (tunnel) startTouches(',
+    to: 'if (film) startTouches(',
+  },
+  'the-fingers-ease-back-before-it-fires': {
+    check: HAND,
+    file: TOUCHES_JS,
+    from: '(0.8 * out(u) + 0.2 * push + 0.1 * gone)',
+    to: '(1.1 * out(u) - 0.2 * push + 0.1 * gone)',
+  },
+  'the-app-reads-a-swipe-the-other-way': {
+    check: HAND,
+    file: SWIPE_SWIFT,
+    from: 'let action: Action = x > 0 ? .skipForward : .skipBackward',
+    to: 'let action: Action = x < 0 ? .skipForward : .skipBackward',
+  },
+  'the-how-to-lights-a-line-it-lacks': {
+    check: HAND,
+    file: PAGE,
+    from: '<li data-how="swipe">',
+    to: '<li data-how="swipes">',
+  },
+
   // The page asks to play on load; the pause is the visitor's. The markup
   // starting the element itself would play at a visitor who paused last time,
   // since only the script remembers that.
@@ -2330,7 +2372,7 @@ const MUTANTS = {
   },
 };
 
-const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, WEBMCP, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, ...BAND_CHECKS];
+const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, WEBMCP, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, HAND, ...BAND_CHECKS];
 
 /**
  * Every check portcheck runs is a check this harness has watched fail.
@@ -2402,6 +2444,9 @@ function fresh(work) {
   // of the Swift rather than trusting the page's copy.
   mkdirSync(join(work, dirname(METRICS_SWIFT)), { recursive: true });
   cpSync(join(repo, METRICS_SWIFT), join(work, METRICS_SWIFT));
+  // The fingers drawn on the film go the way the app reads a swipe, which the
+  // check reads out of the recogniser.
+  cpSync(join(repo, SWIPE_SWIFT), join(work, SWIPE_SWIFT));
   // The rate the capture was taken at is a fact about the APP, so the check
   // that holds site.js to it reads the pump interval out of this file — and a
   // mutant has to be able to move the app's end of that comparison, not only
