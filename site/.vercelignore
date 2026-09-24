@@ -1,0 +1,16 @@
+# serve.py is the local no-store dev server. On a static host it is not a server
+# at all, just a .py file people can download, so it does not ship.
+serve.py
+__pycache__/
+
+# test/ DOES ship. It is the port's own harness and the generator for the share
+# card, and the page claims its numbers come from the build — a reader who wants
+# to check that should be able to read portcheck.mjs rather than take it on
+# trust. robots.txt keeps it out of search results, which is the right treatment
+# for evidence: reachable, not indexed.
+
+# The Vercel CLI already skips .env* and .vercel by hardcoded default, but a
+# credential's exclusion belongs declared in the repo, not inherited from a
+# tool's invisible defaults — .env.local here holds the CLI's own OIDC token.
+.env*
+.vercel

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://magnetite.app/sitemap.xml
+
+# The build itself is not something a crawler should be indexing as a document.
+Disallow: /downloads/
+
+# The generator for the share card, and the port's own test harness. Neither is
+# a page anyone should arrive at from a search result.
+Disallow: /test/

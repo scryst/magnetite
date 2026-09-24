@@ -1,0 +1,15 @@
+(version 1)
+; System/toolchain reads remain available; personal file contents do not.
+(allow default)
+(deny network*)
+(deny appleevent-send)
+(deny mach-lookup
+  (global-name-prefix "com.apple.security")
+  (global-name "com.apple.SecurityServer")
+  (global-name-prefix "com.apple.cfprefsd"))
+(deny file-read* (subpath (param "USER_HOME")))
+(allow file-read-metadata (subpath (param "USER_HOME")))
+(allow file-read*
+  (subpath (param "REPO")) (subpath (param "WORK")) (literal (param "NODE")))
+(deny file-write*)
+(allow file-write* (subpath (param "WORK")) (literal "/dev/null"))

@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "site/serve.py"
+      ],
+      "port": 4174,
+      "autoPort": true
+    }
+  ]
+}

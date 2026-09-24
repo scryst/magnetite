@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — Magnetite</title>
+<meta name="description" content="How the Magnetite macOS music player handles audio, Spotify access, and website data.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://magnetite.app/privacy.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/type.css">
+<link rel="stylesheet" href="css/legal.css">
+</head>
+<body>
+<main class="legal">
+  <h1>Privacy</h1>
+  <p class="legal__date">Effective September 1, 2026</p>
+
+  <h2>The short version</h2>
+  <p>
+    Magnetite has no advertising, analytics SDK, telemetry, crash reporter, or
+    user account. It does not sell personal data. Audio used by the visualizer
+    stays on your Mac.
+  </p>
+
+  <h2>Audio and playback</h2>
+  <p>
+    With your macOS permission, Magnetite reads system audio to animate the
+    ferrofluid surface. It processes that signal in memory on your Mac.
+    Magnetite does not upload or save the audio.
+  </p>
+  <p>
+    Apple Music control uses macOS Apple Events. If you connect Spotify,
+    Magnetite communicates directly with Spotify's authorization and Web API
+    services for playback state, controls, and saved-song status. Spotify's own
+    terms and privacy policy govern what Spotify receives.
+  </p>
+  <p>
+    Magnetite may also download the current track's artwork from the URL the
+    selected music player supplies. The artwork is used to color the interface;
+    it is not sent to the developer.
+  </p>
+
+  <h2>What stays on your Mac</h2>
+  <p>
+    Preferences are stored in macOS UserDefaults. A connected Spotify refresh
+    token is stored in Magnetite's Application Support folder with owner-only
+    file permissions. Disconnecting Spotify deletes that credential. Magnetite
+    does not send either item to the developer.
+  </p>
+
+  <h2>Website and downloads</h2>
+  <p>
+    magnetite.app adds no cookies, tracking pixels, or analytics scripts. The
+    site and downloads are served by GitHub Pages and GitHub Releases, so GitHub
+    may process request information under its own privacy statement. The
+    developer may view the aggregate traffic, referral, star, and download
+    counts GitHub provides; Magnetite receives no visitor profiles or in-app
+    events.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Privacy questions can be sent to
+    <a href="mailto:scrystyt@gmail.com">scrystyt@gmail.com</a>. Magnetite has no
+    server-side account to delete. Disconnecting Spotify removes its local
+    credential; remaining local data lives in
+    <code>~/Library/Application Support/Magnetite</code> and the
+    <code>com.laks.magnetite</code> macOS preferences domain.
+  </p>
+
+  <p class="legal__foot">
+    <span>An open-source project by scryst.</span>
+    <a href="terms.html">Terms</a>
+    <a href="./">Magnetite</a>
+  </p>
+</main>
+</body>
+</html>

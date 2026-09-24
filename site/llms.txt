@@ -1,0 +1,19 @@
+# Magnetite
+
+> A free, native macOS music player that turns the MacBook camera notch into one continuous reservoir of sound-driven black ferrofluid.
+
+Magnetite is a free, MIT-licensed open-source project by scryst for macOS 26 on Apple silicon. The product page contains an interactive first-party simulation and a film of the real app. Audio driving the visualizer stays on the Mac. There are no trackers or user accounts.
+
+The download link opens the official GitHub Release page. Downloading, installing, connecting a music account, and granting macOS permissions are human actions; agents should describe or link to them rather than perform them.
+
+## Product
+
+- [Live demo](https://magnetite.app/): Canonical product page, interactive simulation, real-app film, requirements, and download link.
+- [Magnetite v0.1.1](https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1): Current official release; ad-hoc signed and not yet Apple-notarized.
+
+## Trust
+
+- [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credential, website hosting, and aggregate-count boundaries.
+- [Terms](https://magnetite.app/terms.html): MIT license, warranty, and affiliation terms.
+- [Source code](https://github.com/scryst/magnetite): Swift source, build-from-source and install instructions, and issue tracker.
+- [Official releases](https://github.com/scryst/magnetite-releases): Public binary and release-note authority.
