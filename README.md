@@ -203,3 +203,10 @@ Support directory, `NotchApp` → `Ferro` → `Magnetite`. Both read the old nam
 newest-first, because someone can arrive from either. The URL scheme is the one
 thing that does *not* keep its old spelling: a scheme is a global claim on the
 machine, and two live registrations is how the wrong copy gets launched.
+
+## License
+
+[MIT](LICENSE). Two things in `site/` are not covered by it: Punch Deck's music
+in `site/media/`, including the demo film's soundtrack (CC BY 4.0, credited on
+the site), and the Gloock font in `site/fonts/` (SIL Open Font License, text
+alongside it).
