@@ -52,6 +52,7 @@ import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
 import { hold, camera } from '../js/tunnel.js';
+import { CUES, HAND, touchesAt } from '../js/touches.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const golden = (name) => readFileSync(join(here, 'golden', `${name}.txt`), 'utf8')
@@ -1814,7 +1815,7 @@ function theDemoIsTheAppOnFilm() {
     'js/site.js', 'js/sim.js', 'js/geometry.js', 'js/press.js', 'js/hero.js', 'js/band.js',
     'data/real-levels.js', 'js/clock.js', 'js/visibility.js', 'js/bands.js',
     'js/finale.js', 'js/liquid.js', 'js/filings.js', 'js/wordmark.js',
-    'js/player.js', 'js/tunnel.js',
+    'js/player.js', 'js/tunnel.js', 'js/touches.js',
   ]) {
     require(html.includes(`<link rel="modulepreload" href="${module}">`),
       `${module} is left behind the initial module-discovery waterfall`);
@@ -3515,6 +3516,82 @@ function theJourneyLandsWhereItHandsOver() {
   }
 }
 
+/**
+ * The hand drawn on the film goes the way the app reads it.
+ *
+ * The recording cannot show a two-finger swipe, only what it did, so the page
+ * draws the fingers on the footage (js/touches.js). Drawn the wrong way, they
+ * would teach the wrong gesture on the one page that explains it: the app
+ * reads fingers moving right as forward, so a forward cue must carry them
+ * right and a back cue left, never back towards rest before it fires. Every line
+ * of the how-to the drawing lights has to exist, in the markup and the
+ * stylesheet, or it lights nothing; everything drawn stays on the footage's
+ * 512 by 240 points; between cues nothing shows; and only the journey draws
+ * it, since only there is the footage laid out in its own points, and Reduce
+ * Motion never starts the journey.
+ */
+function theHandInTheFilmGoesTheWayTheAppReadsIt() {
+  const swift = readFileSync(join(here, '..', '..', 'Sources', 'NotchApp', 'Notch',
+    'SwipeRecogniser.swift'), 'utf8');
+  require(/let action: Action = x > 0 \? \.skipForward : \.skipBackward/.test(swift),
+    'SwipeRecogniser no longer states that fingers moving right skip forward — the drawn '
+    + 'fingers in js/touches.js follow that rule, so check it again before trusting them');
+  const swipes = CUES.filter((c) => c.kind === 'swipe');
+  require(swipes.some((c) => c.dir === 1) && swipes.some((c) => c.dir === -1),
+    'the film draws a swipe only one way, though the footage skips both ways');
+  for (const cue of swipes) {
+    let was = 0;
+    for (let t = cue.down + cue.travel; t <= cue.up; t += 0.02) {
+      const { hand, doing } = touchesAt(t);
+      require(Math.sign(hand.dx) === cue.dir && Math.abs(hand.dx) >= HAND.reach * 0.75,
+        `at ${t.toFixed(2)}s the fingers are ${hand.dx.toFixed(1)}pt from rest, for a swipe `
+        + `that goes ${cue.dir > 0 ? 'forward, right' : 'back, left'} — the drawing shows the `
+        + 'other gesture, or none');
+      require(Math.abs(hand.dx) >= was,
+        `at ${t.toFixed(2)}s the fingers turn back before the swipe fires — the app counts `
+        + 'distance travelled, so the drawing says it would not');
+      was = Math.abs(hand.dx);
+      require(hand.shown === 1 && doing === 'swipe',
+        `at ${t.toFixed(2)}s the fingers are down in the footage but not drawn, or the how-to `
+        + 'does not say so');
+    }
+  }
+  const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
+  const css = readFileSync(join(here, '..', 'css', 'magnetite.css'), 'utf8');
+  const site = codeOnly(readFileSync(join(here, '..', 'js', 'site.js'), 'utf8'));
+  require(/\nconst tunnel = startTunnel\(/.test(site)
+      && /\nif \(tunnel\) startTouches\(film, document\.querySelector\('\.how'\)\);/.test(site)
+      && (site.match(/startTouches\(/g) || []).length === 1,
+    'the fingers are drawn without the journey — outside it the footage is not in its own '
+    + 'points, so they land beside what they point at, and Reduce Motion gets them too');
+  const lit = new Set();
+  for (let t = 0; t < 27; t += 1 / 30) {
+    const { hand, ring, doing } = touchesAt(t);
+    if (doing) lit.add(doing);
+    if (hand.shown > 0) {
+      for (const x of [HAND.x + hand.dx - 23, HAND.x + hand.dx + 23]) {
+        require(x >= 0 && x <= 512, `at ${t.toFixed(2)}s the fingers leave the footage`);
+      }
+    }
+    if (ring.shown > 0) {
+      require(ring.x >= 0 && ring.x <= 512 && ring.y >= 0 && ring.y <= 240,
+        `at ${t.toFixed(2)}s the ring is at ${ring.x.toFixed(0)},${ring.y.toFixed(0)}, off the footage`);
+    }
+  }
+  require(lit.size > 0, 'the drawing never lights a line of the how-to');
+  for (const how of lit) {
+    require(page.includes(`<li data-how="${how}">`),
+      `the drawing lights "${how}", which no line of the how-to carries`);
+    require(css.includes(`.how[data-doing="${how}"] [data-how="${how}"]`),
+      `the stylesheet does not light "${how}"`);
+  }
+  for (const t of [1, 12, 21]) {
+    const { hand, ring, doing } = touchesAt(t);
+    require(hand.shown === 0 && ring.shown === 0 && doing === null,
+      `at ${t}s, between cues, the drawing still shows`);
+  }
+}
+
 const CHECKS = {
   theReplayMatchesTheShippingPhysics,
   theReplayIsSteppedLikeTheApp,
@@ -3556,6 +3633,7 @@ const CHECKS = {
   theCameraIsResizedIntoItsNewScale,
   theMarkIsTheIconsOwnContour,
   theJourneyLandsWhereItHandsOver,
+  theHandInTheFilmGoesTheWayTheAppReadsIt,
 };
 
 const only = process.argv.find((a) => a.startsWith('--only='));
