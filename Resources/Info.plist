@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>Magnetite</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.laks.magnetite</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Magnetite</string>
+	<key>CFBundleDisplayName</key>
+	<string>Magnetite</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<!-- LSUIElement means this never appears in the Dock, so the icon is not
+	     for the Dock: it is what Finder shows, and it is what stands in the
+	     Gatekeeper dialog that every first launch of an ad-hoc build goes
+	     through. Without it that dialog shows the generic blank-page icon,
+	     which is the worst possible first impression for an unsigned download.
+	     Built from the app's own simulation by site/test/make-icns.sh. -->
+	<key>CFBundleIconFile</key>
+	<string>Magnetite</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.1</string>
+	<key>CFBundleVersion</key>
+	<string>4</string>
+	<!-- Finder's Get Info and crash reports are the two places a downloaded
+	     app states its publisher; without this key both say nothing. The full
+	     terms ride along in Resources/LICENSE. -->
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 scryst. MIT License.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<!-- Menu-bar only: no Dock icon, no main menu. -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<!-- Shown in the Automation permission prompt for Spotify / Music. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.laks.magnetite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>magnetite</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Magnetite needs permission to read system audio so the visualiser can react to what you are playing.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Magnetite needs permission to read and control your music so it can show what is playing.</string>
+</dict>
+</plist>

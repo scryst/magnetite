@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the hardened runtime, which notarisation requires.
+
+  These are NOT needed for the ad-hoc build: without the hardened runtime the
+  app asks TCC directly and the grants work. They exist for the Developer ID
+  path in build.sh, where `codesign --options runtime` refuses the same calls
+  unless the binary is entitled to make them.
+
+  Exactly two, matching the two usage descriptions in Info.plist. There is no
+  App Sandbox here — the hardened runtime and the sandbox are different things,
+  and a menu-bar utility that reads another app's playback state cannot be
+  sandboxed without a good deal of ceremony that buys the user nothing.
+-->
+<plist version="1.0">
+<dict>
+	<!-- The CoreAudio process tap that the ferrofluid is made of. Pairs with
+	     NSAudioCaptureUsageDescription. Without this the tap fails under the
+	     hardened runtime and AudioTap.isRunning stays false, which the app
+	     already handles by decaying to silence rather than faking motion. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+
+	<!-- Reading and driving Music and Spotify. Pairs with
+	     NSAppleEventsUsageDescription. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

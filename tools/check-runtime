@@ -1,0 +1,75 @@
+#!/usr/bin/python3 -I
+"""Run compiled checks with no personal state, player commands or network access."""
+import os
+from pathlib import Path
+import pwd
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: tools/check-runtime COMMAND [ARG ...]")
+    if sys.platform != "darwin" or not Path("/usr/bin/sandbox-exec").is_file():
+        sys.exit("check-runtime requires macOS sandbox-exec; refusing unprotected execution")
+    repo = Path(__file__).resolve().parent.parent
+    user_home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+    node = shutil.which("node")
+    if node is None:
+        sys.exit("check-runtime requires Node.js on PATH")
+    node = Path(node).resolve()
+    # Use a fresh environment: provider tokens, proxies, NODE_OPTIONS, shell
+    # startup and interpreter injection variables must not reach the suites.
+    environment = {key: os.environ[key] for key in ("HOME", "LANG", "LC_ALL", "LC_CTYPE")
+                   if key in os.environ}
+    environment["PATH"] = f"{node.parent}:/usr/bin:/bin:/usr/sbin:/sbin"
+    # Neither HOME nor the real preference files are changed. Core Foundation's
+    # optional file fallback and mutation copies both get private disposable space.
+    with tempfile.TemporaryDirectory(prefix="magnetite-check-", dir="/private/tmp") as work, \
+            tempfile.TemporaryDirectory(prefix=".magnetite-check-probe-", dir=user_home) as probe:
+        work = str(Path(work).resolve())
+        sentinel = Path(probe) / "synthetic-personal-state"
+        sentinel.write_text("magnetite synthetic state\n")
+        environment.update(TMPDIR=work, CFFIXED_USER_HOME=work,
+                           MAGNETITE_RUNTIME_PROBE=str(sentinel))
+        child = subprocess.Popen([
+            "/usr/bin/sandbox-exec",
+            "-D", f"USER_HOME={user_home}", "-D", f"REPO={repo}",
+            "-D", f"WORK={work}", "-D", f"NODE={node}",
+            "-f", str(repo / "tools/check-runtime.sb"), *sys.argv[1:],
+        ], cwd=repo, env=environment, start_new_session=True)
+
+        def interrupted(signum, _frame):
+            raise SystemExit(128 + signum)
+
+        try:
+            signal.signal(signal.SIGINT, interrupted)
+            signal.signal(signal.SIGTERM, interrupted)
+            code = child.wait()
+            return code if code >= 0 else 128 - code
+        finally:
+            # Own the whole check process group, including mutation children.
+            # Stop it before deleting fixtures, even when the foreground command
+            # exited while leaving a background child. SIGKILL cannot be trapped.
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            try:
+                os.killpg(child.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            child.wait()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

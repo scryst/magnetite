@@ -1,0 +1,73 @@
+/* The legal pages: the product page's paper and faces, set as plain reading. */
+
+:root {
+  --paper: #ECEBE6;
+  --ink: #222022;
+  --ink-soft: #5B5860;
+  --blue: #0078BF;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font: 400 17px/1.6 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+
+.legal {
+  width: min(calc(100% - 48px), 680px);
+  margin-inline: auto;
+  padding-block: clamp(48px, 10vw, 120px) 96px;
+}
+
+.legal a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font: 400 clamp(48px, 10vw, 88px)/1 'Gloock', Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  margin: 40px 0 8px;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+p, ul { margin: 0 0 18px; }
+ul { padding-left: 1.4em; }
+code {
+  font: 0.88em/1 ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.legal__date { margin-bottom: 40px; color: var(--ink-soft); font-size: 15px; }
+.legal__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-top: 56px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .legal { width: min(calc(100% - 32px), 680px); padding-top: 40px; }
+}
+
+@media (forced-colors: active) {
+  html { background: Canvas; color: CanvasText; }
+  .legal__date, .legal__foot { color: CanvasText; }
+}

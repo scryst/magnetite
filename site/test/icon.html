@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Magnetite — app icon generator</title>
+<!--
+  Generates Resources/Magnetite.icns, by way of a 1024 master PNG.
+
+  THE MARK IS AN M POURED, NOT AN M CUT.
+
+  The previous tile clipped a real frame of the reservoir to a letter-shaped
+  polygon, on the argument that the mark should be MADE of the material rather
+  than printed on it. The argument was good and the result was not: a hard
+  straight-sided letter with a fluid render trapped inside it gets the worst of
+  both. The silhouette had no liquid in it — five straight segments and a sharp
+  V — while the render's own specular and lobe edges landed inside the counters
+  as horizontal seams and grey wisps at the feet, which read as a botched mask
+  rather than as ink. Called ugly, correctly.
+
+  So the material argument moves from the FILL to the OUTLINE, which is where it
+  was always going to work. The letter is a skeleton stroked wide, with a pool
+  at each terminal and a heavier one in the well of the vertex, and then the
+  whole field is put through the operation the reservoir itself uses for surface
+  tension: blur it, then take it back to a hard edge with an alpha threshold.
+  That is what fuses five separate marks into one continuous mass, and it is
+  what puts a fillet in every junction — the concave sweep where two strokes
+  meet that no amount of `lineJoin: round` will give you, because a real liquid
+  pulls material into a corner and a stroked path does not.
+
+  One continuous reservoir, which is the first design principle in PRODUCT.md.
+  The mark obeys it literally: there is no seam in it anywhere, and nothing is
+  composited over anything.
+
+  Ink is flat black on purpose. The app's ferrofluid IS flat black; every
+  attempt to put dimension into the tile has come back looking like an artifact
+  rather than like a liquid, which is the whole story of the version this one
+  replaces. A silhouette carries at 16 and a gradient does not.
+
+  Ideas drawn and rejected before this one, kept so they are not re-tried:
+
+  * A crop of the reservoir and nothing else — at 32 a smudge, at 16 a grey
+    square. An abstract crop of a smooth shape has no feature left to survive
+    downsampling.
+  * Knocking the letter OUT of a full tile of ink — the counters close by 32 and
+    the tile reads as a black blob with a bite in it.
+  * A pointer pull, to stand a peak under the vertex — the pull takes ink out
+    from under the middle of the letter and severs it into two shapes. At small
+    sizes it reads as a face.
+  * A spike rising off the mark's top edge. PRODUCT.md's anti-references rule
+    out spike combs, and the owner has rejected spikes by name. Do not re-add.
+
+  Usage:
+    1. open http://localhost:4174/test/icon.html
+    2. press Save, put the file at site/test/icon-1024.png
+    3. run site/test/make-icns.sh
+
+  The sliders default to the shipping mark. They are here so the next person can
+  disagree with it — every value that produced this tile is above.
+-->
+<style>
+  body { margin: 0; background: #1a1a1a; color: #eee; font: 13px ui-monospace, monospace; padding: 20px; }
+  .tiles { display: flex; gap: 20px; align-items: flex-end; }
+  #icon { width: 256px; height: 256px; display: block; image-rendering: auto; }
+  .small { display: flex; gap: 14px; align-items: flex-end; }
+  .small canvas { display: block; image-rendering: auto; }
+  .row { margin: 14px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 6px 14px; }
+  label { display: flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+
+<div class="tiles">
+  <canvas id="icon" width="1024" height="1024"></canvas>
+  <!-- The sizes that decide whether an icon works. A tile that only reads at
+       1024 is a picture, not an icon: 16 is the Finder list and the Gatekeeper
+       dialog's own row, and 32 is the desktop. -->
+  <div class="small">
+    <canvas id="s128" width="128" height="128"></canvas>
+    <canvas id="s32" width="32" height="32"></canvas>
+    <canvas id="s16" width="16" height="16"></canvas>
+  </div>
+</div>
+
+<div class="row">
+  <label>stroke <input id="stroke" type="range" min="80" max="180" value="124"></label>
+  <span id="strokeOut">124</span>
+  <label>fuse <input id="fuse" type="range" min="0" max="90" value="34"></label>
+  <span id="fuseOut">34</span>
+  <label>vertex <input id="vertex" type="range" min="40" max="95" value="66"></label>
+  <span id="vertexOut">66</span>
+  <label>pool <input id="pool" type="range" min="0" max="60" value="26"></label>
+  <span id="poolOut">26</span>
+  <button id="save">Save icon-1024.png</button>
+</div>
+<div class="row" id="status">drawing…</div>
+
+<script type="module">
+// The tile's ground, and the site's: `--paper` in magnetite.css, `PAPER` in
+// og.html. It was `#FF5A1F` — the fluorescent orange of the sheet the site used
+// to be printed on. That sheet is gone: `cc216a7` took the page to a cool grey
+// and said so plainly, "the only colour on the page is the absence of one".
+// This file was not regenerated with it, so the icon spent the intervening
+// commits as the last object in the product still wearing a palette nothing
+// else wears — and the icon is the one surface a person sees before anything
+// else, in the Gatekeeper dialog, ahead of the site and ahead of the app.
+//
+// It also reads better. Contrast against the ink is what an icon has at 16pt,
+// and paper against black is nearly the whole range; orange against black is a
+// third of it, which is why the tile went muddy the moment it was small.
+const FLOOD = '#E8E9EB';
+// Not pure #000. The reservoir renders a hair off black and the tile should
+// wear the same ink; at 16 the difference is invisible and at 1024 pure black
+// reads as a hole punched in the tile rather than as a material lying on it.
+const INK = '#0B0A0C';
+
+// macOS icon geometry: a 1024 canvas with the tile inset 100 on every side, so
+// the artwork is 824 square. The margin is not decoration — the system draws
+// shadows and reflections into it, and a full-bleed 1024 tile sits visibly
+// larger than every other icon in the Dock.
+const CANVAS = 1024;
+const INSET = 100;
+const TILE = CANVAS - INSET * 2;
+
+const icon = document.getElementById('icon');
+const ctx = icon.getContext('2d');
+const status = document.getElementById('status');
+
+/**
+ * The macOS tile shape — a continuous-curvature superellipse, not a rounded
+ * rectangle. Canvas `roundRect` gives circular corners, which next to a Dock
+ * full of real app icons reads as slightly wrong in a way that is hard to name
+ * and easy to see. |x|^n + |y|^n = 1 at n = 5 is the standard approximation.
+ */
+function squircle(context, x, y, size) {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+  const n = 5;
+  const steps = 512;
+  context.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    // Signed |cos|^(2/n) form: the parametric superellipse.
+    const px = Math.sign(c) * Math.abs(c) ** (2 / n) * r;
+    const py = Math.sign(s) * Math.abs(s) ** (2 / n) * r;
+    if (i === 0) context.moveTo(cx + px, cy + py);
+    else context.lineTo(cx + px, cy + py);
+  }
+  context.closePath();
+}
+
+// The letter on the tile, in tile fractions, so it follows if the inset is ever
+// revisited. `vertexDrop` is how far the middle descends as a fraction of the
+// letter's height — it is the number that decides whether the counters are
+// still open at 16, and the one to reach for first if they silt up.
+const MARK = {
+  x: 0.155, y: 0.250, width: 0.690, height: 0.495,
+  // Set from the sliders; these are the shipping values.
+  stroke: 0.124, fuse: 0.034, vertexDrop: 0.66, pool: 0.026,
+  // The share of the tile the INK is allowed, measured — see `pourFitted`. The
+  // numbers above frame the skeleton, and the skeleton is not the mark: the
+  // stroke is half its width wider on every side and the pools are wider still,
+  // all of it at the letter's outermost points. Framed by the skeleton box the
+  // feet landed flush with the tile edge, so at 16 they fused with the border
+  // into a black bar down each side and the tile lost its margin entirely.
+  safe: 0.80,
+};
+
+/**
+ * The letter, poured.
+ *
+ * Two passes. First the skeleton: an M as one polyline stroked wide, plus a
+ * disc at each of the four terminals and a heavier one in the well of the
+ * vertex. Those discs are the whole reason the mark reads as liquid rather than
+ * as lettering — a real fluid pools where a stroke ends and where two strokes
+ * meet, and a uniform stroke width does not.
+ *
+ * Then surface tension, which is the same operation the reservoir uses: blur
+ * the field and take it back to a hard edge at a threshold. Blurring merges the
+ * discs into the strokes so nothing has a seam, and the threshold turns the
+ * merged gradient back into a definite silhouette — with a concave fillet in
+ * every junction, which is exactly what `lineJoin: round` cannot give you and
+ * what makes the difference between a drawn M and a poured one.
+ *
+ * Threshold at half. Lower and the mark inflates and the counters silt up;
+ * higher and it erodes and the fillets go with it.
+ */
+function pourMark(m) {
+  const c = document.createElement('canvas');
+  c.width = c.height = TILE;
+  const g = c.getContext('2d');
+
+  const x = TILE * m.x;
+  const y = TILE * m.y;
+  const w = TILE * m.width;
+  const h = TILE * m.height;
+  const v = y + h * m.vertexDrop;
+
+  // Bottom-left, top-left, vertex, top-right, bottom-right.
+  const skeleton = [
+    [x, y + h], [x, y], [x + w / 2, v], [x + w, y], [x + w, y + h],
+  ];
+
+  g.fillStyle = '#000';
+  g.strokeStyle = '#000';
+  g.lineWidth = TILE * m.stroke;
+  g.lineJoin = 'round';
+  g.lineCap = 'round';
+  if (m.fuse > 0) g.filter = `blur(${TILE * m.fuse}px)`;
+
+  g.beginPath();
+  g.moveTo(skeleton[0][0], skeleton[0][1]);
+  for (const [px, py] of skeleton.slice(1)) g.lineTo(px, py);
+  g.stroke();
+
+  // The pools, laid as a taper rather than as a disc at the end.
+  //
+  // A single disc at a terminal is wider than the stroke arriving at it, and
+  // after the threshold that step survives as a WAIST: the stem visibly pinches
+  // just above the swelling and the feet read as boots on ankles. Walking the
+  // radius up across the last stretch of the stroke gives the same gathered
+  // weight with no shoulder in it, which is also how a hanging liquid actually
+  // thickens — gradually, from well above the drop.
+  const half = m.stroke / 2;
+  const taper = (from, to, grow, span) => {
+    const steps = 28;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const at = 1 - span + span * t;
+      // Smoothstep, so the thickening starts imperceptibly and arrives full.
+      const e = t * t * (3 - 2 * t);
+      g.beginPath();
+      g.arc(from[0] + (to[0] - from[0]) * at,
+            from[1] + (to[1] - from[1]) * at,
+            TILE * (half + grow * e), 0, Math.PI * 2);
+      g.fill();
+    }
+  };
+  taper(skeleton[1], skeleton[0], m.pool, 0.24);   // down the left stem
+  taper(skeleton[3], skeleton[4], m.pool, 0.24);   // down the right stem
+  // The vertex gathers because two strokes arrive at it, not because anything
+  // hangs there, so it takes a single disc and no taper. The shoulders take
+  // nothing at all — the round cap is already the right amount of weight, and
+  // adding to them closes the counters from above.
+  g.beginPath();
+  g.arc(skeleton[2][0], skeleton[2][1], TILE * (half + m.pool * 0.72), 0, Math.PI * 2);
+  g.fill();
+
+  g.filter = 'none';
+  const field = g.getImageData(0, 0, TILE, TILE);
+  const d = field.data;
+  for (let i = 3; i < d.length; i += 4) d[i] = d[i] > 127 ? 255 : 0;
+  g.putImageData(field, 0, 0);
+  return c;
+}
+
+/** Where the pour actually put ink, in tile fractions. Alpha is 0 or 255 here. */
+function inkBounds(c) {
+  const d = c.getContext('2d').getImageData(0, 0, TILE, TILE).data;
+  let x0 = TILE, y0 = TILE, x1 = -1, y1 = -1;
+  for (let y = 0; y < TILE; y++) {
+    for (let x = 0; x < TILE; x++) {
+      if (d[(y * TILE + x) * 4 + 3] === 0) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return null;
+  return {
+    x: x0 / TILE, y: y0 / TILE,
+    width: (x1 - x0 + 1) / TILE, height: (y1 - y0 + 1) / TILE,
+  };
+}
+
+/**
+ * The mark, framed by its ink rather than by its skeleton.
+ *
+ * Blur-and-threshold is scale-equivariant so long as the blur radius scales
+ * with everything else, so the honest way to frame the letter is to pour it
+ * once, measure where the ink truly landed, and pour it AGAIN at the scale and
+ * offset that drops that measurement into the safe box. Two pours, and the
+ * second is the real one — nothing is resampled, so the silhouette keeps the
+ * hard edge the threshold gave it.
+ *
+ * Measuring rather than doing arithmetic on the skeleton is what makes this
+ * hold up: the sliders can no longer break the framing. Widen the stroke or
+ * deepen the pools and the letter simply shrinks to keep its margin, instead of
+ * quietly growing out to the tile edge the way it did when the frame was the
+ * skeleton box and the pools hung off it unaccounted for.
+ *
+ * It CORRECTS rather than solves, because one correction is not enough. A pour
+ * that already overflows the canvas is measured clipped, the clipped width is
+ * an underestimate, and scaling by an underestimate overshoots — at full fuse a
+ * single pass landed the letter at 0.91 of the tile against a 0.80 target, with
+ * less than half the intended margin. The first correction always shrinks such
+ * a pour back inside the canvas, so the second measurement is honest and the
+ * loop settles. Three passes is slack; the shipping values converge on one.
+ */
+function pourFitted() {
+  let m = MARK;
+  let out = pourMark(m);
+  for (let pass = 0; pass < 3; pass++) {
+    const box = inkBounds(out);
+    if (!box) return out;
+    const k = Math.min(MARK.safe / box.width, MARK.safe / box.height);
+    if (Math.abs(k - 1) < 0.002) break;
+    m = {
+      ...m,
+      x: (m.x - (box.x + box.width / 2)) * k + 0.5,
+      y: (m.y - (box.y + box.height / 2)) * k + 0.5,
+      width: m.width * k,
+      height: m.height * k,
+      stroke: m.stroke * k,
+      pool: m.pool * k,
+      fuse: m.fuse * k,
+    };
+    out = pourMark(m);
+  }
+  return out;
+}
+
+function draw() {
+  MARK.stroke = Number(document.getElementById('stroke').value) / 1000;
+  MARK.fuse = Number(document.getElementById('fuse').value) / 1000;
+  MARK.vertexDrop = Number(document.getElementById('vertex').value) / 100;
+  MARK.pool = Number(document.getElementById('pool').value) / 1000;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, CANVAS, CANVAS);
+
+  // Paper ground, clipped to the tile so nothing can escape the squircle, then
+  // the mark laid on it. The mark arrives already thresholded, so this is a
+  // single opaque silhouette and not a composite — there is no edge in the tile
+  // that the pour did not decide.
+  ctx.save();
+  squircle(ctx, INSET, INSET, TILE);
+  ctx.fillStyle = FLOOD;
+  ctx.fill();
+  ctx.clip();
+
+  const mark = pourFitted();
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  // Tint the silhouette: draw the ink, keep only where the pour says.
+  const tinted = document.createElement('canvas');
+  tinted.width = tinted.height = TILE;
+  const t = tinted.getContext('2d');
+  t.drawImage(mark, 0, 0);
+  t.globalCompositeOperation = 'source-in';
+  t.fillStyle = INK;
+  t.fillRect(0, 0, TILE, TILE);
+  ctx.drawImage(tinted, INSET, INSET);
+  ctx.restore();
+
+  ctx.restore();
+
+  for (const [id, size] of [['s128', 128], ['s32', 32], ['s16', 16]]) {
+    const small = document.getElementById(id);
+    const sctx = small.getContext('2d');
+    sctx.clearRect(0, 0, size, size);
+    sctx.drawImage(icon, 0, 0, size, size);
+  }
+
+  status.textContent = `stroke ${MARK.stroke.toFixed(3)}, fuse ${MARK.fuse.toFixed(3)}, `
+    + `vertex ${MARK.vertexDrop.toFixed(2)}, pool ${MARK.pool.toFixed(3)}`;
+}
+
+for (const id of ['stroke', 'fuse', 'vertex', 'pool']) {
+  const control = document.getElementById(id);
+  control.addEventListener('input', () => {
+    document.getElementById(`${id}Out`).textContent = control.value;
+    draw();
+  });
+}
+
+document.getElementById('save').addEventListener('click', () => {
+  icon.toBlob((blob) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'icon-1024.png';
+    a.click();
+  }, 'image/png');
+});
+
+draw();
+
+// Exposed so the build/agent can pull the bytes without a download dialog.
+globalThis.iconDataURL = () => icon.toDataURL('image/png');
+globalThis.drawIcon = draw;
+
+// `#full` lays the master out at its true 1024 so a headless screenshot at
+// device-scale 1 IS the canvas, pixel for pixel, cropped at a known origin.
+// The Save button needs a person to click it and `toDataURL` has to come back
+// through a debugger; this route needs neither, which is what makes the tile
+// reproducible from a script instead of from a session.
+// The ground stays TRANSPARENT here, and the capture has to ask for that too
+// (`--default-background-color=00000000`). The tile is inset 100 on every side
+// and macOS draws its shadow into that margin; a screenshot taken over an
+// opaque body bakes a square of that colour into the icon and the margin stops
+// being margin. Losing it is silent — the tile still looks right at 1024 and
+// only shows up as a hard box behind the icon in the Dock.
+if (location.hash === '#full') {
+  document.body.style.padding = '0';
+  document.body.style.background = 'transparent';
+  icon.style.width = '1024px';
+  icon.style.height = '1024px';
+}
+</script>
+</body>
+</html>

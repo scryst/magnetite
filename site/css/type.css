@@ -1,0 +1,8 @@
+/* Gloock, one weight, Latin subset, self-hosted. OFL: fonts/OFL-Gloock.txt. */
+@font-face {
+  font-family: 'Gloock';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/gloock-400-latin.woff2') format('woff2');
+}

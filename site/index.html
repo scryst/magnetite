@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnetite — A ferrofluid music player for the MacBook notch</title>
+<meta name="description" content="A free, native macOS music player that turns the MacBook notch into sound-driven black ferrofluid. Audio stays on your Mac. No tracking.">
+<meta name="application-name" content="Magnetite">
+<meta name="author" content="scryst">
+<meta name="robots" content="index, follow, max-image-preview:large">
+
+<!--
+  MAGNETITE FIELD NOTES
+  01 / Fe3O4 is ferrimagnetic. The interface answers a field, too.
+  02 / The liquid is rendered from the app's own audio capture.
+       The player in the middle is the only film on this page.
+  03 / A personal project by scryst. No trackers. No frameworks.
+-->
+
+<link rel="canonical" href="https://magnetite.app/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- The same mark flat, for the browsers that never promised to read the SVG
+     — which on a Mac-only product's page is Safari. The touch icon is the
+     app's own tile: a home-screen bookmark is an app-icon surface. -->
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- The browser's chrome meets the paper the whole page is printed on. -->
+<meta name="theme-color" content="#ECEBE6">
+
+<!-- The share card. og.png is rendered by test/og.html with this site's own
+     press against the app's own captured audio, so an unfurl in Slack or
+     iMessage shows a real frame of the real fluid rather than a mock-up. -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Magnetite">
+<meta property="og:title" content="Magnetite — A ferrofluid music player for the MacBook notch">
+<meta property="og:description" content="A free, native macOS music player that turns the MacBook notch into sound-driven black ferrofluid. Audio stays on your Mac. No tracking.">
+<!-- Absolute, and it has to be: og:image is fetched by a crawler that has no
+     page to resolve a relative path against, so "og.png" unfurls as nothing. -->
+<meta property="og:url" content="https://magnetite.app/">
+<meta property="og:image" content="https://magnetite.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A MacBook printed in black, pink and blue ink, with black ferrofluid hanging from its notch.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Magnetite — A ferrofluid music player for the MacBook notch">
+<meta name="twitter:description" content="A free, native macOS music player that turns the MacBook notch into sound-driven black ferrofluid. Audio stays on your Mac. No tracking.">
+<meta name="twitter:image" content="https://magnetite.app/og.png">
+<meta name="twitter:image:alt" content="A MacBook printed in black, pink and blue ink, with black ferrofluid hanging from its notch.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Magnetite",
+  "url": "https://magnetite.app/",
+  "description": "A free, native macOS music player that turns the MacBook camera notch into sound-driven black ferrofluid. Audio stays on your Mac. No tracking.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "macOS 26",
+  "softwareVersion": "0.1.1",
+  "image": "https://magnetite.app/og.png",
+  "screenshot": "https://magnetite.app/og.png",
+  "isAccessibleForFree": true,
+  "featureList": [
+    "Native notch music controls",
+    "Ferrofluid visualizer driven by system audio",
+    "Spotify and Apple Music playback",
+    "On-device audio processing with no tracking"
+  ],
+  "author": { "@type": "Person", "name": "scryst" },
+  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+
+<!-- Scripted pages hold each print's plain words back until the first sheet
+     is on its canvas, so the printed layout never follows a flash of the
+     unprinted one. A page whose scripts never run shows the plain words. -->
+<script>document.documentElement.classList.add('js');</script>
+
+<!-- One local face, Gloock, for the headline, the section title and the name.
+     Everything else is the Mac's own system face, because this is a Mac app's
+     page and the words should read like the Mac they describe. -->
+<link rel="preload" href="fonts/gloock-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/type.css">
+<link rel="stylesheet" href="css/magnetite.css">
+<link rel="modulepreload" href="js/site.js">
+<link rel="modulepreload" href="js/sim.js">
+<link rel="modulepreload" href="js/geometry.js">
+<link rel="modulepreload" href="js/press.js">
+<link rel="modulepreload" href="js/hero.js">
+<link rel="modulepreload" href="js/band.js">
+<link rel="modulepreload" href="data/real-levels.js">
+<link rel="modulepreload" href="js/clock.js">
+<link rel="modulepreload" href="js/visibility.js">
+<link rel="modulepreload" href="js/bands.js">
+<link rel="modulepreload" href="js/finale.js">
+<link rel="modulepreload" href="js/liquid.js">
+<link rel="modulepreload" href="js/filings.js">
+<link rel="modulepreload" href="js/wordmark.js">
+</head>
+<body>
+
+<!-- The name, poured: GENERATED by test/gen-wordmark.mjs from the distance field
+     in js/wordmark.js, the same field the finale draws live. Edit the field or
+     the generator, never this path. -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <symbol id="wordmark" viewBox="0 0 1278 140">
+    <path fill="currentColor" d="M26.7 2.1C36.3 0.5 39.5 8 45.1 13.5C57.4 25.6 70.1 37.2 82.5 49
+    C85.9 52.2 89.3 55.4 92.7 58.6C94.6 60.4 96.2 62.5 99 62.5
+    C100.8 62.5 102.3 60.5 103.5 59.4C106.8 56.2 110.1 53.1 113.4 50
+    C126.2 37.9 139.2 25.9 151.9 13.5C156.9 8.7 159.8 2.2 167.7 1.9
+    C169.1 1.9 170.5 2 171.9 2.4C173.3 2.8 174.8 3.5 176 4.4C179.7 7.1 181.9 11 182 15.6
+    C182 19.1 181.1 22.5 181 26C180.7 35.7 181 45.5 181 55.2C181 68 185.7 77.6 190.6 89
+    C192.9 94.3 195.7 99.5 196.6 105.2C199.2 121.1 187.8 136.3 171.9 138.4
+    C153.1 140.8 136.7 123.9 139.8 105.2C140.4 101.2 142.1 97.5 143.8 93.8
+    C147 86.3 151.1 78.7 153.3 70.8C154.8 65.3 155.4 59.9 155.4 54.2
+    C155.4 52.1 155.9 49.6 154.5 47.9C153.6 46.9 151.2 49.5 150.6 50
+    C147.3 53.1 144 56.2 140.7 59.4C133.1 66.6 124.8 73.5 117.7 81.3
+    C115.6 83.6 114.8 86.9 113.1 89.6C110.3 94.3 105.6 97.7 100 98.2
+    C93.7 98.7 88.1 95.6 84.5 90.6C82.4 87.7 81.5 84.1 79.3 81.3C77.2 78.5 74.2 76.3 71.7 74
+    C66.5 69.1 61.4 64.2 56.3 59.3C53.1 56.4 50 53.4 46.9 50.5C45.7 49.4 44.4 47.7 42.7 47.8
+    C42.2 47.8 42.1 48.5 41.8 49C41.2 50.4 41.6 52.6 41.6 54.2C41.6 60.9 42.3 67.6 44.8 74
+    C47.3 80.5 50.3 87 53.1 93.5C55.1 98 57.1 102.3 57.5 107.3
+    C59.2 126.7 40.8 142.4 21.9 137.8C18.1 136.8 14.6 135.1 11.5 132.8
+    C9 130.9 6.7 128.6 5 126C3.5 123.8 2.3 121.3 1.4 118.8C-4.3 101.4 10.2 85 14.4 68.8
+    C16.7 60.3 16 51.4 16 42.7C16 37.2 16.2 31.6 16 26C15.9 22.2 14.7 18.4 15 14.6
+    C15.6 8.3 20.5 3.1 26.7 2.1Z
+    M444.9 1C450.5 -0.2 454.8 0.3 460.4 0.8C463.9 1.2 467.5 1.2 470.8 2
+    C473.7 2.6 476.5 4.2 479.2 5.3C482.6 6.8 486.4 7.9 489.6 9.8C491.5 11 493 12.7 494.8 14
+    C496.7 15.3 498.9 16.3 501 17.4C503.9 19 506.8 21.1 508.4 24
+    C512.3 30.8 510.6 39 504.4 43.8C502.8 44.9 500.9 45.7 499 46.2
+    C497.6 46.5 496.2 46.6 494.8 46.5C489.8 46.2 485.8 43.4 482.8 39.6
+    C480.9 37.1 479.3 34.2 476.7 32.3C474.5 30.6 471.3 29.8 468.8 28.7
+    C467.5 28.2 465.9 27.2 464.6 26.9C460.7 26.3 456 25.6 452.1 25.7
+    C450 25.8 447.8 26.6 445.8 27C443.8 27.4 441.5 27.6 439.6 28.4
+    C437.4 29.2 435.3 30.7 433.3 31.8C431.6 32.8 429.6 33.6 428.1 35
+    C425.3 37.5 422.4 40.8 420 43.8C418.7 45.4 418 48.1 417.1 50
+    C416.3 51.7 415.2 53.4 414.7 55.2C414.1 57.5 414.1 60.1 413.9 62.5
+    C413.3 66.9 413.8 69.6 414.6 74C415 75.6 415 77.7 415.7 79.2
+    C417.1 82.5 419.6 87.4 421.9 90.2C426.6 96.1 435.5 101.9 442.7 104.1
+    C444.6 104.7 447 104.7 449 104.9C451 105.2 453.2 105.8 455.2 105.7
+    C456.9 105.7 458.7 105.1 460.4 104.8C464 104.2 467.3 103.8 470.6 102.1
+    C473.3 100.7 476.8 99.5 479.2 97.5C481 95.9 482.7 94 484.4 92.3
+    C485.9 90.7 488.6 88.9 488.6 86.5C488.6 84.8 486.7 84.6 485.4 84.5
+    C482.3 84.4 479.2 84.5 476 84.5C466.5 84.5 451.7 87.2 448.4 75
+    C448 73.3 447.9 71.5 448.1 69.8C449.4 61.5 456.1 58.9 463.5 58.9
+    C470.1 58.9 476.7 58.9 483.3 58.9C486.6 58.9 490.5 59.5 493.8 58.7
+    C496.7 58 498.5 55.4 501 54C505.7 51.3 511 51.3 515.6 54C522.7 58.1 523.9 68.9 521.8 76
+    C521 78.5 519.8 80.8 518.8 83.2C515.8 90.2 512.9 97.8 508.5 104.2
+    C506.8 106.6 504.2 108.7 502.1 110.8C499.7 113.2 497.4 115.9 494.8 118
+    C492.2 120.1 488.9 121.4 486 122.9C482.7 124.6 479.5 126.7 476 127.9
+    C472.8 129.1 469 129.3 465.6 129.9C462.5 130.4 459.4 131.2 456.3 131.5
+    C453.2 131.7 449.9 130.9 446.9 130.5C443.1 130 439.1 129.8 435.4 128.8
+    C432.2 127.9 429.1 126.1 426 124.6C422.9 123.2 419.6 121.9 416.7 120.1
+    C414 118.4 411.7 115.7 409.4 113.5C406.8 111.2 403.8 109 401.7 106.3
+    C399.3 103.3 397.7 99.5 395.8 96.2C394.3 93.4 392.2 90.6 391.3 87.5
+    C390.5 84.8 390.1 81.9 389.6 79.2C388.8 75.5 387.5 71.5 387.5 67.7
+    C387.6 64.3 388.3 60.7 388.7 57.3C389.1 54.2 389.1 50.9 390 47.9
+    C391 44.3 393.1 40.9 394.7 37.5C395.9 34.7 397.1 31.7 398.8 29.2
+    C400.3 26.9 402.5 24.9 404.4 22.9C407 20.1 409.4 17.1 412.3 14.6
+    C414.4 12.7 417.3 11.5 419.8 10.1C423.2 8.2 426.6 5.8 430.2 4.3
+    C434.7 2.5 440.2 2 444.9 1Z
+    M555.2 2.1C565 0.1 569.3 9.5 575 15.3C590.1 30.3 605.1 45.4 620.2 60.4
+    C624.6 64.8 628.9 69.2 633.3 73.6C634.5 74.8 636.6 77.8 638.5 77.6
+    C640.2 77.4 640.8 75.2 641.4 74C643.1 69.8 644 64.9 644.4 60.4
+    C645.3 50.9 644.6 37.1 644.6 27.1C644.6 22.5 643.8 17 645 12.5
+    C647.1 4.7 656.3 0.4 663.5 4.5C670.2 8.3 670.2 15 670.2 21.9
+    C670.2 31.2 670.2 40.6 670.2 50C670.2 57.2 670.3 63.9 672.3 70.8
+    C676.7 86.6 690.3 101.6 684.7 118.8C683.9 121.3 682.7 123.6 681.3 125.9
+    C679.6 128.4 677.4 130.7 675 132.6C671.9 134.9 668.4 136.7 664.6 137.7
+    C650.3 141.3 635.6 133.5 630.3 119.8C628.3 114.5 629.6 107.5 626.5 103.1
+    C623.5 98.9 618.3 94.8 614.6 91C606.5 82.9 598.3 74.8 590.2 66.7
+    C585.8 62.3 581.5 57.9 577.1 53.5C575.9 52.3 573.7 49.3 571.9 49
+    C570.2 48.8 570.2 51 570.2 52.1C570 55.9 570.1 59.8 570.7 63.5
+    C572.2 73.7 577.2 83.1 581.3 92.5C583.3 97.3 585.6 102 586 107.3
+    C588 129.5 564.9 145.3 544.8 135.7C541.7 134.2 538.8 132.1 536.5 129.6
+    C534.6 127.6 533 125.4 531.7 122.9C522.1 104.2 537.9 87.3 542.7 69.8
+    C545.4 60 544.6 49.7 544.6 39.6C544.6 34.8 544.8 29.8 544.5 25
+    C544.2 21.5 543.3 18.1 543.6 14.6C544.1 8.1 549 3.3 555.2 2.1Z
+    M1182.5 2.1C1186.6 1.5 1190.6 2.8 1194.8 2.9C1202.4 3.2 1210.1 2.9 1217.7 2.9
+    C1225.7 2.9 1233.7 2.9 1241.7 2.9C1245.8 2.9 1250 2.9 1254.2 2.9
+    C1258.3 2.9 1262 2.8 1265.6 5C1274.8 10.6 1272.3 24.7 1262.5 27.9
+    C1257.8 29.4 1251.8 28.5 1246.9 28.5C1236.1 28.5 1225.3 28.5 1214.6 28.5
+    C1211.5 28.5 1208.3 28.5 1205.2 28.5C1203.1 28.5 1200.9 28.3 1199 29.1
+    C1197.1 29.9 1197.4 32.8 1197.4 34.4C1197.4 37.8 1197.4 41.3 1197.4 44.8
+    C1197.4 46.9 1197.2 49.1 1197.8 51C1198.2 52.4 1199.9 52.8 1201 52.9
+    C1204.8 53.2 1208.7 52.9 1212.5 52.9C1221.2 52.9 1229.9 52.9 1238.5 52.9
+    C1242.9 52.9 1247.9 52.2 1252.1 53.5C1258.6 55.6 1262.9 63.2 1260.4 69.8
+    C1257 78.7 1249.8 78.5 1241.7 78.5C1232.6 78.5 1223.6 78.5 1214.6 78.5
+    C1210.8 78.5 1206.9 78.5 1203.1 78.5C1200.1 78.5 1197.7 78.8 1197.4 82.3
+    C1197.1 87.1 1197.4 92 1197.4 96.9C1197.4 99.2 1197.3 101.9 1200 102.7
+    C1203.1 103.7 1209.1 102.1 1212.5 101.7C1222.7 100.5 1232.7 97.9 1242.7 95.6
+    C1250.2 93.8 1257.2 92 1264.6 95.4C1282.6 103.8 1281.2 130.3 1262.5 136.8
+    C1256.1 139.1 1250.1 137.6 1243.8 136.1C1235.5 134.2 1227.1 131.9 1218.8 130.4
+    C1215.3 129.8 1211.8 129.7 1208.3 129.3C1205.2 128.9 1202.1 128.2 1199 128.6
+    C1194.2 129.1 1190.3 132 1185.4 132.2C1179.3 132.5 1173.4 129.3 1170.3 124
+    C1167.9 119.9 1167.5 114.9 1168.8 110.4C1169.7 107.6 1171.1 105 1171.6 102.1
+    C1172.1 99 1171.8 95.8 1171.8 92.7C1171.8 87.5 1171.8 82.3 1171.8 77.1
+    C1171.8 73.2 1170.8 69.5 1170.8 65.6C1170.8 62.1 1171.7 58.7 1171.8 55.2
+    C1172 45.5 1172.1 35.7 1171.8 26C1171.7 22.5 1170.8 19.1 1170.8 15.6
+    C1170.9 9.1 1175.8 2.9 1182.5 2.1Z
+    M720.3 2.1C724 1.5 727.6 2.5 731.3 2.8C734 3.1 736.8 2.9 739.6 2.9
+    C756.6 2.9 773.6 2.9 790.6 2.9C793.3 2.9 796.3 2.6 799 3.2
+    C804.4 4.4 808.6 8.9 809.2 14.6C809.7 20.9 805.3 27.1 799 28.3
+    C794 29.2 788.4 28.5 783.3 28.5C773.3 28.5 763.2 28.5 753.1 28.5
+    C749 28.5 744.8 28.5 740.6 28.5C737.7 28.5 735.4 29 735.2 32.3
+    C734.9 36.8 735.2 41.3 735.2 45.8C735.2 48.2 734.9 50.2 736.4 52.1
+    C736.8 52.6 738 52.8 738.5 52.9C740.9 53.2 743.4 52.9 745.8 52.9
+    C755.6 52.9 765.3 52.9 775 52.9C782.7 52.9 792.8 51.3 797.2 59.4
+    C797.9 60.7 798.4 62.1 798.7 63.5C799 65.3 798.9 67.1 798.5 68.8
+    C797.3 73.5 793.4 77.4 788.5 78.3C786.2 78.7 783.7 78.5 781.3 78.5
+    C771.5 78.5 761.8 78.5 752.1 78.5C748.3 78.5 744.4 78.5 740.6 78.5
+    C737.7 78.5 735.4 79 735.2 82.3C734.9 87.1 735.2 92 735.2 96.9
+    C735.2 99.1 735 101.7 737.5 102.6C739.1 103.2 741.1 102.8 742.7 102.6
+    C745.5 102.3 748.3 101.9 751 101.6C761.2 100.6 771.3 97.7 781.3 95.4
+    C788.4 93.8 795.1 92.1 802.1 95.3C819.8 103.3 819.5 129.7 801 136.6
+    C794.3 139.1 788 137.6 781.3 136C773 134.1 764.6 131.7 756.3 130.3
+    C752.8 129.8 749.3 129.6 745.8 129.2C742.7 128.9 739.6 128.2 736.5 128.6
+    C731.7 129.3 727.8 132.1 722.9 132.2C717 132.4 711 129.2 708.1 124
+    C705.8 119.8 705.3 115 706.6 110.4C707.4 107.6 709 105 709.4 102.1
+    C710.4 95.1 709.6 84.4 709.6 77.1C709.6 73.2 708.6 69.5 708.6 65.6
+    C708.6 62.1 709.5 58.7 709.6 55.2C709.8 46.9 709.6 38.5 709.6 30.2
+    C709.6 25 708.2 19.7 708.6 14.6C709.2 8.3 714.1 3 720.3 2.1Z
+    M291.1 2.1C292.5 1.9 294 1.9 295.4 2.1C304 3.4 305.9 11 309.2 17.7
+    C312.2 23.8 316.1 29.6 319.5 35.4C326.1 46.8 332.9 61.6 342.7 70.4
+    C348.5 75.6 355.2 79.9 361.5 84.5C366.6 88.3 371.3 92 374.1 97.9
+    C382.3 115 371.9 135.8 353.1 139C339 141.4 324.6 132.6 320.7 118.8
+    C319.6 115 319.3 111.1 318.9 107.3C318.6 104.9 318.6 102.8 316.7 101.1
+    C315.9 100.5 314.5 100.5 313.5 100.5C311.1 100.5 308.7 100.5 306.3 100.5
+    C296.5 100.5 286.8 100.5 277.1 100.5C275.2 100.5 271.4 99.8 269.8 101.2
+    C267.7 103 267.8 105.8 267.5 108.3C266.9 113.3 266.5 118.3 264.2 122.9
+    C256.2 139.8 233.5 144.7 219.3 132.3C216.3 129.7 213.8 126.5 212.2 122.9
+    C210.8 120 209.9 116.8 209.6 113.5C209.3 111.1 209.4 108.7 209.7 106.3
+    C212.7 86.7 234.7 80.3 246.9 67.4C254.4 59.5 259.2 49 264.6 39.6
+    C268.8 32.3 273.6 25.2 277.3 17.7C280.6 11 282.5 3.4 291.1 2.1Z
+    M889.3 2.1C893.7 1.6 897.8 2.6 902.1 2.9C909.3 3.3 916.7 2.9 924 2.9
+    C927.8 2.9 931.6 2.9 935.4 2.9C938.2 2.9 941.1 2.7 943.8 3.7C953.5 7.2 954.8 19.8 947 26
+    C943.7 28.7 939.4 28.5 935.4 28.5C929.2 28.5 922.9 28.5 916.7 28.5
+    C914.1 28.5 907.1 27.6 905.8 30.2C905 31.8 905.3 33.7 905.3 35.4
+    C905.3 38.9 905.3 42.4 905.3 45.8C905.3 55 904.9 64.1 908 72.9
+    C910.5 79.8 913.8 86.5 916.7 93.2C918.5 97.5 920.5 101.6 921 106.3
+    C923 122.4 910.9 137.1 894.8 138.5C877.7 140 862.8 125.4 863.7 108.3
+    C864 102.7 866.3 97.8 868.4 92.7C871.1 86.5 873.9 80.3 876.5 74
+    C880.4 64.3 879.7 53.9 879.7 43.8C879.7 39.5 880.5 34.2 879.2 30.2
+    C878.8 29 877.1 28.6 876 28.5C873.6 28.3 871.2 28.5 868.8 28.5
+    C862.8 28.5 856.9 28.5 851 28.5C847.1 28.5 843.3 28.8 839.6 27.1
+    C829.8 22.6 831 7.7 840.6 3.9C845.6 1.9 852 2.9 857.3 2.9C868 2.9 878.7 3.2 889.3 2.1Z
+    M1081.4 2.1C1086 1.7 1090.2 2.7 1094.8 2.9C1101.4 3.1 1108 2.9 1114.6 2.9
+    C1118.7 2.9 1122.9 2.9 1127.1 2.9C1129.9 2.9 1132.7 2.7 1135.4 3.5
+    C1145 6.6 1147.3 19.3 1139.6 25.7C1135.9 28.7 1131.6 28.5 1127.1 28.5
+    C1120.8 28.5 1114.6 28.5 1108.3 28.5C1105.2 28.5 1098.4 27.1 1097.5 31.3
+    C1096.6 35.1 1097.4 40.8 1097.4 44.8C1097.4 54.6 1096.7 64.7 1100.5 74
+    C1103.1 80.3 1105.9 86.5 1108.6 92.7C1110.7 97.8 1113 102.7 1113.3 108.3
+    C1114.1 123.7 1102 137.8 1086.5 138.5C1069.1 139.4 1054.3 124.9 1055.9 107.3
+    C1056.3 102.4 1058.2 98.2 1060.1 93.8C1063.1 86.9 1066.5 80 1069 72.9
+    C1072.1 64.1 1071.8 55 1071.8 45.8C1071.8 42.4 1071.8 38.9 1071.8 35.4
+    C1071.8 33.7 1072 31.8 1071.2 30.2C1070 27.6 1062.9 28.5 1060.4 28.5
+    C1054.5 28.5 1048.6 28.5 1042.7 28.5C1038.8 28.5 1034.7 28.9 1031.3 26.8
+    C1022.7 21.7 1022.6 8.1 1032.3 4C1037.3 1.9 1043.6 2.9 1049 2.9
+    C1059.9 2.9 1070.6 3.1 1081.4 2.1Z
+    M986.2 3.1C994 1.5 1001.1 7.9 1001.3 15.6C1001.6 26 1001.3 36.5 1001.3 46.9
+    C1001.3 52.8 1001 58.7 1002 64.6C1003.6 74.4 1008.6 83.6 1012.5 92.7
+    C1016.3 101.6 1019.2 110.2 1015.5 119.8C1014.5 122.4 1013.2 124.8 1011.5 127.1
+    C1009.8 129.5 1007.6 131.7 1005.1 133.3C1001.7 135.7 997.9 137.4 993.8 138.1
+    C976.5 141.3 960.1 127.9 959.7 110.4C959.6 104.4 961.7 99.2 964.1 93.8
+    C967 86.9 970.6 80 972.9 72.9C976.3 62.7 975.7 52.3 975.7 41.7
+    C975.7 35.4 975.7 29.2 975.7 22.9C975.7 19.8 975.4 16.6 975.9 13.5
+    C976.8 8.2 981 4.2 986.2 3.1Z
+    M292.7 43.3C291.3 43.7 289.3 48.1 288.5 49.3C285.2 55.1 281.8 60.9 278.5 66.7
+    C277.5 68.3 274.5 72 275.5 74C276.2 75.4 281.9 74.9 283.3 74.9
+    C289.6 74.9 295.8 74.9 302.1 74.9C304.5 74.9 308.2 75.6 310.4 74.4
+    C312.6 73.3 309.1 68.6 308.3 67.2C304.8 61.1 301.3 55 297.7 49
+    C296.8 47.4 295.1 42.7 292.7 43.3Z"/>
+  </symbol>
+</svg>
+
+<header class="masthead">
+  <svg class="masthead__name" viewBox="0 0 1278 140" data-wordmark role="img" aria-label="Magnetite"><use href="#wordmark"/></svg>
+  <a class="masthead__source" href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
+</header>
+
+<main>
+  <!-- ══ THE PRINT ═══════════════════════════════════════════════════════════
+       A MacBook in three spot inks, the way a risograph prints: black, pink
+       and blue, each screened into dots at its own angle and a hair out of
+       register. The liquid hanging from its notch is the page's one
+       simulation, driven by the app's own audio capture. The headline is the
+       pink plate; the h1 carries the words and the print sets them. -->
+  <section class="hero" data-print-host>
+    <canvas class="hero__print" id="hero-print" aria-hidden="true" data-render-check-ignore></canvas>
+    <h1 class="headline"><span>Music,</span> <span>magnetized.</span></h1>
+    <p class="visually-hidden">
+      A MacBook, printed in black, pink and blue ink. Black liquid hangs from
+      its notch and rises into peaks in time with music.
+    </p>
+    <div class="hero__copy">
+      <p class="hero__lede">A free music player that lives in your MacBook’s
+        notch, with black ferrofluid that moves to whatever your Mac is playing.</p>
+      <a class="hero__get" href="#download">Download for macOS</a>
+      <p class="hero__meta">Free and open source. Works with Apple Music and
+        Spotify, and the audio never leaves your Mac.</p>
+
+      <!-- The page's own transport. Opt-in: nothing plays until it is pressed,
+           and then the liquid is driven by the track itself, analysed in the
+           browser the way the app analyses the Mac's output. -->
+      <div class="listen" data-soundtrack role="group" aria-label="Page audio">
+        <audio hidden preload="none" src="media/cyberpunk-renaissance.mp3"
+               data-soundtrack-audio></audio>
+        <button type="button" class="listen__play" data-soundtrack-toggle
+                data-playing="false">
+          <span class="listen__icon" aria-hidden="true"></span>
+          <span data-soundtrack-toggle-label>Play with sound</span>
+        </button>
+        <div class="listen__tracks" role="radiogroup" aria-label="Choose a soundtrack">
+          <button type="button" class="listen__track" data-soundtrack-track
+                  data-title="Cyberpunk Renaissance"
+                  data-src="media/cyberpunk-renaissance.mp3" role="radio"
+                  aria-checked="true" tabindex="0">Cyberpunk Renaissance</button>
+          <button type="button" class="listen__track" data-soundtrack-track
+                  data-title="Chrome Funk"
+                  data-src="media/chrome-funk.mp3" role="radio"
+                  aria-checked="false" tabindex="-1">Chrome Funk</button>
+        </div>
+        <p class="visually-hidden" data-soundtrack-status aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ THE FILM ════════════════════════════════════════════════════════════
+       The shipping app, screen-recorded, in its own pixels on its own grey.
+       The one picture on the page that is never printed: it is the proof of
+       what the app looks like. Reduce Motion holds frame 0. -->
+  <section class="film" aria-label="Magnetite in action">
+    <div class="film__stage" data-render-check-ignore>
+      <video class="film__video" id="demo-film" muted loop playsinline
+             preload="metadata" width="1536" height="720"
+             poster="media/demo-poster.webp" src="media/demo.mp4"
+             aria-hidden="true"></video>
+    </div>
+    <p class="visually-hidden">
+      The real player, filmed open: black liquid moves with the music while a
+      track is skipped, the seek strip is scrubbed, and two-finger swipes move
+      backward and forward through the queue.
+    </p>
+    <div class="film__foot">
+      <button type="button" class="film__motion" data-demo-motion>
+        <span data-demo-motion-label>Play demo</span>
+      </button>
+      <ul class="how">
+        <li><b>Hover</b> the notch to open the player.</li>
+        <li><b>Scrub</b> along its bottom edge to seek.</li>
+        <li><b>Swipe</b> two fingers to skip or pause.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══ THE MENU BAR ════════════════════════════════════════════════════════
+       The top edge of the display at page scale, with the liquid retracted
+       into the notch, where the app keeps it when nothing is open. The notch
+       is the download: the print is drawn to the link's own box. -->
+  <section class="get" id="download" aria-labelledby="get-title">
+    <h2 class="get__title" id="get-title">Idle, it never leaves the menu bar.</h2>
+    <div class="band" data-print-host>
+      <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
+      <a class="notch-link" data-download rel="external"
+         href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1"
+         aria-describedby="requires first-launch">Download<span class="visually-hidden">, Magnetite v0.1.1 on GitHub</span></a>
+    </div>
+    <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>
+    <!-- The installer fetches the same release with curl, which does not
+         quarantine, so the app opens on the first try. One click selects the
+         whole command. -->
+    <div class="get__install" id="install">
+      <p>Or install it from Terminal:</p>
+      <code class="install">curl -fsSL <span class="install__tail">https://magnetite.app/install.sh | sh</span></code>
+    </div>
+    <!-- Only while the served zip is unnotarised: portcheck reads the zip for
+         the stapled ticket and requires this paragraph exactly when the
+         Gatekeeper dialog will appear. -->
+    <p class="get__note" data-firstlaunch id="first-launch">
+      The zip isn’t notarised yet, so macOS blocks its first launch once:
+      approve it under System Settings › Privacy &amp; Security › Open Anyway.
+      The Terminal install skips that step.
+    </p>
+  </section>
+
+  <!-- ══ THE NAME ════════════════════════════════════════════════════════════
+       The one thing on the page still wet: the name, poured when it comes into
+       view, lit like the ferrofluid, in a field of iron filings. The pointer is
+       a magnet, and with the soundtrack playing each drop meters a band. The
+       still underneath is the same shape traced, for every browser that cannot
+       pour it. Decorative: the name is text in the masthead and the foot. -->
+  <div class="finale" data-finale aria-hidden="true">
+    <svg class="finale__still" viewBox="0 0 1278 140" data-wordmark focusable="false"><use href="#wordmark"/></svg>
+    <canvas class="finale__filings" data-finale-filings data-render-check-ignore></canvas>
+    <canvas class="finale__name" data-finale-name data-render-check-ignore></canvas>
+  </div>
+</main>
+
+<footer class="foot">
+  <p class="mark">
+    <!-- The app's own mark: the poured M, GENERATED by test/gen-mark.mjs from
+         the icon master at test/icon-1024.png — the same pixels the icns and
+         the favicon are built from. portcheck re-derives it and asserts this
+         glyph and the favicon are each what the derivation produces. Edit the
+         master or the generator, never this path. Hidden from the tree: the
+         name beside it is the text. -->
+    <svg class="mark__glyph" viewBox="181 282 660 458" aria-hidden="true">
+          <path fill="currentColor" d="M272.5 283C278.4 281.8 285.4 283.9 291 285.8C305 290.5 317.3 301.7 328 311.6
+            C331.4 314.7 334.4 318.4 338 321.3C344.1 326.3 349.4 332 355 337.5
+            C356.9 339.3 359.1 340.8 361 342.6C365.7 346.9 369.9 351.6 374.5 356
+            C376.4 357.8 378.6 359.2 380.5 361C399.2 379 417.9 397 437 414.6
+            C443.1 420.2 448.6 426.4 455 431.7C457.9 434 460.3 436.9 463 439.4
+            C475.2 450.7 487.3 460.7 504 464.1C507.8 464.9 512.1 464.6 516 464.5
+            C533.5 463.7 547.8 450.6 560 439.4C562.7 436.9 565.1 434 568 431.7
+            C574.4 426.4 579.9 420.2 586 414.6C598.7 402.9 611.1 390.9 623.5 379
+            C625.4 377.2 627.6 375.8 629.5 374C646.5 357.7 663.5 341.3 680.5 325
+            C682.7 322.9 685.3 321.2 687.5 319C691 315.5 694.7 312.3 698.4 309
+            C715.5 293.9 737.5 275.8 762 285.7C765.1 287 768.3 288.6 771 290.7
+            C784.7 301.3 789.9 318.4 791.4 335C791.8 339.3 791.3 343.7 791.5 348
+            C791.6 350.4 792.4 352.6 792.5 355C793 367 792.5 379 792.5 391
+            C792.5 414.7 792.5 438.3 792.5 462C792.5 477.9 790.6 494.7 795.5 510
+            C798.6 519.7 804.6 528.2 810 536.8C816.7 547.3 823.2 558.4 827.7 570
+            C844.4 613.6 850.7 672.7 816.4 710C808.9 718.2 800.6 724.4 791 729.9
+            C782.6 734.6 772.6 737.9 763 739.3C721.7 745.5 681.1 721.5 665.3 683
+            C658.3 665.7 656.7 646.5 657.5 628C658 617.3 660.5 606.3 663.1 596
+            C666.1 584.1 669.4 572.1 674.8 561C681.2 547.7 690 535.8 697.3 523
+            C705.2 509.2 707.3 492.6 704.7 477C703.4 469.1 700.7 460.8 694 455.7
+            C687.6 450.9 679.8 452.6 673 455.6C659.6 461.5 648.2 473.3 638 483.5
+            C635.1 486.4 632 488.8 629 491.6C617.1 502.5 601.1 518 591.9 531
+            C573.9 556.4 563.2 587.7 531 598.8C525.9 600.6 520.4 601.9 515 602.4
+            C509.3 602.9 503.5 602 498 600.6C493.4 599.5 489.2 597.8 485 595.7
+            C457.3 582 447.9 554.7 431.1 531C421.9 518 405.9 502.5 394 491.6
+            C391.4 489.1 388.5 487 386 484.5C376.4 474.9 366.3 464.9 354.5 458
+            C349.3 455 343.2 452 337 452.6C328.2 453.4 322.8 461.3 320.2 469
+            C315.2 483.3 316.6 502.2 322.3 516C328 529.9 338.2 541.6 345 555
+            C356.2 577.3 363.2 602.2 365.4 627C369.1 667.6 352.6 710.9 315 730.2
+            C306.5 734.6 296.5 737.9 287 739.3C285 739.6 283 739.4 281 739.7
+            C269.2 741.5 256.3 739.5 245 735.5C236.5 732.4 228.1 728.4 220.8 723
+            C196.4 704.9 182.9 675.1 181.5 645C181.3 639.5 182.2 634.4 182.5 629
+            C183.3 608.9 188.1 587.7 195.7 569C200.3 557.8 206.5 547 213 536.8
+            C219 527.4 225.6 518 228.4 507C231.4 495.2 230.5 483.1 230.5 471
+            C230.5 453 230.5 435 230.5 417C230.5 396.4 229.6 375.6 230.5 355
+            C230.6 352.6 231.4 350.4 231.5 348C231.7 343.7 231.2 339.3 231.6 335
+            C233.2 317.7 239.6 296.9 256 287.9C261.4 285 266.6 284.2 272.5 283Z"/>
+    </svg>
+    Magnetite
+  </p>
+  <!-- Who is handing you this binary, where its source is, and where to write
+       when it breaks. The zip carries the license in Resources/LICENSE. -->
+  <nav class="foot__links" aria-label="About this project">
+    <a href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
+    <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT license</a>
+    <a href="mailto:scrystyt@gmail.com">scrystyt@gmail.com</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+  </nav>
+  <p class="foot__formula">Fe<sub>3</sub>O<sub>4</sub></p>
+  <p class="foot__credit">
+    Film and soundtrack:
+    <a href="https://punchdeck.bandcamp.com" rel="external">Punch Deck</a>,
+    <a href="https://punchdeck.bandcamp.com/track/cyberpunk-renaissance"
+       rel="external">“Cyberpunk Renaissance”</a> and
+    <a href="https://punchdeck.bandcamp.com/track/chrome-funk"
+       rel="external">“Chrome Funk”</a>, under
+    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
+    © 2026 scryst.
+  </p>
+</footer>
+
+<script type="module" src="js/site.js"></script>
+<script type="module" src="js/webmcp.mjs"></script>
+</body>
+</html>
