@@ -15,7 +15,7 @@
  * WebGL2, because the pieces are read from a uniform array at an index the
  * loop computes; a browser without it gets the traced wordmark instead.
  */
-import { pour, SHAPE, STROKE, POOL, JOIN } from './wordmark.js';
+import { pour, SHAPE, STROKE, POOL } from './wordmark.js';
 
 const MAX_PIECES = 96;
 const MAX_LETTERS = 16;
@@ -179,20 +179,10 @@ export class LiquidName {
       .filter(({ piece }) => piece.kind === POOL)
       .map(({ piece, index }) => ({ index, b: piece.b, ex: 0, ey: 0, vx: 0, vy: 0 }));
     this.dropAt = new Map(this.drops.map((d) => [d.index, d]));
-    // The pour's running order: within a letter, strokes top first.
-    this.strokeOrder = [];
-    for (let l = 0; l < this.letterCount; l++) {
-      const strokes = this.pieces
-        .map((piece, index) => ({ piece, index }))
-        .filter(({ piece }) => piece.letter === l && piece.kind === STROKE)
-        .sort((p, q) => Math.min(p.piece.a[1], p.piece.b[1]) - Math.min(q.piece.a[1], q.piece.b[1])
-          || Math.min(p.piece.a[0], p.piece.b[0]) - Math.min(q.piece.a[0], q.piece.b[0]));
-      strokes.forEach(({ piece, index }, rank) => {
-        const [a, b] = [piece.a, piece.b];
-        const flip = a[1] > b[1] + 1e-6 || (Math.abs(a[1] - b[1]) <= 1e-6 && a[0] > b[0]);
-        this.strokeOrder[index] = { rank, of: strokes.length, flip };
-      });
-    }
+    // Each letter rises from a puddle on its own baseline, the foot of its
+    // strokes (y runs down the page).
+    this.baselines = Array.from({ length: this.letterCount }, (_, l) => Math.max(
+      ...this.pieces.filter((p) => p.letter === l && p.kind === STROKE).flatMap((p) => [p.a[1], p.b[1]])));
     this.ab = new Float32Array(MAX_PIECES * 4);
     this.r = new Float32Array(MAX_PIECES * 4);
     this.letters = new Float32Array(MAX_LETTERS * 4);
@@ -289,18 +279,20 @@ export class LiquidName {
     });
   }
 
-  /** How much of piece `i` the pour has laid down, and from which end. */
-  laid(i, pourT) {
-    const piece = this.pieces[i];
-    const lp = Math.min(1, Math.max(0, (pourT - piece.letter * 0.07) / 0.95));
-    if (piece.kind !== STROKE) {
-      // Pools and joins gather last, and overshoot the way a drop lands.
-      const g = Math.min(1, Math.max(0, (lp - 0.62) / 0.38));
-      return g === 0 ? -1 : 1 - Math.pow(1 - g, 3) * Math.cos(g * Math.PI * 3);
-    }
-    // Strokes run top first, each in its own slice of the first 70%.
-    const { rank, of } = this.strokeOrder[i];
-    return Math.min(1, Math.max(0, lp * of * 1.4 - rank)) || -1;
+  /**
+   * How far the pour has raised letter `l`: how far its ink has spread (0-1)
+   * and how tall it stands (0-1, overshooting). The whole letter is there from
+   * its first frame, a puddle on its baseline, and the magnet pulls it up past
+   * its height and lets it settle back, the way the fluid jumps to a magnet.
+   * Nothing is laid piece by piece, so nothing appears loose or disjointed.
+   */
+  rise(l, pourT) {
+    const t = (pourT - l * 0.06) / 0.8;
+    if (!(t > 0)) return { spread: 0, height: 0 };
+    const spread = 1 - (1 - Math.min(1, t / 0.25)) ** 3;
+    const u = Math.min(1, Math.max(0, (t - 0.08) / 0.92)) - 1;
+    const height = 1 + 2.4 * u ** 3 + 1.4 * u ** 2;
+    return { spread, height };
   }
 
   render() {
@@ -309,21 +301,19 @@ export class LiquidName {
     const box = Array.from({ length: this.letterCount }, () => [Infinity, Infinity, -Infinity, -Infinity]);
     this.pieces.forEach((piece, i) => {
       let [ax, ay] = piece.a, [bx, by] = piece.b, ra = piece.ra, rb = piece.rb;
-      const g = this.laid(i, pourT);
-      if (g < 0) {
+      const { spread, height } = this.rise(piece.letter, pourT);
+      if (spread <= 0) {
         this.r.set([-1, -1, piece.letter, 0], i * 4);
         return;
       }
-      if (piece.kind === STROKE) {
-        // Liquid runs downhill: a stroke grows from its upper end.
-        if (this.strokeOrder[i].flip) {
-          [ax, ay, bx, by] = [bx, by, ax, ay];
-        }
-        bx = ax + (bx - ax) * g; by = ay + (by - ay) * g;
-      } else if (piece.kind === JOIN) {
-        ra = rb = piece.ra * g;
-      } else {
-        rb = piece.ra + (rb - piece.ra) * g;
+      if (spread < 1 || height !== 1) {
+        const base = this.baselines[piece.letter];
+        ay = base + (ay - base) * height; by = base + (by - base) * height;
+        // A puddle is thinner than the stroke it rises into.
+        const thick = spread * (0.5 + 0.5 * Math.min(1, height));
+        ra *= thick; rb *= thick;
+      }
+      if (piece.kind === POOL) {
         const d = this.dropAt.get(i);
         const stretch = Math.hypot(d.ex, d.ey);
         // A stretched drop thins. A drop hearing its band swells and hangs a

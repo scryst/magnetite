@@ -226,67 +226,89 @@ a { color: inherit; }
 }
 
 /* The journey (js/tunnel.js). The hero's print stays where it is while its
-   words scroll away and the camera dives into its notch; the film pins and
-   the footage fades in over the printed notch, the page going dark round it
-   (--dark, an ellipse centred on --cx/--cy with radii --rx/--ry); then the
-   page comes back and the footage rides down onto the band's notch. */
+   words scroll away and the camera dives into its notch; over the last of the
+   push the display comes on (--on), in the footage's own grey with the footage
+   under its notch, laid on the printed screen. The desktop then fills the
+   window (--dark) and holds; then it gives way to the page and the footage
+   rides down onto the band's notch (--edge), and goes. */
 [data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
 .film[data-tunnel="on"] {
+  --on: 0;
+  --solid: 1;
   --dark: 0;
-  --film: 0;
   --words: 0;
   position: relative;
   z-index: 2;
-  height: 340vh;
+  height: 400vh;
   margin-top: 40vh;
   padding: 0;
+  /* A picture over the download's first screen, so it lets the clicks meant
+     for the band through; only its words take them, while they are up. */
+  pointer-events: none;
 }
+/* Fixed rather than stuck: the display comes on over the print before the
+   film's own screen has arrived to stick. */
 .film[data-tunnel="on"] .film__pin {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   height: 100vh;
   height: 100svh;
   overflow: hidden;
-  background: rgb(34 32 34 / var(--dark));
 }
-.film[data-tunnel="on"] .film__pin::after {
+.film[data-tunnel="on"] .film__pin::before {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 2;
-  background: radial-gradient(var(--rx, 50vw) var(--ry, 50vh) at var(--cx, 50%) var(--cy, 50%),
-    rgb(34 32 34 / 0) 55%, rgb(34 32 34 / 0.9) 82%, var(--ink) 100%);
+  background: var(--film-ground);
   opacity: var(--dark);
-  pointer-events: none;
 }
-/* One line where the window allows, so it stays clear of the footage held
-   under it on a short screen. */
+/* Under the footage, which hangs from the top of the window as it does from
+   the top of a display (--under is its height). */
 .film[data-tunnel="on"] .film__title {
   position: absolute;
-  top: max(40px, 7vh);
+  top: calc(var(--under, 40vh) + 4vh);
   left: var(--gutter);
   right: var(--gutter);
   z-index: 3;
   max-width: none;
   margin: 0 auto;
-  color: var(--paper);
   opacity: var(--words);
 }
+/* The display the footage was recorded on, 1512 by 982 points like the
+   printed one, in the footage's grey (--solid, until the desktop has filled
+   the window), with the footage where it was recorded: under the notch. */
 .film[data-tunnel="on"] .film__mac {
   position: absolute;
   top: 0;
   left: 0;
-  width: 512px;
-  opacity: var(--film);
+  width: 1512px;
+  height: 982px;
+  opacity: var(--on);
   will-change: transform, opacity;
 }
-.film[data-tunnel="on"] .film__screen { position: relative; width: 512px; height: 240px; }
+.film[data-tunnel="on"] .film__mac::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--film-ground);
+  opacity: var(--solid);
+}
+.film[data-tunnel="on"] .film__screen { position: absolute; top: 0; left: 500px; width: 512px; height: 240px; }
 .film[data-tunnel="on"] .film__stage {
+  --fx: calc(var(--edge, 0) * 34%);
+  --fy: calc(var(--edge, 0) * 62%);
   position: absolute;
   inset: 0;
   max-width: none;
   margin: 0;
   border-radius: 0;
+  /* As the footage lands, its sides and foot go, so what arrives on the band
+     is its notch and not a grey box. Its top edge is the band's own. */
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fx), #000 calc(100% - var(--fx)), transparent),
+    linear-gradient(#000 calc(100% - var(--fy)), transparent);
+  mask-composite: intersect;
 }
 .film[data-tunnel="on"] .film__video { inset: 0; width: 100%; height: 100%; }
 /* Above the soundtrack's circles, which hold the window's bottom edge. */
@@ -297,14 +319,10 @@ a { color: inherit; }
   bottom: max(96px, 7vh);
   z-index: 3;
   margin: 0 auto;
-  color: var(--paper);
   opacity: var(--words);
   pointer-events: none;
 }
 .film[data-tunnel="on"][data-words] .film__foot { pointer-events: auto; }
-.film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
-.film[data-tunnel="on"] .how li { color: rgb(236 235 230 / 0.72); }
-.film[data-tunnel="on"] .how b { color: var(--paper); }
 /* The download overlaps the film's last screen, so the band is there to be
    docked onto as the pin lets go; the band comes first, a menu bar at the
    top of the screen, and its heading after it. */

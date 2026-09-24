@@ -2021,8 +2021,38 @@ const MUTANTS = {
   'the-dive-aims-off-the-hold': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'hero?.setDive(dive, hold(vw, vh), scrollY,',
+    from: 'hero?.setDive(dive, at, scrollY,',
     to: 'hero?.setDive(dive, hold(vw, vh * 0.9), scrollY,',
+  },
+  'the-display-parts-from-the-print': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const laid = dive < 1 ? hero?.notchAt() : null;',
+    to: 'const laid = null;',
+  },
+  'the-notch-floats-mid-screen': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'return { x: vw / 2, y: 0, scale };',
+    to: 'return { x: vw / 2, y: (vh - FILM.height * scale) / 2, scale };',
+  },
+  'the-skip-freezes-the-words': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '|${c.words.toFixed(3)}|${c.k.toFixed(3)}',
+    to: '|${c.k.toFixed(3)}',
+  },
+  'the-footage-lands-with-the-download-in-reach': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const LAND = 0.72;',
+    to: 'const LAND = 0.1;',
+  },
+  'the-film-takes-the-download-clicks': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'while they are up. */\n  pointer-events: none;',
+    to: 'while they are up. */',
   },
   'the-print-returns-behind-the-pull': {
     check: JOURNEY,
@@ -2036,11 +2066,11 @@ const MUTANTS = {
     from: 'const SHARPEST = 1.5;',
     to: 'const SHARPEST = 2;',
   },
-  'the-footage-shows-before-the-pin': {
+  'the-desktop-fills-before-the-pin': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const shown = unit(p / FADE);',
-    to: 'const shown = unit(p / FADE + 0.3);',
+    from: 'dark: unit(p / FADE) * (1 - k),',
+    to: 'dark: unit(p / FADE + 0.3) * (1 - k),',
   },
   'the-footage-cuts-in': {
     check: JOURNEY,
@@ -2051,14 +2081,14 @@ const MUTANTS = {
   'the-pull-stops-short-of-the-band': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'const k = dock ? ease(unit((p - PULL) / (1 - PULL))) : 0;',
-    to: 'const k = dock ? 0.97 * ease(unit((p - PULL) / (1 - PULL))) : 0;',
+    from: 'const k = dock ? ease(unit((FROM * vh - dock.y) / ((FROM - LAND) * vh))) : 0;',
+    to: 'const k = dock ? 0.97 * ease(unit((FROM * vh - dock.y) / ((FROM - LAND) * vh))) : 0;',
   },
   'the-footage-leaves-before-it-docks': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: 'film: shown * (1 - unit((k - 0.86) / 0.14)),',
-    to: 'film: shown * (1 - unit((k - 0.3) / 0.5)),',
+    from: 'fade: unit((1 - k) / 0.2),',
+    to: 'fade: unit((0.7 - k) / 0.5),',
   },
 
   // The page asks to play on load; the pause is the visitor's. The markup
