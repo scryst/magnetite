@@ -25,6 +25,7 @@ import { startFinale } from './finale.js';
 import { startPlayer } from './player.js';
 import { startTunnel } from './tunnel.js';
 import { startTouches } from './touches.js';
+import { startCorner } from './corner.js';
 
 /**
  * The rate the capture was TAKEN at, which is not the rate the page draws at.
@@ -288,7 +289,7 @@ if (film && !reduceMotion) {
 //
 // The page asks to play its music as it loads, from the circles at the foot of
 // the window. Browsers refuse sound until the visitor has done something, so
-// a refused start waits for the visitor's first click, tap or key; a pause is
+// a refused start waits for the visitor's first click or tap; a pause is
 // remembered, and a visitor who paused is not played at again. Once playing,
 // the element is routed through the browser port of AudioTap and the page's
 // simulation reads those live bands. If AudioWorklet is unavailable the music
@@ -308,8 +309,12 @@ const soundtrackTracks = soundtrackButtons.map((item) => ({
 const soundtrackStatus = soundtrack && soundtrack.querySelector('[data-soundtrack-status]');
 /** Where a visitor's pause is kept, so a return visit does not play at them. */
 const SOUNDTRACK_PAUSED = 'magnetite.soundtrack.paused';
-/** The events a browser counts as the visitor meaning it — the ones that unlock sound. */
-const SOUNDTRACK_GESTURES = ['pointerdown', 'pointerup', 'keydown', 'touchend'];
+/**
+ * The events a browser counts as the visitor meaning it — the ones that unlock
+ * sound. Not a key: a Tab through the page is not asking for music, and the
+ * keyboard's way to it is the Play circle, which is early in the tab order.
+ */
+const SOUNDTRACK_GESTURES = ['pointerdown', 'pointerup', 'touchend'];
 
 const livePump = new LevelPump();
 const liveBands = new Float32Array(livePump.bands.length);
@@ -375,14 +380,15 @@ function selectSoundtrack(index, play = false) {
   if (play) playSoundtrack(true);
 }
 
-function enableSoundtrackAnalyser() {
+/** `running` is a context the browser already let run, from `listenUnasked`. */
+function enableSoundtrackAnalyser(running = null) {
   if (!soundtrackAudio) return Promise.resolve(false);
   if (soundtrackAnalyserPromise) return soundtrackAnalyserPromise;
 
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (!AudioContext || typeof AudioWorkletNode !== 'function') return Promise.resolve(false);
 
-  soundtrackContext = new AudioContext();
+  soundtrackContext = running || new AudioContext();
   const source = soundtrackContext.createMediaElementSource(soundtrackAudio);
   source.connect(soundtrackContext.destination);
   soundtrackContext.resume().catch(() => {});
@@ -403,6 +409,58 @@ function enableSoundtrackAnalyser() {
     })
     .catch(() => false);
   return soundtrackAnalyserPromise;
+}
+
+/**
+ * The music started without the visitor doing anything: the browser granted
+ * the load's request, as it does on a reload or on a site the visitor plays
+ * media on. Until an analyser hears it the liquid is replaying its capture over
+ * a song it cannot hear, and a browser that lets the element sound usually
+ * lets an AudioContext run too. So a context is asked for with nothing routed
+ * into it, and the element goes in only once the browser says that context is
+ * running. The element is held muted until then: music the liquid cannot
+ * hear is not played at all. Where the browser keeps that context suspended,
+ * it is closed untouched and the music stopped before a note of it sounds, and
+ * the visitor's first gesture starts both together.
+ */
+let soundtrackProbing = false;
+function listenUnasked() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (soundtrackAnalyserPromise || soundtrackProbing
+    || !AudioContext || typeof AudioWorkletNode !== 'function') return;
+  soundtrackProbing = true;
+  soundtrackAudio.muted = true;
+  const context = new AudioContext();
+  // A refused resume() can stay pending until a gesture, so it is not waited on.
+  new Promise((settle) => {
+    context.resume().then(settle, settle);
+    setTimeout(settle, 500);
+  }).then(() => {
+    soundtrackProbing = false;
+    if (context.state === 'running' && !soundtrackAnalyserPromise) enableSoundtrackAnalyser(context);
+    else {
+      context.close().catch(() => {});
+      // A gesture in the meantime built the analyser itself; the music stays.
+      if (!soundtrackAnalyserPromise) {
+        // Stopped unheard, it starts from its top when the visitor starts it.
+        player.rewind();
+        if (!soundtrackAudio.paused) {
+          // Its pause event is queued, not fired: unmuted only once that is
+          // handled, or the page announces the stop of music nobody heard.
+          soundtrackAudio.addEventListener('pause', () => { soundtrackAudio.muted = false; }, { once: true });
+          soundtrackAudio.pause();
+          return;
+        }
+      }
+    }
+    soundtrackAudio.muted = false;
+    if (!soundtrackAudio.paused) soundtrackAnnounce(soundtrackNowPlaying());
+  });
+}
+
+function soundtrackNowPlaying() {
+  const track = soundtrackTracks[soundtrackIndex];
+  return `Playing ${track.title} by ${track.artist}.`;
 }
 
 /**
@@ -461,16 +519,19 @@ if (soundtrackAudio && soundtrackToggle) {
   });
   soundtrackAudio.addEventListener('play', () => {
     soundtrackPlaying = true;
+    // A play inside a gesture has begun the analyser already; one without is
+    // the load's request granted.
+    if (!soundtrackAnalyserPromise) listenUnasked();
     finale?.wake();
     setSoundtrackTransport(true);
-    const track = soundtrackTracks[soundtrackIndex];
-    soundtrackAnnounce(`Playing ${track.title} by ${track.artist}.`);
+    // Held muted, it is only playing once the probe above lets it sound.
+    if (!soundtrackAudio.muted) soundtrackAnnounce(soundtrackNowPlaying());
   });
   soundtrackAudio.addEventListener('pause', () => {
     soundtrackPlaying = false;
     liveBands.fill(0);
     setSoundtrackTransport(false);
-    if (!soundtrackAudio.ended) soundtrackAnnounce('Soundtrack paused.');
+    if (!soundtrackAudio.ended && !soundtrackAudio.muted) soundtrackAnnounce('Soundtrack paused.');
   });
   soundtrackAudio.addEventListener('ended', () => {
     selectSoundtrack(soundtrackIndex + 1, true);
@@ -484,9 +545,14 @@ if (soundtrackAudio && soundtrackToggle) {
   selectSoundtrack(0);
   for (const type of SOUNDTRACK_GESTURES) addEventListener(type, soundtrackGesture, true);
   // The load's own request: the element alone, never the analyser, which
-  // outside a gesture would be a suspended context holding the sound.
+  // outside a gesture would be a suspended context holding the sound. If it
+  // is granted, `listenUnasked` asks separately.
   if (!soundtrackWasPaused()) soundtrackAudio.play().catch(() => {});
 }
+
+// The circles give their corner up to whatever a visitor reads or presses
+// there (js/corner.js).
+if (soundtrack) startCorner(soundtrack, { journey: Boolean(tunnel), notch: download });
 
 // ── The finale ──────────────────────────────────────────────────────────────
 //

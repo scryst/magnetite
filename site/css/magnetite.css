@@ -34,6 +34,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; background: var(--paper); }
+/* Reloaded mid-journey, nothing shows until the page has put itself back
+   (index.html, js/tunnel.js); if its script never comes, all of it shows
+   after a moment. */
+[data-restoring] { visibility: hidden; animation: restored 0s 1.5s forwards; }
+@keyframes restored { to { visibility: visible; } }
 
 /* Uncoated stock: a faint tooth under everything, so the prints sit in the
    paper rather than on a flat fill. */
@@ -83,7 +88,7 @@ a { color: inherit; }
   padding: 26px var(--gutter) 0;
 }
 .masthead__name { display: block; height: 22px; width: auto; }
-.masthead__source { padding: 8px 0; font-size: 14px; font-weight: 500; text-decoration: none; }
+.masthead__source { padding: 8px 0; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; }
 .masthead__source:hover { text-decoration: underline; }
 
 @media (max-width: 719px) {
@@ -237,6 +242,8 @@ a { color: inherit; }
   text-align: center;
   text-wrap: balance;
 }
+/* Breaks between its two sentences, never inside the second. */
+.film__phrase { white-space: nowrap; }
 
 @media (max-width: 719px) {
   /* A phone's window is 440 points round the player, so its type stays legible. */
@@ -254,9 +261,12 @@ a { color: inherit; }
    the last of the push the recorded desktop comes on (--on), laid on the
    printed screen. It holds, filling the window, while the camera follows the
    footage in and out; its title and then its how-to come up over a dark foot
-   (--words, --how); then they go, the player goes back into the notch
+   ([data-title], [data-words]); then they go, the player goes back into the notch
    (--live), the camera lands on the band's notch standing under the desktop,
    and the desktop goes back to print (--on) the way it came. */
+/* The journey keeps its own place through a resize (js/tunnel.js); the
+   browser's scroll anchoring, nudging after it, left the dive off by a step. */
+html[data-journey="on"] { overflow-anchor: none; }
 [data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
 /* The words beside the print go as the dive begins, before the machine
    turning toward the window can run into them. */
@@ -270,8 +280,6 @@ a { color: inherit; }
   --gone: 0;
   --reach: 1239px;
   --live: 1;
-  --words: 0;
-  --how: 0;
   position: relative;
   z-index: 2;
   height: 300vh;
@@ -306,17 +314,23 @@ a { color: inherit; }
   z-index: 2;
   height: 46%;
   background: linear-gradient(rgb(10 28 50 / 0), rgb(10 28 50 / 0.62) 62%, rgb(10 28 50 / 0.7));
-  opacity: var(--words);
+  opacity: 0;
+  transition: opacity 0.5s;
 }
+/* Up or down, each on its own short fade as the scroll passes its mark
+   (js/tunnel.js's data-title and data-words), never held half way. */
+.film[data-tunnel="on"][data-title] .film__pin::after { opacity: 1; }
 .film[data-tunnel="on"] .film__title {
   position: relative;
   z-index: 3;
   width: 100%;
   margin: 0 auto 3vh;
   color: var(--paper);
-  opacity: var(--words);
-  translate: 0 calc((1 - var(--words)) * 28px);
+  opacity: 0;
+  translate: 0 28px;
+  transition: opacity 0.45s, translate 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+.film[data-tunnel="on"][data-title] .film__title { opacity: 1; translate: none; }
 /* The display the take was recorded on, 1512 by 982 points like the printed
    one: the still of its first frame, with the footage where it was shot. */
 .film[data-tunnel="on"] .film__mac {
@@ -470,7 +484,8 @@ a { color: inherit; }
 }
 /* The line of the how-to the footage is doing, while it does it. */
 .how li { transition: opacity 0.3s; }
-.how[data-doing] li { opacity: 0.4; }
+/* The others step back, but stay words to read, not a disabled list. */
+.how[data-doing] li { opacity: 0.6; }
 .how[data-doing="hover"] [data-how="hover"],
 .how[data-doing="swipe"] [data-how="swipe"],
 .how[data-doing="scrub"] [data-how="scrub"] { opacity: 1; }
@@ -480,11 +495,12 @@ a { color: inherit; }
   z-index: 3;
   width: 100%;
   margin: 0 auto;
-  opacity: var(--how);
-  translate: 0 calc((1 - var(--how)) * 20px);
+  opacity: 0;
+  translate: 0 20px;
+  transition: opacity 0.45s, translate 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
   pointer-events: none;
 }
-.film[data-tunnel="on"][data-words] .film__foot { pointer-events: auto; }
+.film[data-tunnel="on"][data-words] .film__foot { opacity: 1; translate: none; pointer-events: auto; }
 .film[data-tunnel="on"] .how li { color: rgb(236 235 230 / 0.8); }
 .film[data-tunnel="on"] .how b { color: var(--paper); }
 .film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
@@ -508,8 +524,10 @@ a { color: inherit; }
      desktop landed on it still fills the window below its edge, nor than the
      notch in the close shot (js/tunnel.js's shots(): 1.8 CSS pixels a point
      at most, the 372 by 290pt player clear of the window's sides and of the
-     300px of words), so the camera always pushes in to land. */
-  --notch-w: max(clamp(240px, 36vw, 560px), 100vw * 185 / 1512, 100svh * 185 / 982,
+     300px of words), so the camera always pushes in to land. Its idle pill,
+     284 of the notch's 185 points, keeps inside the page's gutters. */
+  --notch-w: max(min(clamp(240px, 36vw, 560px), (100vw - 2 * var(--gutter)) * 185 / 284),
+    100vw * 185 / 1512, 100svh * 185 / 982,
     min(333px, (100vw - 32px) * 185 / 372, (100svh - 300px) * 185 / 290));
   position: relative;
   z-index: 1;
@@ -654,7 +672,8 @@ a { color: inherit; }
 
 /* Circles at the foot of the window, stickered in paper so they hold on the
    paper, the dark film and the prints alike. The ring is the track's progress
-   in the pink plate's ink; the sleeve with a ring is the one playing. */
+   in the pink plate's ink, laid right on the disc's paper rim; the sleeve
+   with a ring is the one playing. */
 .player { display: none; }
 .js .player {
   position: fixed;
@@ -664,6 +683,22 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: opacity 0.2s;
+}
+/* Where words or a control stand in its corner, the player gives the corner
+   up (js/site.js) and takes it back once it is clear. Reached by the
+   keyboard it comes back regardless, ring and all. */
+.js .player[data-aside]:not(:focus-within) { opacity: 0; pointer-events: none; }
+/* On a phone the circles sit across the words as the page goes by, and loose
+   they read as ink colliding with them. There they share one sticker of the
+   paper, so the words pass under a layer instead. */
+@media (max-width: 719px) {
+  .js .player {
+    padding: 3px 9px 3px 3px;
+    border-radius: 999px;
+    background: var(--paper) var(--tooth);
+    box-shadow: 0 0 0 1px rgb(34 32 34 / 0.08), 0 6px 18px rgb(34 32 34 / 0.18);
+  }
 }
 .player__toggle,
 .player__track {
@@ -794,6 +829,6 @@ a { color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .film__motion { display: none; }
-  .player__ring, .player__name, .player__toggle { transition: none; }
+  .player, .player__ring, .player__name, .player__toggle { transition: none; }
   .hero[data-print="ready"] .hero__copy { animation: none; }
 }

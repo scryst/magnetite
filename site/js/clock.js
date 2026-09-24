@@ -25,11 +25,20 @@
  * divide the step rate — 90Hz, or a 60Hz panel dropping frames — must still
  * spend every millisecond it is handed exactly once, or the replay runs slow by
  * whatever it throws away each callback.
+ *
+ * And a frame a hair early still takes its step. A 60Hz display's frame IS
+ * one step, so the bank sat on the threshold: the browser hands out frame
+ * times rounded to a tenth of a millisecond, 16.6 then 16.7, and every frame
+ * that came in at 16.6 took no step and the next took two. That was a third
+ * of all frames, the liquid holding and then jumping. Within `STEP_SLACK` of a
+ * step the step is taken and the shortfall carried as a small debt, so the
+ * tempo is exactly what it was and only the lumps are gone.
  */
+export const STEP_SLACK = 0.12;
 export function bankSteps(state, dt, simStep) {
   let { bank, steps } = state;
   bank += dt;
-  while (bank >= simStep) {
+  while (bank >= simStep * (1 - STEP_SLACK)) {
     bank -= simStep;
     steps += 1;
   }

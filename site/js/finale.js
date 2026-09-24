@@ -16,7 +16,37 @@ import { Filings } from './filings.js';
 /** Past this share of the section on screen, the pour begins. */
 const POUR_AT = 0.35;
 
-export function startFinale(section, { reduceMotion, bands }) {
+/**
+ * Built out of the page's first task, when the browser is idle or the page
+ * nears the section: its two canvases' programs, at the foot of the page,
+ * held up the first frames at the top of it. Until then the traced wordmark
+ * in the markup stands, and a wake is kept for when it is built.
+ */
+export function startFinale(section, options) {
+  let finale = null;
+  let built = false;
+  let woken = false;
+  const build = () => {
+    if (built) return;
+    built = true;
+    near.disconnect();
+    finale = buildFinale(section, options);
+    if (woken) finale?.wake();
+  };
+  const near = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) build(); },
+    { rootMargin: '100% 0px' });
+  near.observe(section);
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(build, { timeout: 3000 });
+  else setTimeout(build, 1000);
+  return {
+    wake() {
+      if (finale) finale.wake();
+      else woken = true;
+    },
+  };
+}
+
+function buildFinale(section, { reduceMotion, bands }) {
   const nameCanvas = section.querySelector('[data-finale-name]');
   const filingsCanvas = section.querySelector('[data-finale-filings]');
   let name;
@@ -91,8 +121,13 @@ export function startFinale(section, { reduceMotion, bands }) {
       filings.point(0, 0, false);
       wake();
     };
+    // A mouse come to rest lets the name go after a moment: held there, the
+    // magnet kept whichever letter it sat on drawn out of the word.
+    let resting = 0;
     section.addEventListener('pointermove', (event) => {
       if (event.pointerType === 'mouse' || event.buttons) at(event);
+      clearTimeout(resting);
+      if (event.pointerType === 'mouse' && !event.buttons) resting = setTimeout(away, 1200);
     }, { passive: true });
     section.addEventListener('pointerdown', at, { passive: true });
     section.addEventListener('pointerleave', away, { passive: true });

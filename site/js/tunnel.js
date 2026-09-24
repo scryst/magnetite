@@ -250,16 +250,40 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   /** The download's words under its band, and a range to measure their lines. */
   const words = leaf ? [...leaf.children].filter((el) => !el.matches('.get__title, .band')) : [];
   const lines = document.createRange();
+  const motion = section.querySelector('[data-demo-motion]');
+  // Tabbed onto before the page has the download, the link took focus where
+  // its box already was, under the desktop: the ring unseen, the film on
+  // screen. It is brought to where the page has it, as the hero's link does.
+  const mark = document.getElementById('download');
+  dock?.addEventListener('focus', () => {
+    if (mark && dock.matches(':focus-visible') && mark.getBoundingClientRect().top > 1) mark.scrollIntoView();
+  });
+  // The demo's button is the film's only control, so the keyboard reaches it
+  // from the hero; tabbed onto while its words are down, under the print, it
+  // is brought to where they are up.
+  motion?.addEventListener('focus', () => {
+    if (!motion.matches(':focus-visible') || section.hasAttribute('data-words')) return;
+    const vh = pin.clientHeight || innerHeight;
+    scrollTo({ top: section.getBoundingClientRect().top + scrollY + (HOW + RISE) * vh, behavior: 'instant' });
+  });
   // The notch's top edge, in the display's own points: centred, at the top.
   const notch = { x: SCREEN.width / 2, y: 0 };
   mac.style.transformOrigin = '0 0';
 
-  let queued = 0;
   let last = '';
+  /** Where the visitor was as of the last placing (see place()). */
+  let spot = null;
+  const after = [...(leaf ? leaf.children : []), ...document.querySelectorAll('.finale, .foot')];
+  /** Where in the page the scroll brings the download's sheet to the window's top. */
+  const landing = () => get.getBoundingClientRect().bottom + scrollY - leaf.offsetHeight;
+  /**
+   * Where `el` stands in the page once the sheet is let go. The sheet's own
+   * blocks are counted from it: stuck, their boxes are wherever it is held.
+   */
+  const standing = (el, land) => (leaf.contains(el) ? land + el.offsetTop : el.getBoundingClientRect().top + scrollY);
   /** Seconds into the footage, as of the frame on screen. */
   let t = 0;
   function place() {
-    queued = 0;
     const vw = innerWidth;
     const vh = pin.clientHeight || innerHeight;
     const box = section.getBoundingClientRect();
@@ -278,6 +302,16 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     const end = page ? (get.getBoundingClientRect().bottom - page.height - box.top) / vh : Infinity;
     const c = camera(s, vw, vh, at, t, end);
     const { drawn, held } = sheet(s, end, c.y, at ? at.y : 0);
+    // Where the visitor is, for a resize to put back: through the journey in
+    // its own measures, which a new window height rescales, and past it by
+    // the first block still on screen.
+    if (dive < 1) spot = { dive };
+    else if (s < end) spot = { s };
+    else {
+      const land = landing();
+      const el = after.find((node) => standing(node, land) + node.offsetHeight > scrollY);
+      spot = el && el.offsetHeight ? { el, f: (scrollY - standing(el, land)) / el.offsetHeight } : null;
+    }
     // The print is only worth drawing until the desktop has covered it.
     hero?.setDive(dive, hold(vw, vh), scrollY, dive >= 1 && s >= SETTLE);
     // Until the pin, the desktop is laid on the print's own screen, wherever
@@ -330,17 +364,50 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     section.style.setProperty('--dot', `${pitch.toFixed(2)}px`);
     section.style.setProperty('--reach', `${far.toFixed(0)}px`);
     section.style.setProperty('--live', c.live.toFixed(3));
-    section.style.setProperty('--words', c.words.toFixed(3));
-    section.style.setProperty('--how', c.how.toFixed(3));
+    // The words are up or down, never between: each comes up and goes on its
+    // own short fade as the scroll passes its mark (css/magnetite.css), so no
+    // place a visitor stops leaves a ghost of them on the desktop.
+    section.toggleAttribute('data-title', c.words > 0.5 && !c.covered);
     section.toggleAttribute('data-words', c.how > 0.5 && !c.covered);
     section.toggleAttribute('data-retract', c.live < 1);
     section.toggleAttribute('data-covered', c.covered);
     root.style.setProperty('--dive', dive.toFixed(3));
     root.toggleAttribute('data-dived', dive > 0.2);
   }
-  const ask = () => { if (!queued) queued = requestAnimationFrame(place); };
-  addEventListener('scroll', ask, { passive: true });
-  addEventListener('resize', ask, { passive: true });
+  // Placed in the scroll event itself, which the browser dispatches once a
+  // frame and before any animation-frame callback. Queued behind the page's
+  // own loop instead, the print drew each scrolled frame with the last frame's
+  // dive: the printed headline trailed the page by the whole scroll step,
+  // 18px at a trackpad's pace, and wobbled as the pace changed.
+  addEventListener('scroll', () => place(), { passive: true });
+  // A resize keeps the visitor's place: the journey is counted in window
+  // heights, so the same scroll on a new window is a different beat, and past
+  // it the blocks above reflow. A phone's toolbar coming and going changes
+  // only the height, a little, and none of the journey's measures (they are
+  // the small viewport's), so it is left to the browser. The place is put
+  // back a frame on, before it is drawn, because the page's other answers to
+  // the resize, the hero's print among them, move the film's top after this.
+  let size = [innerWidth, innerHeight];
+  let resized = null;
+  addEventListener('resize', () => {
+    const [w, h] = resized ? resized.from : size;
+    size = [innerWidth, innerHeight];
+    const keep = resized ? resized.keep : spot;
+    cancelAnimationFrame(resized?.frame);
+    resized = { keep, from: [w, h], frame: requestAnimationFrame(() => {
+      if (keep && (w !== innerWidth || Math.abs(h - innerHeight) > 150)) {
+        const vh = pin.clientHeight || innerHeight;
+        const top = section.getBoundingClientRect().top + scrollY;
+        let y;
+        if ('dive' in keep) y = keep.dive * top;
+        else if ('s' in keep) y = top + keep.s * vh;
+        else y = standing(keep.el, landing()) + keep.f * keep.el.offsetHeight;
+        scrollTo(0, Math.round(y));
+      }
+      resized = null;
+      place();
+    }) };
+  }, { passive: true });
   // The camera keeps the footage's time: on the footage's own frames where
   // the browser offers them, so a zoom lands on the frame it was read from,
   // and on the page's frames otherwise, while it plays.
@@ -362,5 +429,19 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
     requestAnimationFrame(frame);
   }
   place();
+  // Reloaded mid-journey (index.html): back where it was, placed, and the
+  // desktop's still decoded, before the first frame is shown. Kept on leaving
+  // for the next load to find.
+  const restoring = root.getAttribute('data-restoring');
+  if (restoring !== null) {
+    scrollTo(0, Number(restoring) || 0);
+    place();
+    const desk = mac.querySelector('img');
+    Promise.race([desk ? desk.decode().catch(() => {}) : null, new Promise((r) => setTimeout(r, 400))])
+      .then(() => root.removeAttribute('data-restoring'));
+  }
+  addEventListener('pagehide', () => {
+    try { sessionStorage.setItem('magnetite.scroll', String(Math.round(scrollY))); } catch { /* not kept */ }
+  });
   return { place };
 }

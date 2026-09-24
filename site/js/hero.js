@@ -258,7 +258,8 @@ export class RisoHero {
     const top = Math.max(h * 0.06 + 22, masthead + 26);
     const machineTop = top + type * (tail + 0.25);
     const cam = place({ x0: w * 0.04, x1: w * 0.96, y0: machineTop, y1: machineTop + h * 0.38 });
-    return { wide, ...cam, type, margin, top, copyTop: machineTop + h * 0.41, copyWidth: w - margin * 2 };
+    // At most a reading measure, about 65 characters, on a tall window as wide as a tablet.
+    return { wide, ...cam, type, margin, top, copyTop: machineTop + h * 0.41, copyWidth: Math.min(w - margin * 2, 600) };
   }
 
   /** How far through its entrance the print is, 0 to 1, from the first frame. */
