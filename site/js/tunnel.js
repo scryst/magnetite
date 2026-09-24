@@ -191,6 +191,20 @@ export function reach(x, y, scale, vw, vh) {
   return Math.hypot(Math.max(x, vw - x) / 2, Math.max(0, vh - y)) / scale;
 }
 
+/**
+ * How far the dots going off have to have gone (--gone) before they have
+ * cleared past the foot of `r`, a box in CSS pixels: the clearing's edge is
+ * gone × 1.3 − 0.3 of the way out along an ellipse about the notch's top edge
+ * at (x, y), `down` CSS pixels down and twice that across (css/magnetite.css).
+ * Never later than just before the end, so every word is up once the page
+ * has the download.
+ */
+export function clearing(r, x, y, down) {
+  const f = Math.hypot(Math.max(Math.abs(r.left - x), Math.abs(r.right - x)) / (2 * down),
+    Math.max(0, r.bottom - y) / down);
+  return Math.min(0.94, (f + 0.3) / 1.3);
+}
+
 /** The screen coming on: 0 dark, 1 lit, over the last ON of the dive. */
 export function lit(dive) {
   return unit((dive - (1 - ON)) / ON);
@@ -233,6 +247,9 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
   root.dataset.journey = 'on';
   const get = dock && dock.closest('.get');
   const leaf = get && get.querySelector('.get__sheet');
+  /** The download's words under its band, and a range to measure their lines. */
+  const words = leaf ? [...leaf.children].filter((el) => !el.matches('.get__title, .band')) : [];
+  const lines = document.createRange();
   // The notch's top edge, in the display's own points: centred, at the top.
   const notch = { x: SCREEN.width / 2, y: 0 };
   mac.style.transformOrigin = '0 0';
@@ -289,6 +306,17 @@ export function startTunnel(section, { reduceMotion = false, hero = null, dock =
       get.toggleAttribute('data-drawn', drawn);
       get.style.setProperty('--held', `${held.toFixed(1)}px`);
       get.style.setProperty('--gone', c.gone.toFixed(3));
+      // While the desktop is still over it, the band prints what the desktop
+      // shows (js/band.js).
+      get.toggleAttribute('data-under', drawn && !c.covered);
+      // Each of the download's words comes up once the dots going off have
+      // cleared past its foot, not through them.
+      if (drawn && !c.covered) {
+        for (const word of words) {
+          lines.selectNodeContents(word);
+          word.style.setProperty('--clear', clearing(lines.getBoundingClientRect(), x, y, far * scale).toFixed(3));
+        }
+      }
     }
     // The pin is fixed, so the footage is always in the window as far as the
     // page's own observer knows (js/site.js plays it there). Out of the box

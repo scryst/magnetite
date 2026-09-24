@@ -82,7 +82,9 @@ const LETTERS = {
   },
   G: () => {
     const w = 1.08;
-    const bowl = arc(w / 2, 0.5, w / 2, 0.53, -40, -360, 18);
+    // Fine enough that the pour's facets, flat between joints, stay under
+    // its shading's notice: at 18 the bowl read as a polygon, lit.
+    const bowl = arc(w / 2, 0.5, w / 2, 0.53, -40, -360, 36);
     return { w, parts: [
       ['line', bowl],
       ['line', [[w, 0.5], [w, 0.56], [w * 0.56, 0.56]]],

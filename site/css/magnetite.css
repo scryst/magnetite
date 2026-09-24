@@ -412,7 +412,8 @@ a { color: inherit; }
    pill in the still takes over from it. The panel is the pill's shape, and
    dimmed nearly to black, by the time --live is down to 0.35, and only then
    fades (above), so the two never show at once, nor their clocks, which do
-   not agree. Scaled about the notch's top centre by the pill's
+   not agree. It dims over the first half of the gesture, before the clip's
+   foot comes up through the artwork, so nothing bright is sliced. Scaled about the notch's top centre by the pill's
    width over the panel's, 285 / 372, while the clip, in the stage's own
    unscaled points, lets go of the shadow over the first quarter (14 to
    418pt, 175pt deep) and draws the foot up to the pill's depth. */
@@ -421,7 +422,7 @@ a { color: inherit; }
   --shadow: clamp(0, var(--in) * 4, 1);
   transform-origin: 216px 0;
   scale: calc(1 - var(--in) * 0.234);
-  filter: brightness(calc(1 - var(--in) * 0.92));
+  filter: brightness(calc(1 - min(1, var(--in) * 2) * 0.92));
   clip-path: inset(0 calc(152px + var(--shadow) * 16px) calc(485px + var(--shadow) * 15px + var(--in) * 117px)
     calc(14px + var(--shadow) * 16px) round 0 0 calc(26px - var(--in) * 13px) calc(26px - var(--in) * 13px));
 }
@@ -533,8 +534,11 @@ a { color: inherit; }
    tab order: a key can still reach the download. */
 [data-journey="on"] .get:not([data-drawn]) .get__sheet { opacity: 0; pointer-events: none; }
 /* The words under the band come up once the desktop's dots going off
-   (js/tunnel.js's --gone) have cleared past them, not through the dots. */
-[data-journey="on"] .get__sheet > :not(.get__title, .band) { opacity: clamp(0, (var(--gone, 1) - 0.55) / 0.35, 1); }
+   (js/tunnel.js's --gone) have cleared past each one's foot (its --clear),
+   not through the dots. */
+[data-journey="on"] .get__sheet > :not(.get__title, .band) {
+  opacity: clamp(0, (var(--gone, 1) - var(--clear, 0)) / 0.06, 1);
+}
 /* The heading fills the window above the bezel, so the notch under it is at
    the window's centre. */
 [data-journey="on"] .get__title {
@@ -591,6 +595,10 @@ a { color: inherit; }
   text-decoration: none;
 }
 .band[data-print="ready"] .notch-link { background: transparent; }
+/* The idle pill's sleeve, laid over the print where js/band.js puts it, and
+   only on a print that is down. */
+.band__sleeve { position: absolute; object-fit: cover; pointer-events: none; }
+.band:not([data-print="ready"]) .band__sleeve { display: none; }
 .band:not([data-print]) .band__print,
 .band[data-print="none"] .band__print { display: none; }
 /* Unprinted, the bezel is a plain black edge and the link hangs from it. */
