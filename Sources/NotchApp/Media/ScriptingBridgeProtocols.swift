@@ -19,7 +19,6 @@ enum PlayerState {
     @objc optional var artist: String { get }
     @objc optional var album: String { get }
     @objc optional var artworkUrl: String { get }     // Spotify
-    @objc optional var id: String { get }             // Spotify
     @objc optional func artworks() -> SBElementArray  // Music
     /// Music only: select this track in the app's own window. Spotify has no
     /// equivalent — it is addressed by URL instead.
@@ -27,6 +26,11 @@ enum PlayerState {
     // `duration` is deliberately absent: Spotify returns Int milliseconds and
     // Music returns Double seconds under the same selector, which no single
     // declaration can express. It's read through KVC and normalised per source.
+    // `id` is absent for the same reason: Spotify's is its `spotify:track:` URI
+    // and Music's an integer, which a `String` declaration retained as an object
+    // pointer — 0.1.1 crashed on the first Music track it read. See
+    // `MediaBridge.trackKey`; tools/bridgecheck.py holds every member here to
+    // both dictionaries.
 }
 
 @objc protocol MediaArtwork {
