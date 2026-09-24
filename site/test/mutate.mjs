@@ -2094,10 +2094,16 @@ const MUTANTS = {
     from: '`${far.toFixed(0)}|',
     to: '`',
   },
-  'the-skip-freezes-the-lift': {
+  'the-skip-freezes-the-held-sheet': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: '|${lift.toFixed(1)}|',
+    from: '|${held.toFixed(1)}|',
+    to: '|',
+  },
+  'the-skip-freezes-the-drawing': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: '|${drawn}|',
     to: '|',
   },
   // The halftone's pitch left out of the key: a resize that changes it alone
@@ -2113,8 +2119,8 @@ const MUTANTS = {
   'the-download-covers-the-landing': {
     check: JOURNEY,
     file: CSS,
-    from: '  position: relative;\n  z-index: 1;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
-    to: '  position: relative;\n  z-index: 3;\n  display: flex;\n  flex-direction: column;\n  margin-top: -100vh;',
+    from: '  position: relative;\n  z-index: 1;\n  margin-top: calc(-100svh - var(--ahead));',
+    to: '  position: relative;\n  z-index: 3;\n  margin-top: calc(-100svh - var(--ahead));',
   },
   // The heading short of half the window: the notch, and the camera landing
   // on it, above the window's centre.
@@ -2253,21 +2259,59 @@ const MUTANTS = {
     from: '--r: calc(var(--on) * var(--on) * 0.75 * var(--dot));',
     to: '--r: calc(var(--on) * var(--on) * 0.7 * var(--dot));',
   },
-  // The download let into the window before it is drawn up: under the
-  // desktop, its link takes the clicks the film lets through.
-  'the-link-is-under-the-desktop-early': {
-    check: JOURNEY,
-    file: TUNNEL_JS,
-    from: 'const LEAVE = 1;',
-    to: 'const LEAVE = 0.7;',
-  },
-  // Drawn up to where the camera would land rather than where it is: the
-  // band's notch parts from the desktop's as the camera moves.
+  // Held where the camera starts rather than where it is: the band's notch
+  // parts from the desktop's as the camera moves.
   'the-band-parts-from-the-desktop': {
     check: JOURNEY,
     file: TUNNEL_JS,
-    from: '? (end - s) * vh + dockY - y : 0;',
-    to: '? (end - s) * vh : 0;',
+    from: 'return { drawn: s >= end - LEAVE, held: y - dockY };',
+    to: 'return { drawn: s >= end - LEAVE, held: -dockY };',
+  },
+  // The sheet in the page's flow, not stuck to the window: a script held it
+  // there, a frame behind every scroll, and it jumped on a fast one.
+  'the-download-is-held-by-script': {
+    check: JOURNEY,
+    file: CSS,
+    from: '  position: sticky;\n  top: var(--held, 0px);',
+    to: '  position: relative;\n  top: var(--held, 0px);',
+  },
+  // A runway a window long: the sheet only reaches the window's top after
+  // the handover has begun, its notch below the desktop's.
+  'the-runway-is-short': {
+    check: JOURNEY,
+    file: CSS,
+    from: '--ahead: 200svh;',
+    to: '--ahead: 100svh;',
+  },
+  // Seen on its runway before it is drawn: through the dive, and clickable
+  // under the desktop.
+  'the-download-shows-on-its-runway': {
+    check: JOURNEY,
+    file: CSS,
+    from: '.get__sheet { opacity: 0; pointer-events: none; }',
+    to: '.get__sheet { pointer-events: none; }',
+  },
+  // The bezel butted to the bar's edge: a hairline of the printed bar shows
+  // between the riso edge and the desktop landing on it.
+  'the-seam-shows-the-printed-bar': {
+    check: JOURNEY,
+    file: 'site/js/band.js',
+    from: 'const LIP = 2;',
+    to: 'const LIP = 0;',
+  },
+  // The link to the download landing at its runway's top, in the film.
+  'the-download-link-lands-in-the-film': {
+    check: JOURNEY,
+    file: CSS,
+    from: '[data-journey="on"] .get__mark { top: var(--ahead); }',
+    to: '[data-journey="on"] .get__mark { top: 0; }',
+  },
+  // Drawn as the camera lands rather than a window before the page has it.
+  'the-download-is-drawn-late': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'return { drawn: s >= end - LEAVE, held: y - dockY };',
+    to: 'return { drawn: s >= end - LEAVE / 2, held: y - dockY };',
   },
   // The push in finishing after the film has wrapped: every lap starts on a cut.
   'the-loop-wraps-on-a-cut': {
@@ -2296,6 +2340,58 @@ const MUTANTS = {
     file: TUNNEL_JS,
     from: 'const OFF = 0.42;',
     to: 'const OFF = 0.2;',
+  },
+  // The desktop dissolving all over at once as it goes: the link under it no
+  // sooner than the far corners.
+  'the-desktop-goes-all-at-once': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: "mac.toggleAttribute('data-going', dive >= 1);",
+    to: "mac.toggleAttribute('data-going', false);",
+  },
+  // The wave measured to the whole desktop, not the window: on a phone it
+  // sweeps off early and the last of the scroll shows nothing.
+  'the-wave-overshoots-the-window': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'const far = dive < 1 ? REACH : reach(x, y, scale, vw, vh);',
+    to: 'const far = REACH;',
+  },
+  // Measured four times as far across as down against a band twice: the
+  // bottom corners still solid as the pin goes.
+  'the-wave-falls-short-of-the-corners': {
+    check: JOURNEY,
+    file: TUNNEL_JS,
+    from: 'return Math.hypot(Math.max(x, vw - x) / 2, Math.max(0, vh - y)) / scale;',
+    to: 'return Math.hypot(Math.max(x, vw - x) / 4, Math.max(0, vh - y)) / scale;',
+  },
+  // The solid's edge travelling slower than the clearing: they meet mid-way
+  // and a hard edge wipes across the screen.
+  'the-band-closes-to-a-hard-edge': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'transparent calc((var(--gone) * 1.3 + 0.1) * 100%), #000 calc((var(--gone) * 1.3 + 0.3) * 100%)),',
+    to: 'transparent calc((var(--gone) * 1.1 + 0.1) * 100%), #000 calc((var(--gone) * 1.1 + 0.3) * 100%)),',
+  },
+  // The clearing already open at the notch as the dots come: a hole jumps in.
+  'the-notch-opens-with-a-jump': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'transparent calc((var(--gone) * 1.3 - 0.3) * 100%), #000 calc(var(--gone) * 1.3 * 100%));',
+    to: 'transparent calc((var(--gone) * 1.3 - 0.1) * 100%), #000 calc((var(--gone) * 1.3 + 0.2) * 100%));',
+  },
+  // The whole band sped up alike, so it never closes: the clearing passes the
+  // window's corner a tenth of a window before the page lets go, and that
+  // last stretch of scroll moves nothing.
+  'the-desktop-is-gone-before-the-pin': {
+    check: JOURNEY,
+    file: CSS,
+    from: 'transparent calc((var(--gone) * 1.3 - 0.3) * 100%), #000 calc(var(--gone) * 1.3 * 100%));',
+    to: 'transparent calc((var(--gone) * 1.6 - 0.3) * 100%), #000 calc(var(--gone) * 1.6 * 100%));',
+    also: [
+      { from: 'transparent calc((var(--gone) * 1.3 + 0.1) * 100%), #000 calc((var(--gone) * 1.3 + 0.3) * 100%)),',
+        to: 'transparent calc((var(--gone) * 1.6 + 0.1) * 100%), #000 calc((var(--gone) * 1.6 + 0.3) * 100%)),' },
+    ],
   },
 
   // The hand drawn on the film: the gesture it teaches has to be the one the

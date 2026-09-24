@@ -15,6 +15,8 @@ const PANEL = { width: 640, height: 190 };
 const NOTCH = { width: 185, height: 32 };
 /** Points tall, on a notched MacBook. */
 const MENU_BAR = 37;
+/** CSS pixels of the bezel's ink under the desktop that lands on it. */
+const LIP = 2;
 const MENUS = ['Finder', 'File', 'Edit', 'View', 'Go', 'Window', 'Help'];
 const SYSTEM = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
 
@@ -82,9 +84,12 @@ export class RisoBand {
     P.fillStyle = 'rgba(0,0,0,0.38)';
     P.fillRect(0, edge, w, bar);
 
-    // Bezel.
+    // Bezel, its ink run LIP under the bar's top edge: the desktop lands on
+    // that edge at whatever fraction of a pixel the camera has, and the print's
+    // own edge is softened by its screen, so butted exactly they left a hair
+    // of the printed bar showing between the two.
     K.fillStyle = 'rgba(0,0,0,0.95)';
-    K.fillRect(0, 0, w, edge);
+    K.fillRect(0, 0, w, edge + LIP);
 
     // Menus left of the notch, as many as fit; the clock and status items right.
     const size = 13 * S;

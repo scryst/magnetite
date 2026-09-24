@@ -51,7 +51,7 @@ import {
 import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
-import { hold, camera, drawnUp, shown, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS, DOT } from '../js/tunnel.js';
+import { hold, camera, sheet, reach, shown, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS, DOT } from '../js/tunnel.js';
 import { CUES, HAND, touchesAt } from '../js/touches.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -3471,15 +3471,17 @@ function theMarkIsTheIconsOwnContour() {
  * every zoom takes a second and a half or more — a move, not a cut.
  *
  * And the download is the page's point, so the journey keeps out of its way:
- * the download is on paper and at least a window tall, below the window until
- * it is drawn up, the pinned film goes once it is covered, and the film, a
+ * the download is on paper and at least a window tall, unseen until it is
+ * drawn up and then held there by the page, not a script, the pinned film
+ * goes once it is covered, and the film, a
  * picture laid over the download's first screen, lets the clicks meant for
  * the band through. Each was broken once: the footage covered the link until
  * it reached the top edge, the transparent film took every click, a download
  * shorter than the window showed the pinned how-to under it, the pin, left
- * up, showed its words again under the download as the page went on, and the
+ * up, showed its words again under the download as the page went on, the
  * halftone kept a soft dot at nothing, a pink haze on the band that went in
- * one frame as the pin did.
+ * one frame as the pin did, and the download, held against the scroll by a
+ * script a frame behind it, jumped off the desktop on every fast scroll.
  */
 function theJourneyLandsWhereItHandsOver() {
   const source = readFileSync(join(here, '..', 'js', 'tunnel.js'), 'utf8');
@@ -3506,7 +3508,7 @@ function theJourneyLandsWhereItHandsOver() {
   ];
   require(key && written.length >= 15, 'could not read the placement\'s skip key and the values it writes');
   for (const [, property, value] of written) {
-    const names = [...value.matchAll(/(?<![\w.])(on|dive|pitch|far|lift|x|y|scale|c\.\w+|at\.\w+)\b/g)]
+    const names = [...value.matchAll(/(?<![\w.])(on|dive|pitch|far|held|drawn|x|y|scale|c\.\w+|at\.\w+)\b/g)]
       .map((m) => m[1]);
     require(names.length, `could not tell what ${property} is written from`);
     for (const name of names) {
@@ -3534,13 +3536,46 @@ function theJourneyLandsWhereItHandsOver() {
   // desktop lands on it and goes back to print over it; and the pin goes once
   // the page has it.
   const getRule = /\[data-journey="on"\] \.get\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const sheetRule = /\[data-journey="on"\] \.get__sheet\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const z = (rule) => Number(/(?:^|;|\*\/)\s*z-index\s*:\s*(\d+)\s*;/.exec(rule)?.[1]);
-  require(z(getRule) < z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)\s*;/.test(getRule),
+  require(z(getRule) < z(filmRule) && /(?:^|;|\*\/)\s*background\s*:\s*var\(--paper\)\s*;/.test(sheetRule),
     'the journey\'s download is not under the film on paper — drawn up through the handover, it covers '
     + 'the desktop the camera is landing on, or shows the film through it');
-  require(/(?:^|;|\*\/)\s*min-height\s*:\s*100svh\s*;/.test(getRule),
+  require(/(?:^|;|\*\/)\s*min-height\s*:\s*100svh\s*;/.test(sheetRule),
     'the journey\'s download can be shorter than the window — landed, it leaves the pinned how-to '
     + 'showing under it until the pin goes');
+  // The page holds it through the handover, not a script: its sheet stuck to
+  // the window at --held on a runway reaching --ahead up the film from where
+  // the page lets it go. A scroll moves the page before any script hears of
+  // it, so a download a script held against the scroll went a frame's scroll
+  // off the desktop and back on every fast one.
+  const ahead = Number(/(?:^|;|\*\/)\s*--ahead\s*:\s*(\d+)svh\s*;/.exec(getRule)?.[1]);
+  require(ahead > 0 && /(?:^|;|\*\/)\s*margin-top\s*:\s*calc\(-100svh - var\(--ahead\)\)\s*;/.test(getRule)
+      && /\[data-journey="on"\] \.get::after\s*\{\s*content\s*:\s*""\s*;\s*display\s*:\s*block\s*;\s*height\s*:\s*var\(--ahead\)\s*;\s*\}/.test(css)
+      && /(?:^|;|\*\/)\s*position\s*:\s*sticky\s*;/.test(sheetRule)
+      && /(?:^|;|\*\/)\s*top\s*:\s*var\(--held, 0px\)\s*;/.test(sheetRule)
+      && /\n\s*const \{ drawn, held \} = sheet\(s, end, c\.y, at \? at\.y : 0\);/.test(placed)
+      && /\n\s*const end = page \? \(get\.getBoundingClientRect\(\)\.bottom - page\.height - box\.top\) \/ vh : Infinity;/.test(placed)
+      && /\n\s*get\.toggleAttribute\('data-drawn', drawn\);/.test(placed)
+      && /\n\s*get\.style\.setProperty\('--held', `\$\{held\.toFixed\(1\)\}px`\);/.test(placed),
+  'the journey\'s download is not held by the page through the handover — held by a script against the '
+    + 'scroll, it moves a frame late, and on a fast scroll it jumps off the desktop and back');
+  // The desktop lands on the band's bar at whatever fraction of a pixel the
+  // camera has, over a print whose edges its screen softens: the bezel's ink
+  // runs a pixel or more under it, or a hair of the printed bar shows between.
+  const band = readFileSync(join(here, '..', 'js', 'band.js'), 'utf8');
+  const lip = Number(/\nconst LIP = ([\d.]+);/.exec(band)?.[1]);
+  require(lip >= 1 && /\n\s*K\.fillRect\(0, 0, w, edge \+ LIP\);/.test(band),
+    'the band\'s bezel stops at the bar\'s top edge — a hairline of the printed bar shows between the riso '
+    + 'edge and the desktop landing on it');
+  require(/\[data-journey="on"\] \.get:not\(\[data-drawn\]\) \.get__sheet\s*\{\s*opacity\s*:\s*0\s*;\s*pointer-events\s*:\s*none\s*;\s*\}/.test(css),
+    'the download shows on its runway before the handover draws it — through the dive, and under the '
+    + 'desktop where the clicks the film lets through land on its link');
+  const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
+  require(/\[data-journey="on"\] \.get__mark\s*\{\s*top\s*:\s*var\(--ahead\)\s*;\s*\}/.test(css)
+      && /<section class="get"[^>]*>\s*(?:<!--[\s\S]*?-->\s*)?<span class="get__mark" id="download"><\/span>/.test(page)
+      && !/<section class="get"[^>]*\bid=/.test(page),
+  'the link to the download lands at the top of its runway, in the film, not where the page has it');
   require(/\.film\[data-tunnel="on"\]\[data-covered\] \.film__pin\s*\{\s*visibility\s*:\s*hidden\s*;\s*\}/.test(css),
     'the pinned film stays up once the download has covered it — its words show again under the '
     + 'download as the page goes on');
@@ -3569,7 +3604,81 @@ function theJourneyLandsWhereItHandsOver() {
     .exec(dotsRule)?.[1]);
   require(dot === DOT, `the halftone's dots are ${dot} pitches at their largest in magnetite.css and ${DOT} in `
     + 'js/tunnel.js — the desktop goes off unevenly, closed a while and then a lingering haze');
-  require(/radial-gradient\(circle, #000 var\(--r\), transparent calc\(var\(--r\) \+ min\(var\(--dot\) \/ \d+, var\(--r\)\)\)\)/
+  // Going off, the dots go from the notch out: a band of halftone (the dots
+  // less a clearing from the notch) with solid beyond it, both edges
+  // ellipses about the notch, `across` times as far across as down. Solid all
+  // over at --gone 0, the solid past the window's farthest corner at 1, and
+  // the band never closed up into a hard edge between them.
+  require(/\n\s*mac\.toggleAttribute\('data-going', dive >= 1\);/.test(placed),
+    'the desktop going off is not marked to go from the notch out — it dissolves all over at once, the '
+    + 'link no sooner than the corners');
+  require(/\n\s*const far = dive < 1 \? REACH : reach\(x, y, scale, vw, vh\);/.test(placed),
+    'the dots going off are not measured out to the window\'s own corners — on a window smaller than the '
+    + 'desktop they sweep off it early and the rest of the scroll shows nothing changing');
+  const goingRule = /\.film\[data-tunnel="on"\] \.film__mac\[data-dots\]\[data-going\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  const inParens = (text, open) => {
+    let depth = 0;
+    for (let i = open; i < text.length; i++) {
+      if (text[i] === '(') depth++;
+      else if (text[i] === ')' && --depth === 0) return text.slice(open + 1, i);
+    }
+    return null;
+  };
+  // A rule's mask layers, split at the mask-image's top-level commas.
+  const maskLayers = (rule) => {
+    const value = /(?:^|;|\*\/)\s*mask-image\s*:\s*([^;]*);/.exec(rule)?.[1] ?? '';
+    const parts = [];
+    let depth = 0;
+    let from = 0;
+    for (let i = 0; i < value.length; i++) {
+      if (value[i] === '(') depth++;
+      else if (value[i] === ')') depth--;
+      else if (value[i] === ',' && depth === 0) {
+        parts.push(value.slice(from, i).trim());
+        from = i + 1;
+      }
+    }
+    return [...parts, value.slice(from).trim()];
+  };
+  const layers = maskLayers(goingRule);
+  const edge = (layer) => {
+    if (!layer?.startsWith('radial-gradient(')) return null;
+    layer = inParens(layer, 'radial-gradient'.length) ?? '';
+    const shape = /^calc\(var\(--reach\) \* ([\d.]+)\) var\(--reach\) at 50% 0,/.exec(layer);
+    const stop = (colour) => {
+      const from = layer.indexOf(`${colour} calc(`);
+      const body = from >= 0 ? inParens(layer, from + colour.length + ' calc'.length) : null;
+      if (!body || !/^[\d\s.()*+-]*$/.test(body.replace(/var\(--gone\)/g, '').replace(/100%/g, ''))) return null;
+      // The stop as a share of the edge's ray at --gone g.
+      return new Function('g', `return ${body.replace(/var\(--gone\)/g, 'g').replace(/100%/g, '1')};`);
+    };
+    return shape && { wide: Number(shape[1]), clear: stop('transparent'), solid: stop('#000') };
+  };
+  let [front, dots, core] = layers;
+  // The same dots as coming on, the one declaration of them both masks use.
+  require(dots === 'var(--dots)' && maskLayers(dotsRule)[1] === 'var(--dots)',
+    'the dots the desktop goes off through are not the ones it came on through — two copies of the '
+    + 'halftone in magnetite.css, and a fix to one leaves the other as it was');
+  [front, core] = [edge(front), edge(core)];
+  require(layers.length === 3 && front?.clear && front.solid && core?.clear && core.solid
+      && front.wide === core.wide && /(?:^|;|\*\/)\s*mask-composite\s*:\s*add, intersect, add\s*;/.test(goingRule),
+  'could not read the going desktop\'s halftone band from magnetite.css: the solid past its front, the '
+    + 'dots, and the clearing behind it, ellipses about the notch');
+  const across = front.wide;
+  require(core.solid(0) <= 0, 'the desktop starts going off with a hole already cleared at the notch — it '
+    + 'jumps as the dots appear');
+  require(front.clear(1) >= 1, 'the desktop gone off still has solid beyond the halftone\'s front in the '
+    + 'window\'s far corners — it goes in one frame as the pin does');
+  require(core.clear(1) <= 1 + 1e-9,
+    `the clearing reaches the window's farthest corner at --gone `
+    + `${((1 - core.clear(0)) / (core.clear(1) - core.clear(0))).toFixed(2)}, `
+    + 'before the page has the download — the last of the scroll moves nothing');
+  for (let g = 0; g <= 1; g += 0.01) {
+    require(front.clear(g) - core.solid(g) >= 0.05,
+      `at --gone ${g.toFixed(2)} the solid meets the clearing with no halftone between — a hard edge wiped `
+      + 'across the screen, not a print');
+  }
+  require(/(?:^|;|\*\/)\s*--dots\s*:\s*radial-gradient\(circle, #000 var\(--r\), transparent calc\(var\(--r\) \+ min\(var\(--dot\) \/ \d+, var\(--r\)\)\)\)\s*;/
     .test(dotsRule),
   'the halftone\'s dots keep a soft edge at nothing, or one in the desktop\'s points — gone back to '
     + 'print the desktop leaves a haze on the band that goes in one frame with the pin, or, close, the '
@@ -3607,10 +3716,22 @@ function theJourneyLandsWhereItHandsOver() {
     const notchW = Math.max(Math.min(most, Math.max(least, vw * share / 100)), vw * 185 / 1512, vh * 185 / 982,
       Math.min(closeW, (vw - sides) * 185 / playerW, (vh - foot) * 185 / playerH));
     const dock = { x: vw / 2, y: vh / 2 - notchW * deep / 185 / 2, scale: notchW / 185 };
-    // The download overlaps the film's last screen, so its top starts `run`
-    // down from the window's top at the pin and comes up a pixel for each one
-    // scrolled, reaching the window's top at `end`, less however far up the
-    // handover has it drawn. A step is one pixel of scroll.
+    // Landed there, the dots go out as far as the window's farthest corner
+    // below the desktop's edge, measured the way the band's ellipse is.
+    const corner = Math.max(...[0, vw].map((cx) => Math.hypot((cx - dock.x) / across, vh - dock.y))) / dock.scale;
+    const far = reach(dock.x, dock.y, dock.scale, vw, vh);
+    require(far >= corner - 1e-9,
+      `${vw}x${vh}: the dots going off reach ${far.toFixed(0)}pt from the notch, short of the window's `
+      + `corner at ${corner.toFixed(0)}pt — the corner goes in one frame with the pin`);
+    require(far <= corner * 1.01,
+      `${vw}x${vh}: the dots going off reach ${far.toFixed(0)}pt from the notch, past the window's corner `
+      + `at ${corner.toFixed(0)}pt — they sweep off the window early and the last of the scroll shows nothing`);
+    // The download overlaps the film's last screen, so the page lets its
+    // sheet go `run` down from the window's top at the pin, coming up a pixel
+    // for each one scrolled, and reaching the window's top at `end`. Its
+    // runway starts `ahead` further up, where the sheet stands until the
+    // window's top reaches it and, stuck, holds at --held until the runway's
+    // foot brings it away. A step is one pixel of scroll.
     const run = vh * (tall / 100 - 1);
     const end = run / vh;
     const last = Math.ceil(run + vh * 0.2);
@@ -3618,19 +3739,20 @@ function theJourneyLandsWhereItHandsOver() {
       const film = shot === 'close' ? close : wide;
       const frames = Array.from({ length: last + 1 }, (_, s) => {
         const c = camera(s / vh, vw, vh, dock, t, end);
-        const lift = drawnUp(s / vh, vh, end, c.y, dock.y);
-        return { ...c, lift, top: run - s - lift, dots: shown(DOT * c.on * c.on) };
+        const { drawn, held } = sheet(s / vh, end, c.y, dock.y);
+        const top = Math.min(Math.max(run - s - vh * ahead / 100, held), run - s);
+        return { ...c, drawn, top, dots: shown(DOT * c.on * c.on) };
       });
       const start = frames[0];
       require(start.live === 1 && start.words === 0 && start.how === 0 && start.on === 1 && !start.covered
           && start.x === at.x && start.y === at.y && start.scale === at.scale,
       `${vw}x${vh}: the camera is not on the wide shot, the footage whole and its words not yet up, `
         + 'where the dive hands it over');
-      require(frames.some((c) => c.live === 1 && c.words === 1 && c.how === 1 && c.lift === 0
+      require(frames.some((c) => c.live === 1 && c.words === 1 && c.how === 1 && !c.drawn
           && c.x === at.x && c.y === at.y && Math.abs(Math.log(c.scale / film)) < 1e-9),
       `${vw}x${vh}: the camera never holds on the footage's own ${shot} shot with its title and `
         + 'how-to up before the handover');
-      const drawn = frames.findIndex((c) => c.lift !== 0);
+      const drawn = frames.findIndex((c) => c.drawn);
       const covered = frames.findIndex((c) => c.covered);
       require(drawn > 0 && covered > drawn,
         `${vw}x${vh}: the download is never drawn up under the desktop before the page brings it`);
@@ -3650,17 +3772,16 @@ function theJourneyLandsWhereItHandsOver() {
         + (inward ? 'leaving paper beside or under the desktop'
           : `no closer than the close shot's x${close.toFixed(3)} — it pulls out onto the link`));
       const off = frames[covered];
-      require(onDock(off) && off.on === 0 && off.live === 0 && off.words === 0 && off.how === 0,
+      require(onDock(off) && off.on === 0 && off.gone === 1 && off.live === 0 && off.words === 0 && off.how === 0,
         `${vw}x${vh}: the page takes the download over with the camera at (${off.x.toFixed(1)}, `
         + `${off.y.toFixed(1)}) x${off.scale.toFixed(3)} and the desktop ${(off.on * 100).toFixed(0)}% on — `
         + 'letting the pin go jumps');
       for (let s = 0; s <= last; s++) {
         const f = frames[s];
-        if (s < drawn) {
-          require(f.top >= vh - 1e-6,
-            `${vw}x${vh}: ${s}px in, the download is in the window before it is drawn up — the clicks the `
-            + 'film lets through land on a link under the desktop');
-        } else if (s < covered) {
+        // Before it is drawn the stylesheet keeps it unseen and unclickable
+        // (above), wherever its runway has it.
+        if (s < drawn) continue;
+        if (s < covered) {
           require(Math.abs(f.top + dock.y - f.y) < 1e-6 && 1512 * f.scale >= vw - 1e-9
               && f.y + 982 * f.scale >= vh - 1e-9,
           `${vw}x${vh}: ${s}px in, the band's notch is at ${(f.top + dock.y).toFixed(1)}, not under the `
@@ -3679,7 +3800,8 @@ function theJourneyLandsWhereItHandsOver() {
             `${vw}x${vh}: ${s}px in, the words are going with the camera still on the ${shot} shot — it `
             + 'holds the emptied desktop');
         } else {
-          require(f.lift === 0, `${vw}x${vh}: ${s}px in, the download is still drawn up after the page has it`);
+          require(f.drawn && f.top === run - s,
+            `${vw}x${vh}: ${s}px in, the download is still held after the page has it`);
         }
       }
       // No stretch of the handover sits: every twentieth of a window moves the
@@ -3689,7 +3811,7 @@ function theJourneyLandsWhereItHandsOver() {
       for (let s = drawn; s + span <= covered; s++) {
         const [a, b] = [frames[s], frames[s + span]];
         require(Math.hypot(b.x - a.x, b.y - a.y) >= 2 || Math.abs(Math.log(b.scale / a.scale)) >= 0.005
-            || ['live', 'words', 'how', 'dots'].some((k) => Math.abs(b[k] - a[k]) >= 0.03),
+            || ['live', 'words', 'how', 'dots', 'gone'].some((k) => Math.abs(b[k] - a[k]) >= 0.03),
         `${vw}x${vh}: from ${s}px in, a twentieth of a window of scroll moves nothing on the ${shot} `
           + 'shot — the handover sits');
       }
@@ -3697,10 +3819,15 @@ function theJourneyLandsWhereItHandsOver() {
         const [a, b] = [frames[s - 1], frames[s]];
         require(!a.covered || b.covered, `${vw}x${vh}: ${s}px in, the desktop comes back after the band covered it`);
         require(b.words >= b.how, `${vw}x${vh}: ${s}px in, the how-to is further up than its title`);
+        // The dots take the desktop away as evenly as the clearing does: what
+        // they show is what the wave has left, or a haze lingers.
+        require(Math.abs(b.dots - (1 - b.gone)) < 1e-3,
+          `${vw}x${vh}: ${s}px in, the dots show ${(b.dots * 100).toFixed(0)}% of the desktop with the wave `
+          + `${(b.gone * 100).toFixed(0)}% gone — a haze lingers after it`);
         require(b.live < 1 || b.words + b.how === 0 || close === wide
             || b.y + PLAYER.height * b.scale <= vh - WORDS,
         `${vw}x${vh}: ${s}px in, the player runs under the words on the ${shot} shot`);
-        require(['live', 'words', 'how', 'dots'].every((k) => Math.abs(b[k] - a[k]) <= 0.02)
+        require(['live', 'words', 'how', 'dots', 'gone'].every((k) => Math.abs(b[k] - a[k]) <= 0.02)
             && Math.hypot(b.x - a.x, b.y - a.y) <= 4
             && Math.abs(Math.log(b.scale / a.scale)) <= 0.01
             && (s <= drawn || Math.abs(b.top - a.top) <= 4),
