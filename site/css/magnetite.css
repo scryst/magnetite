@@ -311,6 +311,49 @@ a { color: inherit; }
   mask-composite: intersect;
 }
 .film[data-tunnel="on"] .film__video { inset: 0; width: 100%; height: 100%; }
+/* The hand in the film (js/touches.js), in the footage's own points: two
+   fingertips on the desktop under the player, index and middle, and a ring
+   where the pointer clicks or holds the seek strip. */
+.touch {
+  position: absolute;
+  width: 46px;
+  height: 24px;
+  margin: -12px 0 0 -23px;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* A fingertip's pad, a little longer than wide; the middle one reaches further. */
+.touch__tip {
+  position: absolute;
+  top: 3px;
+  left: 1px;
+  width: 19px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 34%, #4A474C, var(--ink) 72%);
+  box-shadow: 0 0 0 2px var(--film-ground), 0 4px 10px rgb(34 32 34 / 0.28);
+}
+.touch__tip + .touch__tip { top: -2px; left: 26px; }
+.touch__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 2px solid var(--film-ground);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgb(34 32 34 / 0.5), inset 0 0 0 1.5px rgb(34 32 34 / 0.35);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* The line of the how-to the footage is doing, while it does it. */
+.how li { transition: opacity 0.3s; }
+.how[data-doing] li { opacity: 0.4; }
+.how[data-doing="swipe"] [data-how="swipe"],
+.how[data-doing="scrub"] [data-how="scrub"] { opacity: 1; }
 /* Above the soundtrack's circles, which hold the window's bottom edge. */
 .film[data-tunnel="on"] .film__foot {
   position: absolute;

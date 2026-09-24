@@ -100,6 +100,7 @@
 <link rel="modulepreload" href="js/wordmark.js">
 <link rel="modulepreload" href="js/player.js">
 <link rel="modulepreload" href="js/tunnel.js">
+<link rel="modulepreload" href="js/touches.js">
 </head>
 <body>
 
@@ -315,7 +316,8 @@
          on, the display in the footage's own grey with the footage under its
          notch, laid on the printed screen; it holds with the notch hanging
          from the top of the window, then rides down onto the menu bar below
-         until its notch is the band's notch, the download link. Without
+         until its notch is the band's notch, the download link. The swipes
+         the recording cannot show are drawn on it (js/touches.js). Without
          scripts, or under Reduce Motion, it is the footage alone, as it was. -->
     <div class="film__pin">
       <h2 class="film__title" id="film-title">Recorded on a MacBook. Not a mock-up.</h2>
@@ -341,9 +343,9 @@
           <span data-demo-motion-label>Play demo</span>
         </button>
         <ul class="how">
-          <li><b>Hover</b> the notch to open the player.</li>
-          <li><b>Scrub</b> along its bottom edge to seek.</li>
-          <li><b>Swipe</b> two fingers to skip or pause.</li>
+          <li data-how="hover"><b>Hover</b> the notch to open the player.</li>
+          <li data-how="scrub"><b>Scrub</b> along its bottom edge to seek.</li>
+          <li data-how="swipe"><b>Swipe</b> two fingers to skip or pause.</li>
         </ul>
       </div>
     </div>
