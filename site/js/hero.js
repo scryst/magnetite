@@ -31,6 +31,8 @@ const BASE_YAW = -0.5;
 const BASE_PITCH = 0.36;
 const OPEN = (108 * Math.PI) / 180;
 const SHUT = (18 * Math.PI) / 180;
+/** Square on to the glass: the lid leans back past upright by this much. */
+const SQUARE_PITCH = OPEN - Math.PI / 2;
 /** The entrance: the lid opens and the run comes into register, once. */
 const ENTRANCE_MS = 1600;
 const REGISTER_MS = 900;
@@ -77,15 +79,22 @@ function makeCamera(yaw, pitch, frame) {
     return [x1, cp * v[1] - sp * z1, sp * v[1] + cp * z1];
   };
   const D = 1200;
-  const project = (p) => {
+  /** Where a point lands per unit of focal length, before the frame places it. */
+  const bearing = (p) => {
     const r = rotate([p[0], p[1] - 70, p[2] - MB.d / 2]);
     const depth = D - r[2];
-    return [frame.cx + (r[0] * frame.focal) / depth, frame.cy - (r[1] * frame.focal) / depth];
+    return [r[0] / depth, r[1] / depth, depth];
+  };
+  const project = (p) => {
+    const [bx, by] = bearing(p);
+    return [frame.cx + bx * frame.focal, frame.cy - by * frame.focal];
   };
   // A face is seen when its rotated normal points back along the view.
   const facing = (n) => rotate(n)[2] > 0.02;
-  return { project, facing };
+  return { project, facing, bearing };
 }
+
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 function trace(ctx, pts) {
   ctx.beginPath();
@@ -142,6 +151,24 @@ export class RisoHero {
     this.dpr = 1;
     this.frame = null;
     this.outline = null;
+    this.dive = { k: 0, target: null, lift: 0 };
+  }
+
+  /**
+   * The scroll's dive into the notch. `k` 0 is the resting print and 1 is the
+   * machine square on, its notch's top edge at `target` — {x, y, scale}, where
+   * `scale` is the CSS pixels a display point takes where the footage takes
+   * over — and the liquid at the app's own size rather than three times it.
+   * `lift` is how far the page has scrolled: the printed headline goes with
+   * the words it prints. `hidden` is the footage covering it, when there is
+   * nothing of the print to see and no reason to press a sheet.
+   */
+  setDive(k, target, lift = 0, hidden = false) {
+    this.dive = { k, target, lift };
+    if (hidden !== this.hidden) {
+      this.hidden = hidden;
+      this.canvas.style.visibility = hidden ? 'hidden' : '';
+    }
   }
 
   /** The pointer turns the machine a little toward itself. */
@@ -244,7 +271,7 @@ export class RisoHero {
   }
 
   render(sim, openness = 1, now = performance.now()) {
-    if (!this.press || !this.frame) return false;
+    if (!this.press || !this.frame || this.hidden) return false;
     const { lid, register } = this.entrance(now);
     if (!this.reduceMotion) {
       this.view.yaw += (this.view.tx - this.view.yaw) * 0.06;
@@ -262,13 +289,45 @@ export class RisoHero {
     this.setFont(ctx, type);
     ctx.fillStyle = `rgba(0,0,0,${tone})`;
     ctx.textBaseline = 'alphabetic';
-    this.lines.forEach((line, i) => ctx.fillText(line, margin, top + type * (0.95 + HEADLINE.lead * i)));
+    const y = top - this.dive.lift;
+    this.lines.forEach((line, i) => ctx.fillText(line, margin, y + type * (0.95 + HEADLINE.lead * i)));
     ctx.restore();
   }
 
+  /**
+   * The camera for this frame: the resting view, dived by `dive.k`. The zoom
+   * runs in log space, so it reads as one steady push; the notch's top edge
+   * travels from where the resting view has it to the target, and the frame
+   * is solved around it so that point is exactly where it should be.
+   */
+  camera(lidAngle) {
+    const { k, target } = this.dive;
+    const rest = makeCamera(this.view.yaw, this.view.pitch, this.frame);
+    if (!(k > 0) || !target) return { cam: rest, notchScale: NOTCH_SCALE, e: 0 };
+    const e = ease(Math.min(1, k));
+    const u = [0, Math.sin(lidAngle), Math.cos(lidAngle)];
+    const n = [0, -Math.cos(lidAngle), Math.sin(lidAngle)];
+    const hinge = [0, MB.base - 0.5, MB.lidT + 1.5];
+    const notch = add(add(hinge, mul(u, MB.lidH - MB.bezelTop)), mul(n, 0.04));
+    const yaw = this.view.yaw * (1 - e);
+    const pitch = this.view.pitch + (SQUARE_PITCH - this.view.pitch) * e;
+    const probe = makeCamera(yaw, pitch, { cx: 0, cy: 0, focal: 1 });
+    const [bx, by, depth] = probe.bearing(notch);
+    const f0 = this.frame.focal;
+    const f1 = (target.scale * depth) / MB.pt;
+    const focal = f0 * (f1 / f0) ** e;
+    const from = rest.project(notch);
+    const x = from[0] + (target.x - from[0]) * e;
+    const y = from[1] + (target.y - from[1]) * e;
+    const frame = { focal, cx: x - bx * focal, cy: y + by * focal };
+    return { cam: makeCamera(yaw, pitch, frame), notchScale: NOTCH_SCALE + (1 - NOTCH_SCALE) * e, e, frame };
+  }
+
   draw(sim, openness, lidAngle) {
-    const cam = makeCamera(this.view.yaw, this.view.pitch, this.frame);
+    const { cam, notchScale, e, frame } = this.camera(lidAngle);
+    this.notchScale = notchScale;
     const P = cam.project;
+    const focal = frame ? frame.focal : this.frame.focal;
     const { black: K, pink: Pk, blue: B } = clearPlates(this.plates, this.plateScale);
 
     // The headline is the pink plate's own solid, printed first and overprinted
@@ -277,14 +336,18 @@ export class RisoHero {
     this.headline(Pk, 1);
     this.headline(B, 0.22);
 
-    // Ground shadow: the footprint pushed away from the light, softened.
-    const foot = roundedOutline(MB.w, MB.d, MB.baseR, MB.baseR).map(([x, z]) => P([x + 16, 0, z + 10]));
-    K.save();
-    K.filter = `blur(${Math.max(6, this.frame.focal / 110)}px)`;
-    trace(K, foot);
-    K.fillStyle = 'rgba(0,0,0,0.28)';
-    K.fill();
-    K.restore();
+    // Ground shadow: the footprint pushed away from the light, softened. Gone
+    // once the dive has turned the machine square on and the deck is below
+    // the frame, where a wide blur would cost a frame for nothing.
+    if (e < 0.5) {
+      const foot = roundedOutline(MB.w, MB.d, MB.baseR, MB.baseR).map(([x, z]) => P([x + 16, 0, z + 10]));
+      K.save();
+      K.filter = `blur(${Math.max(6, this.frame.focal / 110)}px)`;
+      trace(K, foot);
+      K.fillStyle = `rgba(0,0,0,${0.28 * (1 - e * 2)})`;
+      K.fill();
+      K.restore();
+    }
 
     // The lid first: the deck is nearer and covers the hinge.
     const u = [0, Math.sin(lidAngle), Math.cos(lidAngle)];
@@ -377,7 +440,7 @@ export class RisoHero {
     const pad = roundedOutline(150, 88, 5, 5).map(([x, pz]) => P([x, deckY, MB.d - 10 - pz]));
     own(B, pad, 0.3);
     trace(B, pad);
-    B.lineWidth = Math.max(1.2, this.frame.focal / 900);
+    B.lineWidth = Math.max(1.2, focal / 900);
     B.strokeStyle = 'rgba(0,0,0,0.6)';
     B.stroke();
   }
@@ -421,7 +484,7 @@ export class RisoHero {
     // The liquid, in panel points, hung from the notch. Clipped exactly as the
     // app clips it: never above the display's edge, and never past the band
     // the shell has opened to.
-    const k = MB.pt * NOTCH_SCALE;
+    const k = MB.pt * this.notchScale;
     const at = (px, py) => P(lidPoint((px - PANEL.width / 2) * k, top - py * k, 0.04));
     const inkOpen = Math.max(0, Math.min(openness, sim.inkOpen));
     const geometry = new Geometry(NOTCH, PANEL, inkOpen);

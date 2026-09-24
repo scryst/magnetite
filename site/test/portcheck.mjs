@@ -51,6 +51,7 @@ import {
 import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
+import { hold, camera } from '../js/tunnel.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const golden = (name) => readFileSync(join(here, 'golden', `${name}.txt`), 'utf8')
@@ -3404,6 +3405,72 @@ function theMarkIsTheIconsOwnContour() {
     + 'screen');
 }
 
+/**
+ * The journey lands where it hands over.
+ *
+ * One camera from the hero to the download (js/tunnel.js), with two places
+ * where one picture becomes another: the printed notch becomes the footage,
+ * and the footage becomes the band's notch, the download link. Each only
+ * reads as one camera if both sides agree on the same place and size, so this
+ * drives the pure camera from a phone to a wide display, with the band
+ * scrolling up underneath the way the page scrolls it: the dive aims at the
+ * hold, the hold never enlarges the footage past its own pixels, the pull
+ * lands on the band exactly and only lets the footage go once it has, and
+ * nothing jumps: stepped a scrolled pixel at a time, a fade takes at least
+ * fifty pixels of scroll, the footage moves at most four pixels for each one
+ * scrolled, and its size changes by at most a percent.
+ */
+function theJourneyLandsWhereItHandsOver() {
+  const source = readFileSync(join(here, '..', 'js', 'tunnel.js'), 'utf8');
+  require(/hero\?\.setDive\(dive, hold\(vw, vh\), scrollY,/.test(source),
+    'the hero dives somewhere other than where the footage holds — the printed notch and the '
+    + 'footage no longer meet');
+  require(/scrollY, dive >= 1 && p >= FADE\);/.test(source),
+    'the print is not put away once the footage has covered it — as the pull lets the dark go, the '
+    + 'hero\'s zoomed screen shows through behind the download');
+  const film = { width: 512, height: 240 };
+  for (const [vw, vh] of [[390, 844], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
+    const at = hold(vw, vh);
+    require(at.scale > 0 && at.scale <= 1.5,
+      `${vw}x${vh}: the footage holds at ${at.scale.toFixed(3)}x its points, past the 1.5 its own `
+      + 'pixels allow');
+    require(film.width * at.scale <= vw - 32 && at.y >= 0 && at.y + film.height * at.scale <= vh,
+      `${vw}x${vh}: the held footage does not fit the window`);
+    // The band's notch as the page moves it: the download overlaps the film's
+    // last screen, so it rises from below the window to the top as p runs out.
+    const notchW = Math.min(320, Math.max(180, vw * 0.23));
+    const run = vh * 2.4;
+    const dockAt = (p) => ({ x: vw / 2, y: 0.42 * notchW * 32 / 185 + run * (1 - p), scale: notchW / 185 });
+    const start = camera(0, vw, vh, dockAt(0));
+    require(start.film === 0 && start.dark === 0
+        && start.x === at.x && start.y === at.y && start.scale === at.scale,
+    `${vw}x${vh}: the footage is not waiting, unseen, at the hold when the pin begins — the printed `
+      + 'notch has nothing to become');
+    // A step of p is at most one pixel of scroll.
+    const steps = Math.ceil(run);
+    const frames = Array.from({ length: steps + 1 }, (_, i) => camera(i / steps, vw, vh, dockAt(i / steps)));
+    require(frames.some((c) => c.film === 1 && c.dark === 1 && c.words === 1
+        && c.x === at.x && c.y === at.y && c.scale === at.scale),
+    `${vw}x${vh}: the footage never holds, shown and dark with its words up, where the dive aimed`);
+    const end = frames[steps];
+    const dock = dockAt(1);
+    require(Math.abs(end.x - dock.x) < 1e-6 && Math.abs(end.y - dock.y) < 1e-6
+        && Math.abs(end.scale - dock.scale) < 1e-9 && end.film === 0 && end.dark === 0,
+    `${vw}x${vh}: the pull ends at (${end.x.toFixed(1)}, ${end.y.toFixed(1)}) x${end.scale.toFixed(3)}, `
+      + `not on the band's notch at (${dock.x.toFixed(1)}, ${dock.y.toFixed(1)}) x${dock.scale.toFixed(3)}`);
+    for (let i = 1; i <= steps; i++) {
+      const [a, b] = [frames[i - 1], frames[i]];
+      const d = dockAt(i / steps);
+      require(b.film > 0 || Math.hypot(b.x - d.x, b.y - d.y) < 1,
+        `${vw}x${vh}: the footage has gone at p=${(i / steps).toFixed(3)}, before it reached the band`);
+      require(Math.abs(b.film - a.film) <= 0.02 && Math.abs(b.dark - a.dark) <= 0.02
+          && Math.hypot(b.x - a.x, b.y - a.y) <= 4
+          && Math.abs(Math.log(b.scale / a.scale)) <= 0.01,
+      `${vw}x${vh}: the camera jumps at p=${(i / steps).toFixed(4)}`);
+    }
+  }
+}
+
 const CHECKS = {
   theReplayMatchesTheShippingPhysics,
   theReplayIsSteppedLikeTheApp,
@@ -3444,6 +3511,7 @@ const CHECKS = {
   eachCameraIsPaintedWithTheFluidItIsAimedAt,
   theCameraIsResizedIntoItsNewScale,
   theMarkIsTheIconsOwnContour,
+  theJourneyLandsWhereItHandsOver,
 };
 
 const only = process.argv.find((a) => a.startsWith('--only='));
