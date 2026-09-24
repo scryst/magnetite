@@ -178,6 +178,7 @@ const band = bandCanvas && download && new RisoBand(bandCanvas, download, {
     path: glyph.querySelector('path').getAttribute('d'),
     box: glyph.getAttribute('viewBox').split(/\s+/).map(Number),
   },
+  sleeve: document.querySelector('.band__sleeve'),
   reduceMotion,
 });
 /**

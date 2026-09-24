@@ -10,7 +10,7 @@
 // showing what the page's soundtrack is playing.
 
 import { Geometry } from './geometry.js';
-import { createPress, makePlates, clearPlates, INK } from './press.js';
+import { createPress, makePlates, clearPlates } from './press.js';
 
 const PANEL = { width: 640, height: 190 };
 const NOTCH = { width: 185, height: 32 };
@@ -35,8 +35,9 @@ export class RisoBand {
   /**
    * `link` is the download link laid over the notch. `mark` is the app's own
    * glyph, {path, box: [x, y, w, h]} from the page's SVG, for the status item.
+   * `sleeve` is the image the pill's artwork is laid in with.
    */
-  constructor(canvas, link, { mark = null, reduceMotion = false } = {}) {
+  constructor(canvas, link, { mark = null, sleeve = null, reduceMotion = false } = {}) {
     this.canvas = canvas;
     this.link = link;
     this.mark = mark && { path: new Path2D(mark.path), box: mark.box };
@@ -47,10 +48,13 @@ export class RisoBand {
     this.notch = null;
     this.scale = 1;
     this.dpr = 1;
-    /** () => {at, of, art}: what the soundtrack is playing (js/player.js). */
+    /** () => {at, of, src, played}: what the soundtrack is playing (js/player.js). */
     this.nowPlaying = null;
-    /** The artwork parted into the three plates, kept for its source and size. */
-    this.art = null;
+    /** The pill's sleeve, an image laid over the print, and where it was last put. */
+    this.sleeve = sleeve;
+    this.sleevePlace = '';
+    /** The recording's pill: its track's sleeve (the image's own), 1:35 into 3:22. */
+    this.recorded = { at: 95, of: 202, src: sleeve?.getAttribute('src') ?? null };
     // Where the date does not fit beside the notch the bar keeps the time
     // alone, as a crowded Mac menu bar does.
     this.clocks = [
@@ -76,48 +80,6 @@ export class RisoBand {
     }
   }
 
-  /**
-   * `img` parted into the three inks at `px` square: black where it is dark,
-   * blue where it wants red taken out, pink where it wants green, as they
-   * multiply on paper (js/press.js). Kept until the sleeve or its size
-   * changes; null until the sleeve has loaded.
-   */
-  separate(img, px) {
-    const key = `${img.currentSrc || img.src}|${px}`;
-    if (this.art?.key === key) return this.art.plates;
-    if (!img.complete || !img.naturalWidth || px < 1) return null;
-    const source = document.createElement('canvas');
-    source.width = source.height = px;
-    const read = source.getContext('2d', { willReadFrequently: true });
-    read.drawImage(img, 0, 0, px, px);
-    const { data } = read.getImageData(0, 0, px, px);
-    const plates = {};
-    const inks = {};
-    for (const name of ['black', 'pink', 'blue']) {
-      plates[name] = document.createElement('canvas');
-      plates[name].width = plates[name].height = px;
-      inks[name] = plates[name].getContext('2d').createImageData(px, px);
-    }
-    // How much of the green each colour ink takes out; the blue takes all the red.
-    const blueG = 1 - INK.blue[1] / 255;
-    const pinkG = 1 - INK.pink[1] / 255;
-    for (let i = 0; i < data.length; i += 4) {
-      const [r, g] = [data[i] / 255, data[i + 1] / 255];
-      const k = 1 - Math.max(r, g, data[i + 2] / 255);
-      const lit = 1 - k || 1;
-      const blue = unit(1 - r / lit);
-      const pink = unit((1 - g / lit / (1 - blue * blueG)) / pinkG);
-      // Solid or nothing: a halftone at the band's pitch is a dozen dots
-      // across a sleeve, so each ink is cut as a spot colour instead.
-      inks.black.data[i + 3] = k > 0.5 ? 255 : 0;
-      inks.pink.data[i + 3] = pink > 0.5 ? 255 : 0;
-      inks.blue.data[i + 3] = blue > 0.5 ? 255 : 0;
-    }
-    for (const name of Object.keys(plates)) plates[name].getContext('2d').putImageData(inks[name], 0, 0);
-    this.art = { key, plates };
-    return plates;
-  }
-
   render(sim, openness = 0) {
     if (!this.press || !this.notch) return false;
     const { black: K, pink: P, blue: B } = clearPlates(this.plates, this.plateScale);
@@ -141,11 +103,15 @@ export class RisoBand {
     P.fillStyle = 'rgba(0,0,0,0.38)';
     P.fillRect(0, edge, w, bar);
 
-    // The idle pill: the playing track's artwork at its left, its time at its
-    // right, and how far in it is drawn along its foot in the blue plate, as
-    // the recording's desktop has it when the player goes back into the notch.
-    const playing = this.nowPlaying?.();
-    const pill = playing && { x: cx - (PILL.width * S) / 2, w: PILL.width * S, h: this.notch.h };
+    // The idle pill: the playing track's sleeve at its left, its time at its
+    // right, and how far in it is along its foot in the blue plate. Until the
+    // soundtrack has played, and while the desktop is still going off over
+    // the band, it is the recording's own pill, so the pill the desktop hands
+    // over is the one it shows. Never past the page's gutters.
+    const live = this.nowPlaying?.();
+    const playing = live && (live.played && !this.link.closest('[data-under]') ? live : this.recorded);
+    const pw = Math.min(PILL.width * S, w - 32);
+    const pill = playing && { x: cx - pw / 2, w: pw, h: this.notch.h };
     if (pill) {
       const plates = { black: K, pink: P, blue: B };
       const within = (c, draw) => {
@@ -176,31 +142,44 @@ export class RisoBand {
           });
         }
       }
-      const size = PILL.art * S;
-      const ax = pill.x + PILL.inset * S;
-      const ay = edge + (pill.h - size) / 2;
-      const art = playing.art && this.separate(playing.art, Math.round(size * this.plateScale));
-      if (art) {
-        for (const [key, c] of Object.entries(plates)) {
-          c.save();
-          c.beginPath();
-          c.roundRect(ax, ay, size, size, 4 * S);
-          c.clip();
-          c.clearRect(ax, ay, size, size);
-          c.drawImage(art[key], ax, ay, size, size);
-          c.restore();
+      // The sleeve is laid in as a photograph (index.html's .band__sleeve): a
+      // dozen dots of the band's screen across it would carry nothing.
+      if (this.sleeve) {
+        const size = PILL.art * S;
+        const at = `left:${(pill.x + PILL.inset * S).toFixed(1)}px;top:${(edge + (pill.h - size) / 2).toFixed(1)}px;`
+          + `width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;border-radius:${(4 * S).toFixed(1)}px`;
+        if (this.sleevePlace !== at) {
+          this.sleevePlace = at;
+          this.sleeve.style.cssText = at;
         }
+        if (playing.src && this.sleeve.getAttribute('src') !== playing.src) this.sleeve.src = playing.src;
+        this.sleeve.hidden = false;
       }
-      // The time in the paper, out of all three.
-      for (const c of Object.values(plates)) {
+      // The time in the paper, trapped in solid black so the screen's dots and
+      // the plates' misregistration do not eat its edges: the black spread
+      // round it, the colours kept clear of the spread, then the figures
+      // knocked out of all three.
+      const text = elapsed(playing.at);
+      const tx = pill.x + pill.w - PILL.time * S;
+      const ty = edge + pill.h / 2;
+      const trap = Math.max(1.5, PILL.text * S * 0.1);
+      for (const [key, c] of Object.entries(plates)) {
         c.save();
-        c.globalCompositeOperation = 'destination-out';
         c.font = `700 ${PILL.text * S}px ${SYSTEM}`;
         c.textAlign = 'right';
         c.textBaseline = 'middle';
-        c.fillText(elapsed(playing.at),pill.x + pill.w - PILL.time * S, edge + pill.h / 2);
+        c.lineJoin = 'round';
+        c.lineWidth = trap * 2;
+        c.fillStyle = c.strokeStyle = '#000';
+        if (key !== 'black') c.globalCompositeOperation = 'destination-out';
+        c.fillText(text, tx, ty);
+        c.strokeText(text, tx, ty);
+        c.globalCompositeOperation = 'destination-out';
+        c.fillText(text, tx, ty);
         c.restore();
       }
+    } else if (this.sleeve) {
+      this.sleeve.hidden = true;
     }
 
     // Bezel, its ink run LIP under the bar's top edge: the desktop lands on

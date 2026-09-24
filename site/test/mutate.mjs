@@ -2291,6 +2291,21 @@ const MUTANTS = {
     from: '.get__sheet { opacity: 0; pointer-events: none; }',
     to: '.get__sheet { pointer-events: none; }',
   },
+  // The band's pill never told the desktop is over it: it prints the
+  // soundtrack's clock under the recording's.
+  'the-pill-shows-two-clocks': {
+    check: JOURNEY,
+    file: 'site/js/band.js',
+    from: "live.played && !this.link.closest('[data-under]') ? live : this.recorded",
+    to: 'live.played ? live : this.recorded',
+  },
+  // The words back on one threshold for every window.
+  'the-words-come-up-through-the-dots': {
+    check: JOURNEY,
+    file: CSS,
+    from: '(var(--gone, 1) - var(--clear, 0)) / 0.06',
+    to: '(var(--gone, 1) - 0.55) / 0.35',
+  },
   // The sheet's paper left to its tooth alone: the film shows through it.
   'the-download-is-only-tooth': {
     check: JOURNEY,

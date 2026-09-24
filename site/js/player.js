@@ -18,13 +18,17 @@ export function startPlayer(host, audio) {
   }
   draw();
   return {
-    /** What is playing, for the band's idle pill: seconds in, of how many, and its sleeve. */
+    /**
+     * What is playing, for the band's idle pill: seconds in, of how many, its
+     * sleeve's source, and whether the soundtrack has played at all.
+     */
     now() {
       const playing = tracks.find((track) => track.getAttribute('aria-pressed') === 'true');
       return {
         at: audio.currentTime || 0,
         of: audio.duration > 0 ? audio.duration : 0,
-        art: playing ? playing.querySelector('img') : null,
+        src: playing?.querySelector('img')?.getAttribute('src') ?? null,
+        played: audio.played.length > 0,
       };
     },
     /** The sleeve at `index` is the one playing. */

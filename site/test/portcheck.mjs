@@ -3568,6 +3568,17 @@ function theJourneyLandsWhereItHandsOver() {
   require(lip >= 1 && /\n\s*K\.fillRect\(0, 0, w, edge \+ LIP\);/.test(band),
     'the band\'s bezel stops at the bar\'s top edge — a hairline of the printed bar shows between the riso '
     + 'edge and the desktop landing on it');
+  // The band's pill is the recording's while the desktop is still going off
+  // over it, so the pill the desktop hands over is the one it prints.
+  require(/\n\s*get\.toggleAttribute\('data-under', drawn && !c\.covered\);/.test(placed)
+      && /live\.played && !this\.link\.closest\('\[data-under\]'\) \? live : this\.recorded/.test(band),
+    'the band\'s pill prints the soundtrack\'s clock under the desktop still going off — two clocks meet '
+    + 'in the dissolve');
+  // The words under the band each come up as the dots clear past them.
+  require(/\n\s*word\.style\.setProperty\('--clear', clearing\(/.test(placed)
+      && /opacity\s*:\s*clamp\(0, \(var\(--gone, 1\) - var\(--clear, 0\)\) \/ 0\.06, 1\)\s*;/.test(css),
+    'the download\'s words come up on one clock for every window — on a phone they show through the dots '
+    + 'going off');
   require(/\[data-journey="on"\] \.get:not\(\[data-drawn\]\) \.get__sheet\s*\{\s*opacity\s*:\s*0\s*;\s*pointer-events\s*:\s*none\s*;\s*\}/.test(css),
     'the download shows on its runway before the handover draws it — through the dive, and under the '
     + 'desktop where the clicks the film lets through land on its link');
