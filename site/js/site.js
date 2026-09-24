@@ -213,9 +213,10 @@ for (const entry of views) printed(entry.view.canvas, entry.view.press ? 'press'
 // the same 200px apron the views observer uses, and a film nobody is
 // beside is paused — the canvases' own frugality.
 const film = document.getElementById('demo-film');
-// Scrolled into: the camera pushes from the whole machine to the notch and
-// back out. Nothing to do with playback, which stays the page's below.
-startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion });
+// Scrolled into: the hero's camera dives into its notch, the footage takes
+// over and holds, then rides down onto the band's notch, the download. Nothing
+// to do with playback, which stays the page's below.
+startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion, hero, dock: download });
 const filmToggle = document.querySelector('[data-demo-motion]');
 const filmToggleLabel = filmToggle
   && filmToggle.querySelector('[data-demo-motion-label]');
