@@ -9,7 +9,7 @@ The download link opens the official GitHub Release page. Downloading, installin
 ## Product
 
 - [Live demo](https://magnetite.app/): Canonical product page, interactive simulation, real-app film, requirements, and download link.
-- [Magnetite v0.1.1](https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1): Current official release; ad-hoc signed and not yet Apple-notarized.
+- [Magnetite v0.1.2](https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2): Current official release; ad-hoc signed and not yet Apple-notarized.
 
 ## Trust
 

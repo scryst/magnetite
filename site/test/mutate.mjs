@@ -698,7 +698,7 @@ const MUTANTS = {
     check: DOWNLOAD,
     file: PAGE,
     all: true,
-    from: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1',
+    from: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2',
     to: 'https://github.com/scryst/magnetite-releases/releases/tag/v9.9.9',
   },
   'release-link-loses-its-external-destination': {
@@ -710,8 +710,8 @@ const MUTANTS = {
   'download-copy-reverts-to-release': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Download<span class="visually-hidden">, Magnetite v0.1.1 on GitHub</span>',
-    to: 'Release<span class="visually-hidden">, Magnetite v0.1.1 on GitHub</span>',
+    from: 'Download<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span>',
+    to: 'Release<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span>',
   },
   'structured-release-names-someone-else': {
     check: DOWNLOAD,
@@ -748,7 +748,7 @@ const MUTANTS = {
   'download-version-drift': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.1</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.2</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>0.2.0</string>',
   },
   // The same drift, in the one direction the check used to be blind to. The
@@ -759,7 +759,7 @@ const MUTANTS = {
   'download-version-bumped-into-a-substring': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.1</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.2</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>1.1</string>',
   },
   // The size under the button is left over from an older, smaller build.
