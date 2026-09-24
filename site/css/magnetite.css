@@ -3,8 +3,8 @@
  * The page is a sheet of uncoated stock and every picture on it is a
  * risograph print: black, fluorescent pink and blue, screened into dots and a
  * hair out of register, multiplied onto the paper (js/press.js). The film is
- * the one exception, shown in its own pixels on its own grey, because it is
- * the proof of what the app looks like.
+ * the one exception, shown in its own pixels on the desktop it was recorded
+ * on, because it is the proof of what the app looks like.
  *
  * Gloock is the display face: the printed headline, the section title and the
  * name. Everything else is the Mac's own system face, because the words
@@ -163,16 +163,35 @@ a { color: inherit; }
 /* ── The film ───────────────────────────────────────────────────────────── */
 
 .film { padding: 14vh var(--gutter) 0; }
-/* The film in its own pixels, on its own grey, as a screen is: never wider
-   than its 1536 source pixels at 2x, so a Retina display never upsamples it. */
-.film__stage {
+/* The film in its own pixels: a window on the top of the recorded desktop,
+   350 points either side of the notch and 440 down, never so wide that the
+   footage's 1140 source pixels are drawn past one to one at 2x. The desktop
+   is the take's first frame; the footage (1140 by 1320, 570 by 660 points)
+   lies on it where it was shot, 540 points in, and the window crops its foot. */
+.film__mac {
   position: relative;
-  max-width: 768px;
+  max-width: 700px;
   margin: 0 auto;
-  aspect-ratio: 1536 / 720;
+  aspect-ratio: 700 / 440;
   overflow: hidden;
   border-radius: 14px;
   background: var(--film-ground);
+}
+.film__desk {
+  position: absolute;
+  top: 0;
+  left: calc(-406 / 700 * 100%);
+  width: calc(1512 / 700 * 100%);
+  max-width: none;
+  height: auto;
+  display: block;
+}
+.film__stage {
+  position: absolute;
+  top: 0;
+  left: calc(134 / 700 * 100%);
+  width: calc(570 / 700 * 100%);
+  aspect-ratio: 570 / 660;
 }
 .film__video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .film__foot {
@@ -213,29 +232,29 @@ a { color: inherit; }
   text-align: center;
   text-wrap: balance;
 }
-.film__base { display: none; }
 
 @media (max-width: 719px) {
-  /* A phone's stage is cropped to the player, so its type stays legible. */
+  /* A phone's window is 440 points round the player, so its type stays legible. */
   .film { padding-top: 10vh; }
-  .film__stage { aspect-ratio: 1180 / 600; }
-  .film__video { inset: 0 auto auto -15%; width: 130%; height: auto; }
+  .film__mac { aspect-ratio: 440 / 300; }
+  .film__desk { left: calc(-536 / 440 * 100%); width: calc(1512 / 440 * 100%); }
+  .film__stage { left: calc(4 / 440 * 100%); width: calc(570 / 440 * 100%); }
   .film__foot { grid-template-columns: 1fr; }
   .how { grid-template-columns: 1fr; gap: 8px; }
   .how li { max-width: none; }
 }
 
 /* The journey (js/tunnel.js). The hero's print stays where it is while its
-   words scroll away and the camera dives into its notch; over the last of the
-   push the display comes on (--on), in the footage's own grey with the footage
-   under its notch, laid on the printed screen. The desktop then fills the
-   window (--dark) and holds; then it gives way to the page and the footage
-   rides down onto the band's notch (--edge), and goes. */
+   words scroll away and the camera dives until its screen is the window; over
+   the last of the push the recorded desktop comes on (--on), laid on the
+   printed screen. It holds, filling the window, while the camera follows the
+   footage in and out; its words come up over a dark foot (--words); then the
+   desktop rides down onto the band's notch (--edge), and goes. */
 [data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
 .film[data-tunnel="on"] {
   --on: 0;
-  --solid: 1;
-  --dark: 0;
+  --live: 1;
+  --edge: 0;
   --words: 0;
   position: relative;
   z-index: 2;
@@ -246,74 +265,82 @@ a { color: inherit; }
      for the band through; only its words take them, while they are up. */
   pointer-events: none;
 }
-/* Fixed rather than stuck: the display comes on over the print before the
-   film's own screen has arrived to stick. */
+/* Fixed rather than stuck: the desktop comes on over the print before the
+   film's own screen has arrived to stick. Its words stand at the foot of the
+   window, the title over the how-to, clear of the soundtrack's circles. */
 .film[data-tunnel="on"] .film__pin {
   position: fixed;
   top: 0;
   left: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   width: 100%;
   height: 100vh;
   height: 100svh;
+  padding: 0 var(--gutter) max(96px, 7vh);
   overflow: hidden;
 }
-.film[data-tunnel="on"] .film__pin::before {
+/* The desktop's foot deepened under the words, its blue going on into night
+   as a film's titles sit on it, so they read over its pink and blue alike. */
+.film[data-tunnel="on"] .film__pin::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background: var(--film-ground);
-  opacity: var(--dark);
-}
-/* Under the footage, which hangs from the top of the window as it does from
-   the top of a display (--under is its height). */
-.film[data-tunnel="on"] .film__title {
-  position: absolute;
-  top: calc(var(--under, 40vh) + 4vh);
-  left: var(--gutter);
-  right: var(--gutter);
-  z-index: 3;
-  max-width: none;
-  margin: 0 auto;
+  inset: auto 0 0;
+  z-index: 2;
+  height: 46%;
+  background: linear-gradient(rgb(10 28 50 / 0), rgb(10 28 50 / 0.62) 62%, rgb(10 28 50 / 0.7));
   opacity: var(--words);
 }
-/* The display the footage was recorded on, 1512 by 982 points like the
-   printed one, in the footage's grey (--solid, until the desktop has filled
-   the window), with the footage where it was recorded: under the notch. */
+.film[data-tunnel="on"] .film__title {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  margin: 0 auto 3vh;
+  color: var(--paper);
+  opacity: var(--words);
+}
+/* The display the take was recorded on, 1512 by 982 points like the printed
+   one: the still of its first frame, with the footage where it was shot. */
 .film[data-tunnel="on"] .film__mac {
   position: absolute;
   top: 0;
   left: 0;
   width: 1512px;
+  max-width: none;
   height: 982px;
+  margin: 0;
+  aspect-ratio: auto;
+  overflow: visible;
+  border-radius: 0;
   opacity: var(--on);
   will-change: transform, opacity;
+  /* As it lands, the desktop goes below its menu bar, so what arrives on the
+     band is its top edge and not a picture over the page; the band's own
+     wallpaper dissolves into the paper over the same depth. The still is the
+     take's first frame with the pointer painted out, for when it shows alone. */
+  --keep: calc(100% - var(--edge) * 88%);
+  mask-image: linear-gradient(#000 var(--keep), transparent calc(var(--keep) + 12%));
 }
-.film[data-tunnel="on"] .film__mac::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--film-ground);
-  opacity: var(--solid);
-}
-.film[data-tunnel="on"] .film__screen { position: absolute; top: 0; left: 500px; width: 512px; height: 240px; }
+.film[data-tunnel="on"] .film__desk { left: 0; width: 100%; height: 100%; }
 .film[data-tunnel="on"] .film__stage {
-  --fx: calc(var(--edge, 0) * 34%);
-  --fy: calc(var(--edge, 0) * 62%);
-  position: absolute;
-  inset: 0;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
-  /* As the footage lands, its sides and foot go, so what arrives on the band
-     is its notch and not a grey box. Its top edge is the band's own. */
-  mask-image: linear-gradient(90deg, transparent, #000 var(--fx), #000 calc(100% - var(--fx)), transparent),
-    linear-gradient(#000 calc(100% - var(--fy)), transparent);
+  left: 540px;
+  width: 570px;
+  height: 660px;
+  aspect-ratio: auto;
+  /* Gone over the first of the pull (--live), leaving the still's idle notch
+     to land on the band's. */
+  opacity: var(--live);
+  /* Its sides and foot feathered into the still, which is the same wallpaper
+     there; its top edge is the display's. */
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent),
+    linear-gradient(#000 calc(100% - 16px), transparent);
   mask-composite: intersect;
 }
-.film[data-tunnel="on"] .film__video { inset: 0; width: 100%; height: 100%; }
-/* The hand in the film (js/touches.js), in the footage's own points: two
+/* The hand in the film (js/touches.js), in the desktop's own points: two
    fingertips on the desktop under the player, index and middle, and a ring
-   where the pointer clicks or holds the seek strip. */
+   where the pointer clicks or holds the seek strip, each rimmed in paper so
+   it reads over the wallpaper and the player alike. */
 .touch {
   position: absolute;
   width: 46px;
@@ -332,7 +359,7 @@ a { color: inherit; }
   height: 22px;
   border-radius: 50%;
   background: radial-gradient(circle at 42% 34%, #4A474C, var(--ink) 72%);
-  box-shadow: 0 0 0 2px var(--film-ground), 0 4px 10px rgb(34 32 34 / 0.28);
+  box-shadow: 0 0 0 2px var(--paper), 0 4px 10px rgb(34 32 34 / 0.28);
 }
 .touch__tip + .touch__tip { top: -2px; left: 26px; }
 .touch__ring {
@@ -342,7 +369,7 @@ a { color: inherit; }
   width: 26px;
   height: 26px;
   margin: -13px 0 0 -13px;
-  border: 2px solid var(--film-ground);
+  border: 2px solid var(--paper);
   border-radius: 50%;
   box-shadow: 0 0 0 1.5px rgb(34 32 34 / 0.5), inset 0 0 0 1.5px rgb(34 32 34 / 0.35);
   opacity: 0;
@@ -352,20 +379,23 @@ a { color: inherit; }
 /* The line of the how-to the footage is doing, while it does it. */
 .how li { transition: opacity 0.3s; }
 .how[data-doing] li { opacity: 0.4; }
+.how[data-doing="hover"] [data-how="hover"],
 .how[data-doing="swipe"] [data-how="swipe"],
 .how[data-doing="scrub"] [data-how="scrub"] { opacity: 1; }
-/* Above the soundtrack's circles, which hold the window's bottom edge. */
+/* On the desktop's darkened foot, in paper. */
 .film[data-tunnel="on"] .film__foot {
-  position: absolute;
-  left: var(--gutter);
-  right: var(--gutter);
-  bottom: max(96px, 7vh);
+  position: relative;
   z-index: 3;
+  width: 100%;
   margin: 0 auto;
   opacity: var(--words);
   pointer-events: none;
 }
 .film[data-tunnel="on"][data-words] .film__foot { pointer-events: auto; }
+.film[data-tunnel="on"] .how li { color: rgb(236 235 230 / 0.8); }
+.film[data-tunnel="on"] .how b { color: var(--paper); }
+.film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
+.film[data-tunnel="on"] .film__motion:focus-visible { outline-color: var(--paper); }
 /* The download overlaps the film's last screen, so the band is there to be
    docked onto as the pin lets go; the band comes first, a menu bar at the
    top of the screen, and its heading after it. */
