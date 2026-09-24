@@ -3406,64 +3406,108 @@ function theMarkIsTheIconsOwnContour() {
 }
 
 /**
- * The journey lands where it hands over.
+ * The journey lands where it hands over, and never stands in the way.
  *
  * One camera from the hero to the download (js/tunnel.js), with two places
- * where one picture becomes another: the printed notch becomes the footage,
- * and the footage becomes the band's notch, the download link. Each only
- * reads as one camera if both sides agree on the same place and size, so this
- * drives the pure camera from a phone to a wide display, with the band
- * scrolling up underneath the way the page scrolls it: the dive aims at the
- * hold, the hold never enlarges the footage past its own pixels, the pull
- * lands on the band exactly and only lets the footage go once it has, and
- * nothing jumps: stepped a scrolled pixel at a time, a fade takes at least
- * fifty pixels of scroll, the footage moves at most four pixels for each one
- * scrolled, and its size changes by at most a percent.
+ * where one picture becomes another: the printed screen becomes the display
+ * with the footage in it, and the footage becomes the band's notch, the
+ * download link. Each only reads as one camera if both sides agree on the
+ * same place and size, so this drives the pure camera from a phone to a wide
+ * display, with the band scrolling up underneath the way the page scrolls
+ * it: the dive aims at the hold and the display is laid on the print's own
+ * screen until then, the notch hangs from the top of the window as it does
+ * from a display, the hold never enlarges the footage past its own pixels,
+ * the pull lands on the band exactly and only lets the footage go once it
+ * has, and nothing jumps: stepped a scrolled pixel at a time, a fade takes at
+ * least fifty pixels of scroll, the footage moves at most four pixels for
+ * each one scrolled, and its size changes by at most a percent.
+ *
+ * And the download is the page's point, so the journey keeps out of its way:
+ * the footage and the desktop are gone before the band's notch is two thirds
+ * of the way up the window, and the film, a picture laid over the download's
+ * first screen, lets the clicks meant for the band through. Both were broken
+ * at once: the footage covered the link until it reached the top edge, and
+ * the transparent film under it took every click.
  */
 function theJourneyLandsWhereItHandsOver() {
   const source = readFileSync(join(here, '..', 'js', 'tunnel.js'), 'utf8');
-  require(/hero\?\.setDive\(dive, hold\(vw, vh\), scrollY,/.test(source),
+  require(/hero\?\.setDive\(dive, at, scrollY,/.test(source) && /const at = hold\(vw, vh\);/.test(source),
     'the hero dives somewhere other than where the footage holds — the printed notch and the '
     + 'footage no longer meet');
   require(/scrollY, dive >= 1 && p >= FADE\);/.test(source),
-    'the print is not put away once the footage has covered it — as the pull lets the dark go, the '
-    + 'hero\'s zoomed screen shows through behind the download');
+    'the print is not put away once the desktop has covered it — as the pull lets the desktop go, '
+    + 'the hero\'s zoomed screen shows through behind the download');
+  require(/const laid = dive < 1 \? hero\?\.notchAt\(\) : null;/.test(source)
+      && /const \{ x, y, scale \} = laid \|\| c;/.test(source),
+    'the display that comes on over the print is not laid on the print\'s own screen while the dive '
+      + 'is still moving — the two pictures part as the camera pushes in');
+  // The placement skips a frame whose values it has already written. A value
+  // left out of that key freezes while the camera holds still: the words
+  // coming up in the hold did, and never showed.
+  const placed = braceBlock(source, source.indexOf('function place(')) ?? '';
+  const key = /const key = ([\s\S]*?);\n/.exec(placed)?.[1] ?? '';
+  const written = [...placed.matchAll(/setProperty\('(--[\w-]+)', ([^;]+)\);/g)];
+  require(key && written.length >= 5, 'could not read the placement\'s skip key and the values it writes');
+  for (const [, property, value] of written) {
+    const names = [...value.matchAll(/(?<![\w.])(on|solid|c\.\w+|at\.\w+)\b/g)].map((m) => m[1]);
+    require(names.length, `could not tell what ${property} is written from`);
+    for (const name of names) {
+      require(new RegExp(`(?<![\\w.])${name.replace('.', '\\.')}\\b`).test(key),
+        `the placement writes ${property} from ${name}, but its skip key does not read ${name} — `
+        + 'whenever only that changes, the frame is skipped and it stays where it was');
+    }
+  }
+  const css = readFileSync(join(here, '..', 'css', 'magnetite.css'), 'utf8');
+  const filmRule = /\.film\[data-tunnel="on"\]\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  require(/(?:^|;|\*\/)\s*pointer-events\s*:\s*none\s*;/.test(filmRule),
+    'the journeying film takes pointer events — it lies over the download\'s first screen, and the '
+    + 'band\'s link under it cannot be clicked');
+  // The film's scroll: its height in the stylesheet, less the window it pins.
+  const tall = Number(/(?:^|;|\*\/)\s*height\s*:\s*(\d+)vh\s*;/.exec(filmRule)?.[1]);
+  require(tall > 100, 'could not read the journeying film\'s height from magnetite.css');
   const film = { width: 512, height: 240 };
-  for (const [vw, vh] of [[390, 844], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
+  for (const [vw, vh] of [[390, 844], [682, 863], [768, 1024], [1280, 720], [1440, 900], [2560, 1440]]) {
     const at = hold(vw, vh);
     require(at.scale > 0 && at.scale <= 1.5,
       `${vw}x${vh}: the footage holds at ${at.scale.toFixed(3)}x its points, past the 1.5 its own `
       + 'pixels allow');
-    require(film.width * at.scale <= vw - 32 && at.y >= 0 && at.y + film.height * at.scale <= vh,
-      `${vw}x${vh}: the held footage does not fit the window`);
+    require(at.y === 0 && at.x === vw / 2,
+      `${vw}x${vh}: the held notch is at (${at.x}, ${at.y}), not hanging from the middle of the `
+      + 'window\'s top edge — a notch in the middle of a desktop is no display');
+    require(film.width * at.scale <= vw - 32 && film.height * at.scale <= vh * 0.6,
+      `${vw}x${vh}: the held footage does not leave the window room for its words`);
     // The band's notch as the page moves it: the download overlaps the film's
     // last screen, so it rises from below the window to the top as p runs out.
     const notchW = Math.min(320, Math.max(180, vw * 0.23));
-    const run = vh * 2.4;
+    const run = vh * (tall / 100 - 1);
     const dockAt = (p) => ({ x: vw / 2, y: 0.42 * notchW * 32 / 185 + run * (1 - p), scale: notchW / 185 });
     const start = camera(0, vw, vh, dockAt(0));
-    require(start.film === 0 && start.dark === 0
+    require(start.dark === 0 && start.fade === 1 && start.words === 0
         && start.x === at.x && start.y === at.y && start.scale === at.scale,
-    `${vw}x${vh}: the footage is not waiting, unseen, at the hold when the pin begins — the printed `
-      + 'notch has nothing to become');
+    `${vw}x${vh}: the camera is not at the hold, the footage whole and the window not yet filled, `
+      + 'where the dive hands it over');
     // A step of p is at most one pixel of scroll.
     const steps = Math.ceil(run);
     const frames = Array.from({ length: steps + 1 }, (_, i) => camera(i / steps, vw, vh, dockAt(i / steps)));
-    require(frames.some((c) => c.film === 1 && c.dark === 1 && c.words === 1
+    require(frames.some((c) => c.fade === 1 && c.dark === 1 && c.words === 1
         && c.x === at.x && c.y === at.y && c.scale === at.scale),
-    `${vw}x${vh}: the footage never holds, shown and dark with its words up, where the dive aimed`);
+    `${vw}x${vh}: the footage never holds, whole on the desktop with its words up, where the dive aimed`);
     const end = frames[steps];
     const dock = dockAt(1);
     require(Math.abs(end.x - dock.x) < 1e-6 && Math.abs(end.y - dock.y) < 1e-6
-        && Math.abs(end.scale - dock.scale) < 1e-9 && end.film === 0 && end.dark === 0,
+        && Math.abs(end.scale - dock.scale) < 1e-9 && end.fade === 0 && end.dark === 0,
     `${vw}x${vh}: the pull ends at (${end.x.toFixed(1)}, ${end.y.toFixed(1)}) x${end.scale.toFixed(3)}, `
       + `not on the band's notch at (${dock.x.toFixed(1)}, ${dock.y.toFixed(1)}) x${dock.scale.toFixed(3)}`);
     for (let i = 1; i <= steps; i++) {
       const [a, b] = [frames[i - 1], frames[i]];
       const d = dockAt(i / steps);
-      require(b.film > 0 || Math.hypot(b.x - d.x, b.y - d.y) < 1,
+      require(b.fade > 0 || Math.hypot(b.x - d.x, b.y - d.y) < 1,
         `${vw}x${vh}: the footage has gone at p=${(i / steps).toFixed(3)}, before it reached the band`);
-      require(Math.abs(b.film - a.film) <= 0.02 && Math.abs(b.dark - a.dark) <= 0.02
+      require(d.y > vh * 0.7 || (b.fade === 0 && b.dark === 0 && b.words === 0),
+        `${vw}x${vh}: at p=${(i / steps).toFixed(3)} the band's notch is ${Math.round(d.y)}px down a `
+        + `${vh}px window and the footage or the desktop is still over it — the download is covered `
+        + 'while it is in reach');
+      require(Math.abs(b.fade - a.fade) <= 0.02 && Math.abs(b.dark - a.dark) <= 0.02
           && Math.hypot(b.x - a.x, b.y - a.y) <= 4
           && Math.abs(Math.log(b.scale / a.scale)) <= 0.01,
       `${vw}x${vh}: the camera jumps at p=${(i / steps).toFixed(4)}`);
