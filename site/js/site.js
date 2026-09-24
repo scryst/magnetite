@@ -22,6 +22,8 @@ import { bankSteps, replayFrame, replayCadence, smoothStep, driveStill } from '.
 import { shouldDraw, applyWatch, filmTransport, prefersReducedMotion } from './visibility.js';
 import { LevelPump } from './bands.js';
 import { startFinale } from './finale.js';
+import { NotchView } from './notch.js';
+import { startTunnel } from './tunnel.js';
 
 /**
  * The rate the capture was TAKEN at, which is not the rate the page draws at.
@@ -188,6 +190,27 @@ let bandOpenness = 0;
 let bandWant = 0;
 if (band) views.push({ view: band, sim, openness: () => bandOpenness });
 
+// The notch at the top of the window: the soundtrack's player, and the third
+// camera on the one sim. Not a print, so forced colours keep it — its words
+// and controls are the page's, and the canvas only draws the shell under them.
+const soundtrack = document.querySelector('[data-notch]');
+const soundtrackAudio = soundtrack && soundtrack.querySelector('[data-soundtrack-audio]');
+const notchCanvas = soundtrack && soundtrack.querySelector('[data-notch-ink]');
+/**
+ * The Reduce Motion still (see `renderStill`). Declared here, above the
+ * notch, because the notch asks for a repaint while this module is still
+ * starting — and a `let` read before its line has run throws, which took the
+ * whole page's script down with it under the preference.
+ */
+let still = null;
+const notch = notchCanvas && soundtrackAudio && new NotchView(notchCanvas, soundtrack, soundtrackAudio, {
+  reduceMotion,
+  // Under the preference there is no loop to draw a state change, so the
+  // notch asks for its own frame, painted with the held still.
+  repaint: () => { if (reduceMotion && still) notch.render(still); },
+});
+if (notch) views.push({ view: notch, sim, openness: () => notch.openness });
+
 for (const entry of views) printed(entry.view.canvas, entry.view.press ? 'press' : 'none');
 
 // ── The film ────────────────────────────────────────────────────────────────
@@ -203,6 +226,9 @@ for (const entry of views) printed(entry.view.canvas, entry.view.press ? 'press'
 // the same 200px apron the views observer uses, and a film nobody is
 // beside is paused — the canvases' own frugality.
 const film = document.getElementById('demo-film');
+// Scrolled into: the camera pushes from the whole machine to the notch and
+// back out. Nothing to do with playback, which stays the page's below.
+startTunnel(film && film.closest('[data-tunnel]'), { reduceMotion });
 const filmToggle = document.querySelector('[data-demo-motion]');
 const filmToggleLabel = filmToggle
   && filmToggle.querySelector('[data-demo-motion-label]');
@@ -264,22 +290,35 @@ if (film && !reduceMotion) {
 
 // ── The soundtrack ─────────────────────────────────────────────────────────
 //
-// Opt-in audio only. Once the listener presses play, the element is routed
-// through the browser port of AudioTap and the page's existing simulation reads
-// those live bands. If AudioWorklet is unavailable the music still plays and
-// the page keeps its proven captured replay; a missing analyser never costs the
-// visitor the control they actually pressed.
-const soundtrack = document.querySelector('[data-soundtrack]');
-const soundtrackAudio = soundtrack && soundtrack.querySelector('[data-soundtrack-audio]');
+// The page asks to play its music as it loads, from the notch at the top of
+// the window. Browsers refuse sound until the visitor has done something, so
+// a refused start waits for the visitor's first click, tap or key; a pause is
+// remembered, and a visitor who paused is not played at again. Once playing,
+// the element is routed through the browser port of AudioTap and the page's
+// simulation reads those live bands. If AudioWorklet is unavailable the music
+// still plays and the page keeps its proven captured replay; a missing
+// analyser never costs the visitor the music.
 const soundtrackToggle = soundtrack && soundtrack.querySelector('[data-soundtrack-toggle]');
 const soundtrackToggleLabel = soundtrack
   && soundtrack.querySelector('[data-soundtrack-toggle-label]');
-const soundtrackCurrent = soundtrack
-  && soundtrack.querySelector('[data-soundtrack-current]');
+const soundtrackSteps = soundtrack
+  ? [...soundtrack.querySelectorAll('[data-soundtrack-step]')]
+  : [];
 const soundtrackTracks = soundtrack
-  ? [...soundtrack.querySelectorAll('[data-soundtrack-track]')]
+  ? [...soundtrack.querySelectorAll('[data-soundtrack-track]')].map((item) => ({
+    title: item.dataset.title,
+    artist: item.dataset.artist,
+    src: item.dataset.src,
+    cover: item.dataset.cover,
+    tint: item.dataset.tint,
+    duration: Number(item.dataset.duration) || 0,
+  }))
   : [];
 const soundtrackStatus = soundtrack && soundtrack.querySelector('[data-soundtrack-status]');
+/** Where a visitor's pause is kept, so a return visit does not play at them. */
+const SOUNDTRACK_PAUSED = 'magnetite.soundtrack.paused';
+/** The events a browser counts as the visitor meaning it — the ones that unlock sound. */
+const SOUNDTRACK_GESTURES = ['pointerdown', 'pointerup', 'keydown', 'touchend'];
 
 const livePump = new LevelPump();
 const liveBands = new Float32Array(livePump.bands.length);
@@ -287,6 +326,7 @@ const liveSource = { levels(out) { out.set(liveBands); } };
 let liveAnalyser = false;
 let livePumpFrame = -1;
 let soundtrackPlaying = false;
+let soundtrackIndex = 0;
 let soundtrackContext = null;
 let soundtrackAnalyser = null;
 let soundtrackAnalyserPromise = null;
@@ -295,8 +335,25 @@ function soundtrackAnnounce(message) {
   if (soundtrackStatus) soundtrackStatus.textContent = message;
 }
 
-function soundtrackTitle(button) {
-  return button?.dataset.title || button?.textContent.trim() || 'soundtrack';
+/** Storage can throw — a private window, blocked site data — and a pause is a nicety. */
+function soundtrackWasPaused() {
+  try { return localStorage.getItem(SOUNDTRACK_PAUSED) === '1'; } catch { return false; }
+}
+
+function rememberSoundtrackPause(paused) {
+  try {
+    if (paused) localStorage.setItem(SOUNDTRACK_PAUSED, '1');
+    else localStorage.removeItem(SOUNDTRACK_PAUSED);
+  } catch { /* the pause lasts this visit only */ }
+}
+
+/**
+ * Whether this moment may start an AudioContext. Routing the element into a
+ * context the browser keeps suspended silences it, so the analyser is only
+ * ever built inside a gesture. A browser that cannot say is trusted.
+ */
+function soundtrackMayListen() {
+  return navigator.userActivation ? navigator.userActivation.isActive : true;
 }
 
 /**
@@ -308,32 +365,23 @@ function setSoundtrackTransport(playing) {
   if (!soundtrackToggle) return;
   soundtrackToggle.dataset.playing = String(playing);
   if (soundtrackToggleLabel) {
-    soundtrackToggleLabel.textContent = playing ? 'Pause' : 'Play with sound';
+    soundtrackToggleLabel.textContent = playing ? 'Pause' : 'Play';
   }
-}
-
-function selectedSoundtrack() {
-  return soundtrackTracks.findIndex((button) => button.getAttribute('aria-checked') === 'true');
 }
 
 function selectSoundtrack(index, play = false) {
   if (!soundtrackAudio || soundtrackTracks.length === 0) return;
-  const next = (index + soundtrackTracks.length) % soundtrackTracks.length;
-  const button = soundtrackTracks[next];
-  for (const candidate of soundtrackTracks) {
-    candidate.setAttribute('aria-checked', String(candidate === button));
-    candidate.tabIndex = candidate === button ? 0 : -1;
-  }
-  if (soundtrackCurrent) soundtrackCurrent.textContent = soundtrackTitle(button);
-  if (soundtrackAudio.getAttribute('src') !== button.dataset.src) {
-    soundtrackAudio.src = button.dataset.src;
+  soundtrackIndex = (index + soundtrackTracks.length) % soundtrackTracks.length;
+  const track = soundtrackTracks[soundtrackIndex];
+  notch?.show(track);
+  if (soundtrackAudio.getAttribute('src') !== track.src) {
+    soundtrackAudio.src = track.src;
     soundtrackAudio.load();
   }
   liveBands.fill(0);
   livePump.bands.fill(0);
   livePumpFrame = -1;
-  soundtrackAnnounce(`Selected ${soundtrackTitle(button)} by Punch Deck.`);
-  if (play) playSoundtrack();
+  if (play) playSoundtrack(true);
 }
 
 function enableSoundtrackAnalyser() {
@@ -366,42 +414,65 @@ function enableSoundtrackAnalyser() {
   return soundtrackAnalyserPromise;
 }
 
-function playSoundtrack() {
+/**
+ * `asked` is a press of the notch's own controls. Only then is a refusal
+ * worth saying out loud: the page asking on load and being told no is the
+ * browser's ordinary answer, not news.
+ */
+function playSoundtrack(asked = false) {
   if (!soundtrackAudio) return;
-  // Both calls begin inside the button gesture. Waiting for the worklet module
+  // Both calls begin inside the gesture. Waiting for the worklet module
   // before play() would spend the browser's transient user activation.
-  enableSoundtrackAnalyser();
+  if (soundtrackMayListen()) enableSoundtrackAnalyser();
   soundtrackAudio.play().catch(() => {
-    soundtrackAnnounce('The soundtrack could not start. Try Play again.');
+    if (asked) soundtrackAnnounce('The soundtrack could not start. Try Play again.');
   });
+}
+
+/**
+ * The visitor's first gesture, anywhere on the page, is the one a browser
+ * that refused the load's request is waiting for. A press on the notch's own
+ * controls is left to them — answering it here too would start the music and
+ * let the Play it landed on pause it again.
+ */
+function soundtrackGesture(event) {
+  const own = event.target instanceof Element
+    && event.target.closest('[data-notch] button, [data-notch] input');
+  if (soundtrackAudio.paused) {
+    if (!own && !soundtrackWasPaused()) playSoundtrack();
+  } else if (soundtrackMayListen()) {
+    // Playing already — a browser that allowed the load's request — so this
+    // gesture is only needed for the analyser.
+    enableSoundtrackAnalyser();
+  }
+  if (soundtrackAnalyserPromise || soundtrackWasPaused()) {
+    for (const type of SOUNDTRACK_GESTURES) removeEventListener(type, soundtrackGesture, true);
+  }
 }
 
 if (soundtrackAudio && soundtrackToggle) {
   soundtrackToggle.addEventListener('click', () => {
-    if (soundtrackAudio.paused) playSoundtrack();
+    rememberSoundtrackPause(!soundtrackAudio.paused);
+    if (soundtrackAudio.paused) playSoundtrack(true);
     else soundtrackAudio.pause();
   });
-  soundtrackTracks.forEach((button, index) => {
-    button.addEventListener('click', () => selectSoundtrack(index, true));
-    button.addEventListener('keydown', (event) => {
-      const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
-      if (!keys.includes(event.key)) return;
-      event.preventDefault();
-      let next = index;
-      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next += 1;
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next -= 1;
-      if (event.key === 'Home') next = 0;
-      if (event.key === 'End') next = soundtrackTracks.length - 1;
-      selectSoundtrack(next, true);
-      soundtrackTracks[(next + soundtrackTracks.length) % soundtrackTracks.length].focus();
+  // Skipping strikes the ink the way the app's buttons do: the reservoir
+  // heaves toward the direction of travel.
+  for (const button of soundtrackSteps) {
+    button.addEventListener('click', () => {
+      const step = Number(button.dataset.soundtrackStep) || 1;
+      rememberSoundtrackPause(false);
+      selectSoundtrack(soundtrackIndex + step, true);
+      if (!reduceMotion) sim.surge(0.8, Math.sign(step));
     });
-  });
+  }
   soundtrackAudio.addEventListener('play', () => {
     soundtrackPlaying = true;
+    if (notch) notch.loaded = true;
     finale?.wake();
     setSoundtrackTransport(true);
-    const button = soundtrackTracks[selectedSoundtrack()];
-    soundtrackAnnounce(`Playing ${soundtrackTitle(button)} by Punch Deck.`);
+    const track = soundtrackTracks[soundtrackIndex];
+    soundtrackAnnounce(`Playing ${track.title} by ${track.artist}.`);
   });
   soundtrackAudio.addEventListener('pause', () => {
     soundtrackPlaying = false;
@@ -410,13 +481,19 @@ if (soundtrackAudio && soundtrackToggle) {
     if (!soundtrackAudio.ended) soundtrackAnnounce('Soundtrack paused.');
   });
   soundtrackAudio.addEventListener('ended', () => {
-    selectSoundtrack(selectedSoundtrack() + 1, true);
+    selectSoundtrack(soundtrackIndex + 1, true);
   });
   soundtrackAudio.addEventListener('error', () => {
     soundtrackPlaying = false;
     setSoundtrackTransport(false);
     soundtrackAnnounce('This soundtrack track is unavailable.');
   });
+
+  selectSoundtrack(0);
+  for (const type of SOUNDTRACK_GESTURES) addEventListener(type, soundtrackGesture, true);
+  // The load's own request: the element alone, never the analyser, which
+  // outside a gesture would be a suspended context holding the sound.
+  if (!soundtrackWasPaused()) soundtrackAudio.play().catch(() => {});
 }
 
 // ── The finale ──────────────────────────────────────────────────────────────
@@ -468,7 +545,6 @@ function layout(force = false) {
  * sim is what caps the travel (Geometry's own `reducedTravel`), so this is the
  * app's answer to the preference and not a second one invented here.
  */
-let still = null;
 function renderStill() {
   if (!still) {
     still = new FerrofluidSim(mulberry32(STILL_SEED));
@@ -623,6 +699,9 @@ function frame(now) {
   for (let s = stepsDrawn; s < steps; s++) {
     sim.advance(smoothed(levelsAt(s)), SIM_STEP);
     bandOpenness += (bandWant - bandOpenness) * BAND_K;
+    // A camera with a gesture of its own — the notch opening — eases it on
+    // this clock too.
+    for (const entry of views) entry.view.step?.(SIM_STEP);
   }
   stepsDrawn = steps;
   for (const entry of views) {

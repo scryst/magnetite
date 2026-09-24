@@ -1363,8 +1363,8 @@ const MUTANTS = {
   'film-loses-its-still': {
     check: FILM,
     file: PAGE,
-    from: '\n             poster="media/demo-poster.webp" src="media/demo.mp4"',
-    to: '\n             src="media/demo.mp4"',
+    from: ' poster="media/demo-poster.webp" src="media/demo.mp4"',
+    to: ' src="media/demo.mp4"',
   },
   'film-renderer-stays-behind-the-waterfall': {
     check: FILM,
@@ -2006,8 +2006,9 @@ const MUTANTS = {
     to: '  if (!reduceMotion) renderStill();',
   },
 
-  // The soundtrack is opt-in. A self-starting audio element would turn a
-  // silent product page into a tab that makes noise before the visitor asks.
+  // The page asks to play on load; the pause is the visitor's. The markup
+  // starting the element itself would play at a visitor who paused last time,
+  // since only the script remembers that.
   'the-soundtrack-autoplays': {
     check: SOUNDTRACK,
     file: PAGE,
@@ -2023,15 +2024,24 @@ const MUTANTS = {
   'the-soundtrack-regrows-a-promo-heading': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: '             data-soundtrack-audio></audio>',
-    to: '             data-soundtrack-audio></audio>\n'
-      + '      <p class="soundtrack__eyebrow">Live ferrofluid</p>',
+    from: ' data-soundtrack-audio></audio>',
+    to: ' data-soundtrack-audio></audio>\n'
+      + '  <p class="soundtrack__eyebrow">Live ferrofluid</p>',
   },
-  'the-soundtrack-toggle-looks-like-plain-copy': {
+  // One transport, in the notch. The hero's old one coming back would be two
+  // players for one track.
+  'a-second-transport-regrows-in-the-hero': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'data-soundtrack-toggle-label>Play with sound</span>',
-    to: 'data-soundtrack-toggle-label>Play</span>',
+    from: '      <p class="hero__meta">',
+    to: '      <div class="listen"><button type="button">Play</button></div>\n'
+      + '      <p class="hero__meta">',
+  },
+  'the-soundtrack-toggle-is-named-over-its-label': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: 'data-soundtrack-toggle data-playing="false">',
+    to: 'data-soundtrack-toggle data-playing="false" aria-label="Play or pause">',
   },
   'the-soundtrack-status-competes-with-the-demo': {
     check: SOUNDTRACK,
@@ -2039,41 +2049,64 @@ const MUTANTS = {
     from: '<p class="visually-hidden" data-soundtrack-status',
     to: '<p data-soundtrack-status',
   },
-  'the-soundtrack-tracks-regrow-boxes': {
-    check: SOUNDTRACK,
-    file: CSS,
-    from: '.listen__track {\n  min-height: 38px;\n  padding: 0;\n  border: 0;',
-    to: '.listen__track {\n  min-height: 38px;\n  padding: 0;\n  border: 1px solid var(--ink);',
-  },
   'the-soundtrack-toggle-never-says-pause': {
     check: SOUNDTRACK,
     file: SITE_JS,
-    from: "soundtrackToggleLabel.textContent = playing ? 'Pause' : 'Play with sound';",
-    to: "soundtrackToggleLabel.textContent = 'Play with sound';",
+    from: "soundtrackToggleLabel.textContent = playing ? 'Pause' : 'Play';",
+    to: "soundtrackToggleLabel.textContent = 'Play';",
   },
-  'the-soundtrack-radio-state-never-changes': {
-    check: SOUNDTRACK,
-    file: SITE_JS,
-    from: "candidate.setAttribute('aria-checked', String(candidate === button));",
-    to: "candidate.setAttribute('aria-checked', 'false');",
-  },
-  // The approved pair must remain two actual controls, not a title printed
-  // beside one working track.
-  'the-second-track-is-not-a-button': {
+  'the-previous-button-steps-forward': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: '<button type="button" class="listen__track" data-soundtrack-track\n'
-      + '                  data-title="Chrome Funk"\n'
-      + '                  data-src="media/chrome-funk.mp3"',
-    to: '<span class="listen__track" data-soundtrack-track\n'
-      + '                  data-title="Chrome Funk"\n'
-      + '                  data-src="media/chrome-funk.mp3"',
+    from: 'data-soundtrack-step="-1"',
+    to: 'data-soundtrack-step="1"',
   },
   'the-second-track-points-at-nothing': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'data-src="media/chrome-funk.mp3"',
+    from: 'data-src="media/cyberpunk-renaissance.mp3"',
     to: 'data-src="media/missing.mp3"',
+  },
+  'the-second-track-has-no-sleeve': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: 'data-cover="media/cover-cyberpunk-renaissance.webp"',
+    to: 'data-cover="media/missing.webp"',
+  },
+  'the-player-opens-on-a-track-it-does-not-show': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: '<audio hidden preload="none" src="media/chrome-funk.mp3"',
+    to: '<audio hidden preload="none" src="media/cyberpunk-renaissance.mp3"',
+  },
+  // A pause written under one key and read under another is a pause that is
+  // never remembered: the next visit plays at the visitor again.
+  'a-pause-is-written-but-never-read': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: 'localStorage.getItem(SOUNDTRACK_PAUSED)',
+    to: "localStorage.getItem('magnetite.paused')",
+  },
+  'the-load-ignores-a-remembered-pause': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: 'if (!soundtrackWasPaused()) soundtrackAudio.play().catch(() => {});',
+    to: 'soundtrackAudio.play().catch(() => {});',
+  },
+  // Outside a gesture an AudioContext starts suspended, and the element
+  // routed into it goes silent: the music the page just started, muted by
+  // the thing that was meant to listen to it.
+  'the-analyser-is-built-outside-a-gesture': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: '  if (soundtrackMayListen()) enableSoundtrackAnalyser();',
+    to: '  enableSoundtrackAnalyser();',
+  },
+  'the-first-gesture-answers-the-notchs-own-play': {
+    check: SOUNDTRACK,
+    file: SITE_JS,
+    from: ".closest('[data-notch] button, [data-notch] input');",
+    to: ".closest('[data-notch] a');",
   },
   'soundtrack-changes-are-silent-to-assistive-technology': {
     check: SOUNDTRACK,

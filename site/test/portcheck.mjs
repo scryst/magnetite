@@ -1497,13 +1497,18 @@ function codeOnly(source) {
 }
 
 /**
- * The optional soundtrack drives the same bands as the app.
+ * The soundtrack drives the same bands as the app.
  *
- * Playback is a user choice, every named track is a real local asset, and the
- * audio thread runs the checked browser port rather than a Web Audio analyser
- * with unrelated defaults. The page keeps its captured replay as the fallback;
- * after the worklet is live it pumps those bands at the capture cadence and
- * decays honestly when the audio pauses.
+ * The page asks to play its music as it loads, from the notch at the top of
+ * the window (Laks, 2026-09-23: persistent on screen, playing on load). What
+ * stays the visitor's is the pause: the markup never starts the element
+ * itself, the page's script does, and a visitor who paused is remembered and
+ * not played at again — nor made to download the tracks. Every named track is
+ * a real local asset with its own sleeve, and the audio thread runs the
+ * checked browser port rather than a Web Audio analyser with unrelated
+ * defaults. The page keeps its captured replay as the fallback; after the
+ * worklet is live it pumps those bands at the capture cadence and decays
+ * honestly when the audio pauses.
  */
 function theSoundtrackUsesTheAppsBands() {
   const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
@@ -1513,49 +1518,49 @@ function theSoundtrackUsesTheAppsBands() {
 
   const audio = /<audio\b[^>]*data-soundtrack-audio[^>]*>/s.exec(page)?.[0];
   require(audio && !/\bautoplay\b/.test(audio),
-    'the soundtrack is missing or starts without a listener pressing Play');
+    'the soundtrack is missing, or its markup starts it — the page\'s script is what starts it, '
+    + 'because the script is what remembers a visitor\'s pause');
   require(/\bpreload="none"/.test(audio),
-    'the optional soundtrack downloads audio before a listener presses Play');
-  require(!/soundtrack__(?:invitation|eyebrow|prompt|deck)/.test(page + css),
-    'the soundtrack has regrown promo headings, a ruled deck, or other chrome beside the demo');
+    'the soundtrack downloads audio before the page has asked to play it — a visitor who paused '
+    + 'on an earlier visit would be sent the tracks anyway');
+  require(!/soundtrack__(?:invitation|eyebrow|prompt|deck)|class="listen\b/.test(page + css),
+    'the soundtrack has regrown promo headings, a ruled deck, or a second transport beside the notch');
 
   // The button's name is what pressing it does, and it is the only statement
   // of state: a pressed-state on top of a name that changes made a screen
   // reader say "Pause, pressed", which describes two different buttons.
   const toggle = /<button\b[^>]*data-soundtrack-toggle[^>]*>[\s\S]*?<\/button>/.exec(page)?.[0];
   require(toggle && !/\baria-pressed=/.test(toggle) && !/\baria-label=/.test(toggle)
-      && /class="listen__icon" aria-hidden="true"><\/span>/.test(toggle)
-      && /data-soundtrack-toggle-label>Play with sound</.test(toggle),
-  'the audio transport is not an obvious Play with sound control named by its own label');
+      && [...toggle.matchAll(/<svg\b[^>]*>/g)].every((svg) => /aria-hidden="true"/.test(svg[0]))
+      && /data-soundtrack-toggle-label>Play</.test(toggle),
+  'the audio transport is not a Play control named by its own label, its glyphs hidden');
   require(/ferrofluid that moves to whatever your Mac is playing/.test(page),
     'the page no longer says what the sound drives');
+  // Previous and next, named for what they do, stepping the queue each way.
+  const steps = [...page.matchAll(/<button\b[^>]*data-soundtrack-step="(-?1)"[^>]*>/g)]
+    .map((match) => [match[1], /aria-label="([^"]+)"/.exec(match[0])?.[1]]);
+  require(steps.length === 2 && steps.some(([s, l]) => s === '-1' && l === 'Previous track')
+      && steps.some(([s, l]) => s === '1' && l === 'Next track'),
+  'the notch does not offer a named Previous track and Next track, one step each way');
 
   const trackTags = [...page.matchAll(
-    /<button\b[^>]*data-soundtrack-track[^>]*>[\s\S]*?<\/button>/g,
+    /<li\b[^>]*data-soundtrack-track[^>]*>[\s\S]*?<\/li>/g,
   )].map((match) => match[0]);
   require(trackTags.length === 2,
-    `the soundtrack exposes ${trackTags.length} track buttons rather than the approved pair`);
-  require(trackTags.every((tag) => /\brole="radio"/.test(tag) && /\baria-checked="(?:true|false)"/.test(tag))
-      && trackTags.filter((tag) => /\baria-checked="true"/.test(tag)).length === 1,
-  'the two mutually exclusive tracks are not exposed as one checked radio choice');
-  // Each choice is labelled by the track's own title, which is also what the
-  // status line announces, so the two cannot disagree about a name.
+    `the soundtrack queues ${trackTags.length} tracks rather than the approved pair`);
+  // Each entry is labelled by the track's own title, which is also what the
+  // notch shows and the status line announces, so they cannot disagree.
   require(trackTags.every((tag) => {
     const title = /data-title="([^"]+)"/.exec(tag)?.[1];
-    const text = tag.replace(/^<button\b[^>]*>/, '').replace(/<\/button>$/, '').trim();
-    return title && text === title;
-  }), 'a track choice is not labelled by its own title');
-
-  // A choice is a <button>, so its rule has to clear the browser's own box —
-  // `border: 0` and `background: none` are that reset, not chrome.
-  const trackRule = /\.listen__track\s*\{([^}]*)\}/.exec(css)?.[1] || '';
-  require(trackRule && !/\bborder\s*:(?!\s*(?:0|none)\s*;)/.test(trackRule)
-      && !/\bbackground\s*:(?!\s*(?:none|transparent)\s*;)/.test(trackRule),
-  'the soundtrack choices have regrown boxed or ruled chrome');
+    const text = tag.replace(/^<li\b[^>]*>/, '').replace(/<\/li>$/, '').trim();
+    return title && text === title && /data-artist="[^"]+"/.test(tag);
+  }), 'a queued track is not labelled by its own title, or has no artist');
 
   const sources = trackTags.map((tag) => /data-src="([^"]+)"/.exec(tag)?.[1]);
   require(sources.every(Boolean) && new Set(sources).size === sources.length,
-    'a soundtrack button has no source or both buttons point at the same track');
+    'a queued track has no source or both entries point at the same track');
+  require(/\bsrc="([^"]+)"/.exec(audio)?.[1] === sources[0],
+    'the audio element does not start on the first queued track the notch shows');
   for (const source of sources) {
     const path = join(here, '..', source);
     const bytes = existsSync(path) ? readFileSync(path) : null;
@@ -1563,6 +1568,19 @@ function theSoundtrackUsesTheAppsBands() {
       || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0));
     require(!source.includes('..') && mp3 && statSync(path).size > 1_000_000,
       `${source} is not a real local MP3 soundtrack asset`);
+  }
+  // The sleeve the notch shows is a real WebP; the tint is a colour; the
+  // length shown before the file says is a length.
+  for (const tag of trackTags) {
+    const cover = /data-cover="([^"]+)"/.exec(tag)?.[1] || '';
+    const path = join(here, '..', cover);
+    const bytes = cover && !cover.includes('..') && existsSync(path) ? readFileSync(path) : null;
+    const webp = bytes && bytes.subarray(0, 4).toString() === 'RIFF'
+      && bytes.subarray(8, 12).toString() === 'WEBP';
+    require(webp, `${cover || 'a queued track'} has no real WebP sleeve`);
+    require(/data-tint="#[0-9A-Fa-f]{6}"/.test(tag), `${cover} has no tint colour for its trace`);
+    const duration = Number(/data-duration="([\d.]+)"/.exec(tag)?.[1]);
+    require(duration > 30 && duration < 900, `${cover}'s track has no believable length`);
   }
 
   const status = /<p\b([^>]*)data-soundtrack-status([^>]*)>/.exec(page);
@@ -1574,15 +1592,41 @@ function theSoundtrackUsesTheAppsBands() {
   'the soundtrack is not routed through the checked browser analyser');
   require(/function setSoundtrackTransport\(playing\)/.test(code)
       && /dataset\.playing = String\(playing\)/.test(code)
-      && /playing \? 'Pause' : 'Play with sound'/.test(code)
+      && /playing \? 'Pause' : 'Play'/.test(code)
       && !/aria-pressed/.test(codeOnly(code)),
   'playback does not keep the transport\'s label and drawn state in sync');
-  require(/setAttribute\('aria-checked', String\(candidate === button\)\)/.test(code),
-    'track selection does not keep the radio group checked state in sync');
-  require(/candidate\.tabIndex = candidate === button \? 0 : -1/.test(code)
-      && /button\.addEventListener\('keydown'/.test(code)
-      && /ArrowRight/.test(code) && /ArrowLeft/.test(code),
-  'the soundtrack radio group lacks roving focus and arrow-key operation');
+
+  // Asked on load; the pause is the visitor's. The key is read and written
+  // under one name, the load's request is the element alone, and the
+  // analyser — an AudioContext, which outside a gesture is a suspended one
+  // holding the sound — is only ever built when the browser says the visitor
+  // is acting.
+  const pauseKey = /^const (\w+) = 'magnetite\.[\w.]+';$/m.exec(code)?.[1];
+  require(pauseKey
+      && new RegExp(`localStorage\\.getItem\\(${pauseKey}\\)`).test(code)
+      && new RegExp(`localStorage\\.setItem\\(${pauseKey}, '1'\\)`).test(code)
+      && new RegExp(`localStorage\\.removeItem\\(${pauseKey}\\)`).test(code),
+  'a visitor\'s pause is not remembered under one key the page both reads and writes');
+  require(/if \(!soundtrackWasPaused\(\)\) soundtrackAudio\.play\(\)\.catch\(\(\) => \{\}\);/.test(code),
+    'the page does not ask to play on load, or asks even after the visitor paused, or asks for more '
+    + 'than the element');
+  const bare = codeOnly(code);
+  const analyserCalls = [...bare.matchAll(/enableSoundtrackAnalyser\(\);/g)].length;
+  const guarded = [...bare.matchAll(
+    /if \(soundtrackMayListen\(\)\) \{?\s*(?:\/\/[^\n]*\n\s*)*enableSoundtrackAnalyser\(\);/g,
+  )].length;
+  require(analyserCalls > 0 && analyserCalls === guarded
+      && /navigator\.userActivation \? navigator\.userActivation\.isActive : true/.test(code),
+  `${analyserCalls - guarded} call(s) build the analyser without asking whether the visitor is `
+    + 'acting — outside a gesture that is a suspended AudioContext, and routing the element into '
+    + 'it silences the music the page just started');
+  // The first gesture is left to the notch's own controls when it lands on
+  // them: answering it here too starts the music and the Play it hit pauses it.
+  require(/closest\('\[data-notch\] button, \[data-notch\] input'\)/.test(code)
+      && /addEventListener\(type, soundtrackGesture, true\)/.test(code)
+      && /removeEventListener\(type, soundtrackGesture, true\)/.test(code),
+  'the first-gesture start is not captured page-wide, released once done, and kept off the '
+    + 'notch\'s own controls');
   require(/if \(!liveAnalyser\) return REAL_LEVELS\[frameNow\(step\)\];/.test(code)
       && /livePump\.tick\(soundtrackPlaying \? liveSource : null\);/.test(code),
   'the renderer does not switch from its proven replay to live bands with honest pause decay');
@@ -1769,6 +1813,7 @@ function theDemoIsTheAppOnFilm() {
     'js/site.js', 'js/sim.js', 'js/geometry.js', 'js/press.js', 'js/hero.js', 'js/band.js',
     'data/real-levels.js', 'js/clock.js', 'js/visibility.js', 'js/bands.js',
     'js/finale.js', 'js/liquid.js', 'js/filings.js', 'js/wordmark.js',
+    'js/notch.js', 'js/tunnel.js',
   ]) {
     require(html.includes(`<link rel="modulepreload" href="${module}">`),
       `${module} is left behind the initial module-discovery waterfall`);
