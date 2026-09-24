@@ -76,7 +76,22 @@
 <!-- Scripted pages hold each print's plain words back until the first sheet
      is on its canvas, so the printed layout never follows a flash of the
      unprinted one. A page whose scripts never run shows the plain words. -->
-<script>document.documentElement.classList.add('js');</script>
+<!-- Reloaded mid-journey, the page is only its right height once the tunnel
+     has run, so the browser put it back short and moved it again a few frames
+     later. The page puts itself back instead (js/tunnel.js) and shows nothing
+     until it has; the browser keeps the last frame up meanwhile. -->
+<script>
+document.documentElement.classList.add('js');
+try {
+  var nav = performance.getEntriesByType('navigation')[0];
+  var at = sessionStorage.getItem('magnetite.scroll');
+  if (at && nav && (nav.type === 'reload' || nav.type === 'back_forward')
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    history.scrollRestoration = 'manual';
+    document.documentElement.setAttribute('data-restoring', at);
+  }
+} catch (e) { /* the browser's own restoring, short a few frames */ }
+</script>
 
 <!-- One local face, Gloock, for the headline, the section title and the name.
      Everything else is the Mac's own system face, because this is a Mac app's
@@ -101,6 +116,7 @@
 <link rel="modulepreload" href="js/player.js">
 <link rel="modulepreload" href="js/tunnel.js">
 <link rel="modulepreload" href="js/touches.js">
+<link rel="modulepreload" href="js/corner.js">
 </head>
 <body>
 
@@ -264,6 +280,35 @@
   <a class="masthead__source" href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
 </header>
 
+<!-- ══ THE SOUNDTRACK ═══════════════════════════════════════════════════════
+     Circles at the foot of the window: one plays and pauses, its ring the
+     track's progress, and one per track chooses it by its sleeve. Early in
+     the page, so the keyboard reaches them before the page's links. It asks
+     to play as the page loads; a browser that wants a gesture first gets it
+     from the visitor's first click or tap, never a key, and a pause is
+     remembered. The music drives the page's one simulation through the app's
+     own analyser. -->
+<section class="player" data-player aria-label="Soundtrack">
+  <button type="button" class="player__toggle" data-soundtrack-toggle data-playing="false">
+    <svg class="player__ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28.5" pathLength="1" data-player-ring/></svg>
+    <svg class="player__play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.4l7.6 4.6L3 10.6z"/></svg>
+    <svg class="player__pause" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.4" y="1.6" width="2.6" height="8.8" rx=".7"/><rect x="7" y="1.6" width="2.6" height="8.8" rx=".7"/></svg>
+    <span class="visually-hidden" data-soundtrack-toggle-label>Play</span>
+  </button>
+  <ol class="player__tracks">
+    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="true"
+        data-title="Chrome Funk" data-artist="Punch Deck"
+        data-src="media/chrome-funk.mp3" data-cover="media/cover-chrome-funk.webp"><img
+        src="media/cover-chrome-funk.webp" alt="" width="36" height="36"><span class="player__name">Chrome Funk</span></button></li>
+    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="false"
+        data-title="Cyberpunk Renaissance" data-artist="Punch Deck"
+        data-src="media/cyberpunk-renaissance.mp3" data-cover="media/cover-cyberpunk-renaissance.webp"><img
+        src="media/cover-cyberpunk-renaissance.webp" alt="" width="36" height="36"><span class="player__name">Cyberpunk Renaissance</span></button></li>
+  </ol>
+  <audio hidden preload="none" src="media/chrome-funk.mp3" data-soundtrack-audio></audio>
+  <p class="visually-hidden" data-soundtrack-status aria-live="polite"></p>
+</section>
+
 <main>
   <!-- ══ THE PRINT ═══════════════════════════════════════════════════════════
        A MacBook in three spot inks, the way a risograph prints: black, pink
@@ -305,7 +350,7 @@
          Without scripts, or under Reduce Motion, it is the desktop's top
          and the footage alone, as they were. -->
     <div class="film__pin">
-      <h2 class="film__title" id="film-title">Recorded on a MacBook. Not a mock-up.</h2>
+      <h2 class="film__title" id="film-title">Recorded on a MacBook. <span class="film__phrase">Not a mock-up.</span></h2>
       <div class="film__mac" data-tunnel-mac data-render-check-ignore>
         <img class="film__desk" src="media/desktop.webp" width="1512" height="982" alt="">
         <div class="film__stage" data-render-check-ignore>
@@ -457,33 +502,6 @@
     © 2026 scryst.
   </p>
 </footer>
-
-<!-- ══ THE SOUNDTRACK ═══════════════════════════════════════════════════════
-     Circles at the foot of the window: one plays and pauses, its ring the
-     track's progress, and one per track chooses it by its sleeve. It asks to
-     play as the page loads; a browser that wants a gesture first gets it from
-     the visitor's first click or key, and a pause is remembered. The music
-     drives the page's one simulation through the app's own analyser. -->
-<section class="player" data-player aria-label="Soundtrack">
-  <button type="button" class="player__toggle" data-soundtrack-toggle data-playing="false">
-    <svg class="player__ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" pathLength="1" data-player-ring/></svg>
-    <svg class="player__play" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.4l7.6 4.6L3 10.6z"/></svg>
-    <svg class="player__pause" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.4" y="1.6" width="2.6" height="8.8" rx=".7"/><rect x="7" y="1.6" width="2.6" height="8.8" rx=".7"/></svg>
-    <span class="visually-hidden" data-soundtrack-toggle-label>Play</span>
-  </button>
-  <ol class="player__tracks">
-    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="true"
-        data-title="Chrome Funk" data-artist="Punch Deck"
-        data-src="media/chrome-funk.mp3" data-cover="media/cover-chrome-funk.webp"><img
-        src="media/cover-chrome-funk.webp" alt="" width="36" height="36"><span class="player__name">Chrome Funk</span></button></li>
-    <li><button type="button" class="player__track" data-soundtrack-track aria-pressed="false"
-        data-title="Cyberpunk Renaissance" data-artist="Punch Deck"
-        data-src="media/cyberpunk-renaissance.mp3" data-cover="media/cover-cyberpunk-renaissance.webp"><img
-        src="media/cover-cyberpunk-renaissance.webp" alt="" width="36" height="36"><span class="player__name">Cyberpunk Renaissance</span></button></li>
-  </ol>
-  <audio hidden preload="none" src="media/chrome-funk.mp3" data-soundtrack-audio></audio>
-  <p class="visually-hidden" data-soundtrack-status aria-live="polite"></p>
-</section>
 
 <script type="module" src="js/site.js"></script>
 <script type="module" src="js/webmcp.mjs"></script>
