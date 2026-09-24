@@ -425,6 +425,19 @@ final class MediaBridge: @unchecked Sendable {
 
     /// Spotify reports milliseconds, Music reports seconds, both under the same
     /// selector — so it's read untyped and normalised here.
+    /// The player's own key for a track, through KVC for the reason `duration`
+    /// is: under `id` Spotify answers its `spotify:track:` URI and Music an
+    /// integer database id, and a typed `String` read of Music's integer
+    /// crashed the app. Music's text key is `persistentID`, which also survives
+    /// a library rebuild. Spotify's stays `id`: `openInPlayer` builds its URL
+    /// from it.
+    private static func trackKey(of track: MediaTrack, source: MusicSource) -> String? {
+        let key = source == .spotify ? "id" : "persistentID"
+        guard let value = (track as? NSObject)?.value(forKey: key) as? String,
+              !value.isEmpty else { return nil }
+        return value
+    }
+
     private func duration(of track: MediaTrack, source: MusicSource) -> Double {
         guard let value = (track as? NSObject)?.value(forKey: "duration") as? NSNumber
         else { return 0 }
@@ -587,7 +600,8 @@ final class MediaBridge: @unchecked Sendable {
         s.duration = duration(of: track, source: source)
         s.position = app.playerPosition ?? 0
         s.artworkURL = track.artworkUrl
-        s.identity = track.id ?? "\(title)\u{1}\(artist)\u{1}\(s.album)"
+        s.identity = Self.trackKey(of: track, source: source)
+            ?? "\(title)\u{1}\(artist)\u{1}\(s.album)"
         // Gated on the player's own answer to "can this be set right now".
         //
         // Spotify's `shuffling` and `repeating` are declared settable and are
@@ -782,7 +796,8 @@ final class MediaBridge: @unchecked Sendable {
             let name = track.name ?? ""
             let artist = track.artist ?? ""
             let album = track.album ?? ""
-            let live = track.id ?? "\(name)\u{1}\(artist)\u{1}\(album)"
+            let live = Self.trackKey(of: track, source: source)
+                ?? "\(name)\u{1}\(artist)\u{1}\(album)"
             guard live == identity, let obj = track as? NSObject else { return }
             obj.setValue(liked, forKey: "favorited")
         }

@@ -71,6 +71,8 @@ swiftc -O -parse-as-library tools/palettecheck.swift \
 ./tools/check-runtime /bin/bash <<'CHECK_RUNTIME'
 set -e
 /usr/bin/python3 -I tools/runtimecheck.py
+# The one protocol both players answer, held to both players' real dictionaries.
+/usr/bin/python3 -I tools/bridgecheck.py
 .build/checks/gesturecheck
 .build/checks/geometrycheck
 .build/checks/fluidcheck
