@@ -3664,6 +3664,12 @@ function theJourneyLandsWhereItHandsOver() {
       && /live\.played && !this\.link\.closest\('\[data-under\]'\) \? live : this\.recorded/.test(band),
     'the band\'s pill prints the soundtrack\'s clock under the desktop still going off — two clocks meet '
     + 'in the dissolve');
+  // And from the recording's time to the soundtrack's it is handed over, the
+  // figures going off in the print's dots and coming back, not cut.
+  require(/\n\s*this\.swap = \{ from: this\.shown, at: performance\.now\(\) \};/.test(band)
+      && /\n\s*c\.globalAlpha = ink;/.test(band)
+      && /\n\s*const played = along \* pill\.w;/.test(band),
+    'the band\'s pill cuts from the recording\'s 1:35 to the soundtrack\'s time in front of the visitor');
   // The words under the band each come up as the dots clear past them.
   require(/\n\s*word\.style\.setProperty\('--clear', clearing\(/.test(placed)
       && /opacity\s*:\s*clamp\(0, \(var\(--gone, 1\) - var\(--clear, 0\)\) \/ 0\.06, 1\)\s*;/.test(css),

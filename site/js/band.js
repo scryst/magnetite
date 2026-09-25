@@ -27,6 +27,8 @@ const MENUS = ['Finder', 'File', 'Edit', 'View', 'Go', 'Window', 'Help'];
 const PILL = { width: 284, radius: 8, art: 18, inset: 11, time: 12, text: 11.5 };
 /** Its body, in each plate's ink: the app's dark violet glass. */
 const PILL_INK = { pink: 0.55, blue: 0.6, black: 0.72 };
+/** How long the pill takes to hand its time over, out and back in. */
+const SWAP_MS = 600;
 const unit = (x) => Math.max(0, Math.min(1, x));
 const elapsed = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const SYSTEM = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
@@ -111,7 +113,30 @@ export class RisoBand {
     // that runs past the page's gutters on a phone: the desktop lands on it,
     // and a pill any narrower shows its figures and sleeve twice as it does.
     const live = this.nowPlaying?.();
-    const playing = live && (live.played && !this.link.closest('[data-under]') ? live : this.recorded);
+    const want = live && (live.played && !this.link.closest('[data-under]') ? live : this.recorded);
+    // From the recording's time to the soundtrack's, and back, the figures go
+    // off in the print's own dots and the new ones come up out of them while
+    // the line along the foot runs from one to the other. Cut, one number
+    // replaced another in front of the visitor.
+    const isLive = want === live;
+    if (this.isLive !== undefined && this.isLive !== isLive && this.shown && !this.reduceMotion) {
+      this.swap = { from: this.shown, at: performance.now() };
+    }
+    this.isLive = isLive;
+    let playing = want;
+    let ink = 1;
+    let along = want?.of ? unit(want.at / want.of) : 0;
+    if (this.swap && want) {
+      const k = (performance.now() - this.swap.at) / SWAP_MS;
+      if (k >= 1) this.swap = null;
+      else {
+        const { from } = this.swap;
+        const was = from.of ? unit(from.at / from.of) : 0;
+        along = was + (along - was) * (1 - (1 - k) ** 3);
+        if (k < 0.5) { playing = from; ink = 1 - 2 * k; } else ink = 2 * k - 1;
+      }
+    }
+    this.shown = playing;
     const pill = playing && { x: cx - (PILL.width * S) / 2, w: PILL.width * S, h: this.notch.h };
     if (pill) {
       const plates = { black: K, pink: P, blue: B };
@@ -131,7 +156,7 @@ export class RisoBand {
         });
       }
       const line = Math.max(1.5, S);
-      const played = playing.of ? unit(playing.at / playing.of) * pill.w : 0;
+      const played = along * pill.w;
       if (played) {
         for (const [key, c] of Object.entries(plates)) {
           within(c, () => {
@@ -154,6 +179,9 @@ export class RisoBand {
           this.sleeve.style.cssText = at;
         }
         if (playing.src && this.sleeve.getAttribute('src') !== playing.src) this.sleeve.src = playing.src;
+        // A different sleeve goes and comes with the figures; the same one stays.
+        const opacity = this.swap && this.swap.from.src !== want.src ? String(Math.round(ink * 100) / 100) : '';
+        if (this.sleeve.style.opacity !== opacity) this.sleeve.style.opacity = opacity;
         this.sleeve.hidden = false;
       }
       // The time in the paper, trapped in solid black so the screen's dots and
@@ -166,6 +194,7 @@ export class RisoBand {
       const trap = Math.max(1.5, PILL.text * S * 0.1);
       for (const [key, c] of Object.entries(plates)) {
         c.save();
+        c.globalAlpha = ink;
         c.font = `700 ${PILL.text * S}px ${SYSTEM}`;
         c.textAlign = 'right';
         c.textBaseline = 'middle';
