@@ -2352,6 +2352,13 @@ const MUTANTS = {
     from: "live.played && !this.link.closest('[data-under]') ? live : this.recorded",
     to: 'live.played ? live : this.recorded',
   },
+  // The pill's time cut from the recording's to the soundtrack's.
+  'the-pill-cuts-between-clocks': {
+    check: JOURNEY,
+    file: 'site/js/band.js',
+    from: 'this.swap = { from: this.shown, at: performance.now() };',
+    to: 'this.swap = null;',
+  },
   // The words back on one threshold for every window.
   'the-words-come-up-through-the-dots': {
     check: JOURNEY,
