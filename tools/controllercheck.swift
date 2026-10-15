@@ -3,18 +3,11 @@ import Foundation
 
 /// Headless checks on the per-display notch state machine.
 ///
-/// `NotchController` is the one piece of the app that is pure state — no
-/// drawing, no events, no network — and it went uncovered anyway, on the
-/// assumption that anything importing AppKit needs a running app to drive. It
-/// does not: the class only wants an `NSScreen` to measure once at init, and
-/// every rule below is about what the state machine does afterwards, which no
-/// display can change. The defect that started this suite is the first check
-/// here, and it reproduced in eight lines.
-///
-/// The one environmental need is that a screen exists at all. That is asserted
-/// rather than guarded around, because a suite that quietly passes when it could
-/// not run is worse than one that fails: this repo has already shipped a
-/// vacuous assertion once.
+/// `NotchController` is pure state (no drawing, events or network). It needs an
+/// `NSScreen` only to measure once at init, and every rule below concerns what
+/// the state machine does afterwards. A display must exist; this is asserted
+/// rather than skipped, because a suite that passes when it could not run proves
+/// nothing.
 @main
 enum ControllerCheck {
     @MainActor
@@ -33,20 +26,13 @@ enum ControllerCheck {
         print("controllercheck: all checks passed")
     }
 
-    /// A notch that hides under the pointer does not still think it is hovered.
-    ///
-    /// Hiding does not move the mouse, so nothing reports an exit — the notch
-    /// simply stops being anywhere. Left believing the pointer is inside, the
-    /// controller never sees the false-to-true edge that `handleMouseMoved`
-    /// turns into `mouseEntered`, so hover never re-arms: a pointer parked over
-    /// the notch through a fullscreen video found it deaf afterwards, and only
-    /// leaving the region entirely and coming back woke it up.
+    /// A notch that hides under the pointer must not still think it is hovered.
+    /// Hiding does not move the mouse, so no exit is reported; a controller left
+    /// believing the pointer is inside never sees the false-to-true edge that
+    /// `handleMouseMoved` turns into `mouseEntered`, and hover never re-arms.
     ///
     /// Asserted on the controller rather than by re-running the coordinator's
-    /// edge rule here, which would only prove that a copy of that rule agrees
-    /// with itself. What the coordinator needs from this class is exactly the
-    /// line below: after the notch has been away, it must not claim the pointer
-    /// is already inside.
+    /// edge rule, which would only show a copy of the rule agreeing with itself.
     @MainActor
     static func hidingForgetsWhereThePointerWas() {
         let notch = controller()
@@ -65,8 +51,8 @@ enum ControllerCheck {
     }
 
     /// The URL scheme and the menu command do not go through the window, so
-    /// nothing else stops them pinning an invisible panel open on top of
-    /// someone's fullscreen video.
+    /// nothing else stops them pinning an invisible panel open over someone's
+    /// fullscreen video.
     @MainActor
     static func aHiddenNotchCannotBeOpened() {
         let notch = controller()
@@ -79,9 +65,8 @@ enum ControllerCheck {
         require(!notch.isExpanded, "a hidden notch was expanded by the menu toggle")
     }
 
-    /// Whatever is on screen goes away with the notch — including a panel that
-    /// was pinned open, which is the case that has no other way out: a pin
-    /// deliberately survives the pointer leaving.
+    /// Whatever is on screen goes away with the notch, including a pinned panel,
+    /// which has no other way out since a pin survives the pointer leaving.
     @MainActor
     static func hidingClosesWhatIsOpen() {
         let notch = controller()
@@ -92,8 +77,8 @@ enum ControllerCheck {
         require(!notch.isExpanded, "a pinned panel outlived the notch it lives in")
     }
 
-    /// The fluid re-reads the panel's geometry on this callback, so a call that
-    /// reports a move nothing made is work with nothing behind it.
+    /// The fluid re-reads the panel's geometry on this callback, so it must fire
+    /// only for real transitions.
     @MainActor
     static func theExpansionCallbackFiresOnlyOnRealTransitions() {
         let notch = controller()
@@ -109,13 +94,10 @@ enum ControllerCheck {
         require(closes == 1, "collapsing a shut panel reported \(closes) moves")
     }
 
-    /// A toggle that does not stick is not a toggle.
-    ///
-    /// The pointer is at the menu when the command fires — i.e. outside the
-    /// notch — so without the pin `mouseExited` scheduled a collapse behind it
-    /// and the panel shut on its own. The pin is also what has to be given up
-    /// on the way closed, or the next hover-opened panel inherits it and stays
-    /// up after the pointer leaves.
+    /// The menu toggle stays open until toggled back. The pointer is at the menu
+    /// when the command fires, outside the notch, so without the pin
+    /// `mouseExited` would collapse the panel behind it. The pin must also be
+    /// released on the way closed, or the next hover-opened panel inherits it.
     @MainActor
     static func theMenuToggleStaysOpenUntilItIsToggledBack() {
         let notch = controller()
@@ -131,10 +113,9 @@ enum ControllerCheck {
                 + "inherits it and never retracts")
     }
 
-    /// A volume or brightness HUD is a retracted-state thing. Presented while
-    /// the player is open it would be drawn behind the panel, where it dwells
-    /// unseen and then expires — and on the way it overwrites the HUD state the
-    /// next real peek reads.
+    /// A volume or brightness HUD belongs to the retracted state. Presented
+    /// behind the open panel it would dwell unseen and overwrite the HUD state
+    /// the next real peek reads.
     @MainActor
     static func aHudDoesNotLandBehindTheOpenPanel() {
         let notch = controller()
@@ -148,8 +129,8 @@ enum ControllerCheck {
         require(!notch.hudIsMuted, "a HUD wrote its mute state behind the open panel")
     }
 
-    /// The HUD's progress drives a bar that is drawn to its own width. A value
-    /// past the ends does not clip, it overhangs.
+    /// The HUD's progress drives a bar drawn to its own width, so a value past
+    /// either end would overhang rather than clip.
     @MainActor
     static func theHudNeverReportsMoreThanFull() {
         let notch = controller()
@@ -160,15 +141,9 @@ enum ControllerCheck {
         require(notch.hudProgress == 0, "a HUD reported \(notch.hudProgress) of a full bar")
     }
 
-    /// The mini player is the closed notch's entire content, so both edges of
-    /// it have to actually land.
-    ///
-    /// This began as a check that the guard in `showMiniPlayer` suppresses the
-    /// redundant write `syncMiniPlayerAndCapture` makes on every poll. There is
-    /// no such thing to observe: on Swift 6.4 `@Observable` compares before it
-    /// notifies when the property's type is `Equatable`, so a guarded write and
-    /// an unguarded one are indistinguishable to anything downstream — a mutant
-    /// removing the guard survived, which is how that surfaced.
+    /// The mini player is the closed notch's entire content, so both edges must
+    /// land. (The guard in `showMiniPlayer` is not observable here: `@Observable`
+    /// already compares Equatable values before notifying.)
     @MainActor
     static func theMiniPlayerTurnsOnAndOff() {
         let notch = controller()
@@ -180,19 +155,15 @@ enum ControllerCheck {
         require(!notch.isMiniPlayerShown, "the mini player never turned off")
     }
 
-    /// The preference migration's key list matches the preferences that exist.
+    /// The preference migration's key list must match the preferences that
+    /// exist. `Settings.adoptPreferencesFromPreviousBundleID` names its keys in a
+    /// literal (copying the whole old domain would bring in everything AppKit
+    /// writes there), so a new `@Stored` setting missing from the list would be
+    /// dropped silently on upgrade.
     ///
-    /// `Settings.adoptPreferencesFromPreviousBundleID` names its keys in a
-    /// literal, because copying the whole old domain would drag in everything
-    /// AppKit writes there too. A literal list beside the declarations it is
-    /// supposed to mirror is a list that drifts: add a `@Stored` next year,
-    /// forget the array, and that one setting is silently dropped by a
-    /// migration that appears to have run fine.
-    ///
-    /// The list is sliced out before matching, on purpose. Asking whether the
-    /// file "contains" a key is answered by the `@Stored` declaration itself,
-    /// so a check written that way passes with the array empty — this repo has
-    /// already shipped one lint that satisfied itself.
+    /// The list is sliced out before matching: asking whether the file contains a
+    /// key is answered by the `@Stored` declaration itself and would pass with
+    /// the array empty.
     static func everyStoredSettingIsCarriedAcrossTheRename() {
         let path = "Sources/NotchApp/Support/Settings.swift"
         guard let code = try? String(contentsOfFile: path, encoding: .utf8) else {
@@ -206,8 +177,7 @@ enum ControllerCheck {
                 + "the pattern stopped matching and this check is asserting nothing")
 
         // Located by declaration, then by its brackets, so a type annotation or
-        // a reformat moves the list without silently turning this check into
-        // "cannot find" — which reads like a failure but tests nothing.
+        // reformat moves the list without turning a failure into a no-op.
         guard let decl = code.range(of: "private static let keys"),
               let open = code.range(of: "[", range: decl.upperBound..<code.endIndex),
               let close = code.range(of: "]", range: open.upperBound..<code.endIndex) else {
@@ -231,18 +201,12 @@ enum ControllerCheck {
         }
     }
 
-    /// The scheme the app answers to is the scheme it registered.
-    ///
-    /// These are two independent strings — `CFBundleURLSchemes` in Info.plist,
-    /// and the literal `application(_:open:)` compares `url.scheme` against —
-    /// and nothing but this makes them agree. Rename the product, update one,
-    /// and the URL scheme goes quietly dead: LaunchServices still routes the
-    /// URL to the app, the app looks at it, does not recognise the scheme, and
-    /// drops it. No error anywhere, and every scripted verb stops working.
-    ///
-    /// Worth having beyond a rename: the scheme is how the panel is driven from
-    /// a shell, which is the only sane way to reach a window that otherwise
-    /// only appears on hover.
+    /// The scheme the app answers to is the scheme it registered. They are two
+    /// independent strings (`CFBundleURLSchemes` in Info.plist and the literal
+    /// `application(_:open:)` compares `url.scheme` against); if they diverge,
+    /// LaunchServices still routes the URL but the app drops it with no error,
+    /// and every scripted verb stops working. The scheme is how the panel is
+    /// driven from a shell.
     static func theURLSchemeTheAppAnswersIsTheOneItRegistered() {
         let plistPath = "Resources/Info.plist"
         guard let data = FileManager.default.contents(atPath: plistPath),
@@ -264,10 +228,9 @@ enum ControllerCheck {
             require(false, "cannot read \(path) — run this from the repo root")
             return
         }
-        // The literal in the comparison, not the file's vocabulary: the doc
-        // comment above it spells the scheme too, so asking whether the file
-        // "contains" it is answered by prose and would pass with the actual
-        // test still naming the old one.
+        // Reads the literal in the comparison itself, not the file's vocabulary:
+        // a doc comment may spell the scheme too, which would satisfy a
+        // "contains" test while the real comparison named the old one.
         guard let at = code.range(of: "url.scheme == \"") else {
             require(false, "AppDelegate no longer compares url.scheme against a "
                     + "literal — this check just became a no-op")
@@ -280,19 +243,15 @@ enum ControllerCheck {
                 + "the app will drop it, with no error anywhere")
     }
 
-    /// Every bundle identifier and support directory the app has shipped under
-    /// is still named by a migration.
+    /// Every bundle identifier and support directory the app has shipped under is
+    /// still named by a migration. Preferences are keyed by `CFBundleIdentifier`
+    /// and the Spotify refresh token lives in a directory named for the app, so a
+    /// rename that forgets to append would reset settings and sign users out of
+    /// their library.
     ///
-    /// Preferences are keyed by `CFBundleIdentifier` and the Spotify refresh
-    /// token lives in a directory named for the app, so each rename abandons
-    /// both unless the old name is carried forward. The app has shipped under
-    /// two already; a third rename that forgets to append signs everyone out of
-    /// their library and resets their settings, and the only symptom is a heart
-    /// that stopped working.
-    ///
-    /// The current name must NOT appear in either list. A migration that reads
-    /// its own domain is a no-op that still looks like a migration, which is
-    /// exactly how a missing entry hides.
+    /// The current name must not appear in either list: a migration reading its
+    /// own domain is a no-op that looks like a migration and hides a missing
+    /// entry.
     static func everyNameTheAppHasShippedUnderIsStillMigrated() {
         guard let data = FileManager.default.contents(atPath: "Resources/Info.plist"),
               let plist = (try? PropertyListSerialization.propertyList(
@@ -303,9 +262,8 @@ enum ControllerCheck {
             return
         }
 
-        // Written down here on purpose. The lists in the source say what is
-        // migrated; only a second, independent record says what SHOULD be, and
-        // a rename that edits the source list is not evidence about itself.
+        // Written down here on purpose: the lists in the source say what is
+        // migrated, and only an independent record says what should be.
         let shippedIDs = ["com.laks.NotchApp", "com.laks.ferro"]
         let shippedDirectories = ["NotchApp", "Ferro"]
 
@@ -329,7 +287,7 @@ enum ControllerCheck {
             return
         }
         // Located by declaration then brackets, so a reformat moves the list
-        // without silently turning this into "cannot find".
+        // without turning a failure into a no-op.
         guard let decl = code.range(of: "let \(name)"),
               let open = code.range(of: "[", range: decl.upperBound..<code.endIndex),
               let close = code.range(of: "]", range: open.upperBound..<code.endIndex) else {
@@ -357,10 +315,9 @@ enum ControllerCheck {
         }
     }
 
-    /// A controller on whatever display this Mac has.
-    ///
-    /// Which display it is does not matter to anything below — the metrics it
-    /// measures at init feed geometry, and geometry is `chromecheck`'s subject.
+    /// A controller on whatever display this Mac has. Which display does not
+    /// matter: the metrics measured at init feed geometry, which is
+    /// `chromecheck`'s subject.
     @MainActor
     static func controller() -> NotchController {
         guard let screen = NSScreen.main else {

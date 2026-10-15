@@ -1,29 +1,25 @@
 import AppKit
 import CryptoKit
 
-/// Liking a Spotify track, which is the one thing the local player cannot do.
+/// Liking a Spotify track, which the local player cannot do.
 ///
 /// Spotify's scripting dictionary declares `starred` as `access="r"` and asking a
-/// live player for it fails outright, so the state is not merely unwritable, it
-/// is unreadable. There is no scripting route to it at all, on any version this
-/// has been tried against. The Web API is the only one.
+/// live player for it fails, so the state is unreadable as well as unwritable
+/// over scripting. The Web API is the only route.
 ///
-/// Authorization Code with PKCE, so there is no client secret to keep anywhere.
-/// Only the refresh token is persisted — see `TokenStore` for where it goes and
-/// why that is not the Keychain.
+/// Uses the Authorization Code flow with PKCE, so there is no client secret to
+/// store. Only the refresh token is persisted; see `TokenStore`.
 ///
-/// A personal app in Spotify's **development mode** is exactly the supported case
-/// here — the April 2025 restriction applies to *extended* quota access, and that
-/// announcement says development mode "will remain accessible for experimentation
-/// and personal use".
+/// A personal app in Spotify's development mode is the supported case: the April
+/// 2025 restriction applies to extended quota access, and Spotify states that
+/// development mode remains available for experimentation and personal use.
 @MainActor
 @Observable
 final class SpotifyWeb {
 
-    /// Each one buys a control the panel actually shows, and nothing buys more
-    /// than that: the library pair for the heart, playback state for shuffle and
-    /// repeat, and `user-read-private` only because `product` is how we learn
-    /// whether those two can work before offering them.
+    /// Each scope buys a control the panel shows: the library pair for the heart,
+    /// playback state for shuffle and repeat, and `user-read-private` because
+    /// `product` tells us whether those two can work before they are offered.
     private static let scopes = [
         "user-library-read", "user-library-modify",
         "user-read-private",
@@ -49,15 +45,13 @@ final class SpotifyWeb {
         lastError.map { $0.hasPrefix("Spotify") ? $0 : "Spotify: \($0)" }
     }
 
-    /// A FIXED port, because the dashboard rejects the portless form.
+    /// The redirect port is fixed because the dashboard rejects the portless
+    /// form.
     ///
-    /// Spotify's own documentation says a loopback literal may be registered
-    /// without a port and take a dynamic one at request time. The create-app form
-    /// disagrees: `http://127.0.0.1/callback` is refused as "not secure", and only
-    /// an explicit port is accepted. So the listener binds this exact port rather
-    /// than asking the OS for a free one.
-    ///
-    /// `localhost` is rejected outright either way.
+    /// Spotify's documentation says a loopback literal may be registered without
+    /// a port, but the create-app form refuses `http://127.0.0.1/callback` as
+    /// "not secure" and accepts only an explicit port. `localhost` is rejected
+    /// either way.
     static let callbackPort: UInt16 = 8888
     static let registeredRedirect = "http://127.0.0.1:8888/callback"
 
@@ -69,16 +63,15 @@ final class SpotifyWeb {
 
     var clientID: String { Settings.shared.spotifyClientID }
 
-    /// Called once the stored token has been looked for. The answer arrives
-    /// after launch, so whoever depends on `isConnected` has to be told rather
-    /// than having asked at the wrong moment.
+    /// Called once the stored token has been looked for. The answer arrives after
+    /// launch, so dependents of `isConnected` must be told rather than have asked
+    /// too early.
     var onConnect: (() -> Void)?
 
     init() {
-        // Deliberately not awaited. Reading the stored token is off the main
-        // thread and stays there: when this was a keychain read done inline, a
-        // single access dialog parked the main thread in securityd and the app
-        // never finished launching.
+        // Not awaited. Reading the stored token happens off the main thread; an
+        // inline keychain read once parked the main thread in securityd behind
+        // an access dialog and the app never finished launching.
         Task { await self.restore() }
     }
 
@@ -95,8 +88,8 @@ final class SpotifyWeb {
 
     /// Opens the consent page in the user's browser and waits for the redirect.
     ///
-    /// The loopback listener is bound before the browser is opened, so the port
-    /// in the authorize URL is one we are already listening on.
+    /// The loopback listener is bound before the browser opens, so the port in
+    /// the authorize URL is one we are already listening on.
     func connect() async {
         connectFlow &+= 1
         let flow = connectFlow
@@ -111,15 +104,15 @@ final class SpotifyWeb {
         let challenge = Self.challenge(for: verifier)
 
         do {
-            // One consent flow at a time. A listener parked by an abandoned
-            // consent tab used to hold the port for the rest of the session,
-            // so every retry died on EADDRINUSE before the browser opened.
+            // One consent flow at a time: a listener left by an abandoned
+            // consent tab would otherwise hold the port and fail every retry
+            // with EADDRINUSE.
             callback?.cancel()
             callback = nil
             let listener = try await Self.bindListener()
             callback = listener
-            // Ties the redirect to THIS flow. Without it, the first local
-            // connection of any origin was treated as the browser's answer.
+            // Ties the redirect to this flow, so an unrelated local connection
+            // is not mistaken for the browser's answer.
             let state = Self.randomVerifier()
             let redirect = Self.registeredRedirect
             var url = URLComponents(string: "https://accounts.spotify.com/authorize")!
@@ -132,28 +125,26 @@ final class SpotifyWeb {
                 .init(name: "state", value: state),
                 .init(name: "scope", value: Self.scopes),
             ]
-            // Logged as well as opened. `NSWorkspace.open` lands in whichever
-            // browser and profile happens to be default, which is not always one
-            // you can see — and a consent flow you cannot find is a dead end.
+            // Logged as well as opened: the default browser and profile may not
+            // be one the user can see.
             FileHandle.standardError.write(Data("[spotify] authorize \(url.url!)\n".utf8))
             NSWorkspace.shared.open(url.url!)
 
             FileHandle.standardError.write(Data("[spotify] listening on \(listener.port)\n".utf8))
-            // Only our own listener: a newer Connect may already have replaced
-            // it, and clearing theirs left nothing able to cancel it.
+            // Clear only our own listener; a newer Connect may have replaced it.
             defer { if callback === listener { callback = nil } }
             let epoch = authEpoch
             let code = try await listener.waitForCode(state: state)
             try await exchange(code: code, verifier: verifier, redirect: redirect)
-            // A Disconnect or a newer Connect during consent owns the outcome
-            // now. `post` discards a reply for a dropped account without
-            // throwing, so without this a disconnect mid-exchange still ended
-            // here as "connected" with no token stored.
+            // A Disconnect or newer Connect during consent owns the outcome.
+            // `post` discards a reply for a dropped account without throwing, so
+            // without this a disconnect mid-exchange would still end as
+            // "connected" with no token stored.
             guard flow == connectFlow, epoch == authEpoch else { return }
             isConnected = true
             await loadAccount()
-            // The track on screen was drawn while this was still unconnected, so
-            // its controls are missing until someone asks again.
+            // The track on screen was drawn while unconnected; its controls
+            // appear only when asked again.
             onConnect?()
         } catch {
             // A superseded flow's "cancelled" is not news: the flow that
@@ -161,23 +152,21 @@ final class SpotifyWeb {
             guard flow == connectFlow else { return }
             lastError = error.localizedDescription
             isConnected = false
-            // A silent failure here is the worst outcome: the menu item just does
-            // nothing and there is nowhere to look.
             FileHandle.standardError.write(Data("[spotify] failed: \(lastError!)\n".utf8))
         }
     }
 
-    /// The consent flow currently listening, if any — kept so a new connect or
-    /// a disconnect can end it instead of leaking the port.
+    /// The consent flow currently listening, kept so a new connect or a
+    /// disconnect can end it instead of leaking the port.
     private var callback: LoopbackCallback?
     /// Which Connect is current. Bumped by every Connect and by Disconnect, so
-    /// an older flow finishing late can tell it no longer speaks for the menu.
+    /// an older flow finishing late knows it no longer speaks for the menu.
     private var connectFlow = 0
 
-    /// Binds the callback port, riding out the window where a superseded
-    /// listener has been told to stop but has not yet closed its socket: the
-    /// worker owns the close — closing an fd under a thread still polling it
-    /// invites fd reuse — and it notices the cancel within one poll tick.
+    /// Binds the callback port, riding out the short window in which a
+    /// superseded listener has been told to stop but has not yet closed its
+    /// socket. The worker owns the close (closing an fd under a thread still
+    /// polling it invites fd reuse) and notices the cancel within one poll tick.
     private static func bindListener() async throws -> LoopbackCallback {
         var lastError: Error?
         for _ in 0..<12 {
@@ -191,23 +180,16 @@ final class SpotifyWeb {
     }
 
     func disconnect() {
-        // Everything already in the air belongs to the account being dropped.
+        // Everything in flight belongs to the account being dropped. A refresh
+        // parked in `URLSession.data` would otherwise finish later and have
+        // `post` write the rotated refresh token to disk after the delete below,
+        // recreating the credential and silently signing back in on next launch.
+        // URLSession's default timeout is 60 s, and a stalled network is exactly
+        // when someone clicks Disconnect.
         //
-        // A refresh parked in `URLSession.data` when this runs comes back a
-        // round trip later and finishes its job: `post` writes the ROTATED
-        // refresh token to disk. The delete below is a detached `removeItem`
-        // that completes in this runloop tick, so the write lands after it and
-        // recreates the credential the user just asked to be rid of — and the
-        // next launch finds the file, reports connected, and silently signs
-        // back in to the account they disconnected. The window is up to
-        // URLSession's 60s default, and a stalled network is exactly when
-        // somebody opens the menu and clicks Disconnect.
-        //
-        // Cancelling covers the parked call; the epoch covers the sliver where
-        // the reply has already landed and cancellation has nothing left to
-        // interrupt. The connect flow needs the epoch too — its `exchange` is
-        // the same `post`, and a disconnect mid-consent must not be undone by
-        // the consent completing.
+        // Cancelling covers the parked call; the epoch covers a reply that has
+        // already landed. The connect flow needs the epoch too, since its
+        // `exchange` is the same `post`.
         authEpoch &+= 1
         connectFlow &+= 1
         refreshTask?.cancel()
@@ -219,24 +201,23 @@ final class SpotifyWeb {
         accessToken = nil
         expiry = .distantPast
         isConnected = false
-        // Nothing is wrong: the user asked for this. A stale complaint from the
-        // account being dropped would outlive it in the menu.
+        // The user asked for this, so a stale complaint from the dropped account
+        // should not outlive it in the menu.
         lastError = nil
     }
 
     /// Bumped whenever the stored account stops being the one in play. Anything
-    /// that crossed an `await` before the bump has to check it before writing.
+    /// that crossed an `await` before the bump must check it before writing.
     private var authEpoch = 0
 
     // MARK: Library
 
-    /// The library is addressed by URI now, not by id and entity type.
+    /// The library is addressed by URI rather than by id and entity type.
     ///
-    /// Spotify's February 2026 migration folded `/me/tracks`, `/me/albums`,
-    /// `/me/episodes` and the rest into one `/me/library`, and retired the old
-    /// per-type endpoints for apps in development mode. They do not 404 — they
-    /// answer 403 Forbidden with no message, which reads exactly like a missing
-    /// scope and is why this looked for a while like a permissions problem.
+    /// Spotify's February 2026 migration folded `/me/tracks`, `/me/albums` and
+    /// the rest into `/me/library` and retired the per-type endpoints for apps in
+    /// development mode. They answer 403 Forbidden with no message rather than
+    /// 404, which looks like a missing scope.
     private static let libraryContains = "https://api.spotify.com/v1/me/library/contains"
     private static let library = "https://api.spotify.com/v1/me/library"
 
@@ -276,8 +257,8 @@ final class SpotifyWeb {
     @discardableResult
     func setSaved(_ saved: Bool, trackID: String) async -> Bool {
         guard let uri = Self.trackURI(trackID) else { return false }
-        // `uris` is a query parameter on these, not a body — a JSON body comes
-        // back as "Missing required field: uris".
+        // `uris` is a query parameter here, not a body; a JSON body is rejected
+        // with "Missing required field: uris".
         guard let (data, status) = await send(saved ? "PUT" : "DELETE", Self.library,
                                               ["uris": uri]) else { return false }
         if !(200...299).contains(status) {
@@ -288,24 +269,18 @@ final class SpotifyWeb {
 
     // MARK: Playback modes
 
-    /// Shuffle and repeat, which the local player will not take.
-    ///
-    /// Spotify's scripting dictionary declares `shuffling` and `repeating`
-    /// settable, and then quietly drops the write — `shuffling enabled` and
-    /// `repeating enabled` sit next to them, read-only and false. So these go
-    /// over the Web API, where they are real. It costs a Premium account, which
-    /// is what `canControlPlayback` records.
+    /// Shuffle and repeat go over the Web API because the local player drops the
+    /// writes: its dictionary declares `shuffling` and `repeating` settable, but
+    /// the read-only `shuffling enabled` / `repeating enabled` beside them are
+    /// false. The Web API needs a Premium account, which this records.
     private(set) var canControlPlayback = false
 
-    /// Whether the account has ever actually answered.
-    ///
-    /// `canControlPlayback` alone cannot tell "this account is not Premium" from
-    /// "we never found out", and the two want opposite treatment: the first is
-    /// settled, the second is worth asking again.
+    /// Whether the account has ever answered. `canControlPlayback` alone cannot
+    /// tell "not Premium" (settled) from "never found out" (worth asking again).
     private(set) var accountLoaded = false
 
-    /// Reads the account once, to know whether the mode controls can work at all
-    /// before any of them is offered.
+    /// Reads the account once, to learn whether the mode controls can work before
+    /// any is offered.
     func loadAccount() async {
         guard let (data, status) = await send("GET", "https://api.spotify.com/v1/me"),
               status == 200,
@@ -316,24 +291,17 @@ final class SpotifyWeb {
         log("account \(json["id"] as? String ?? "?"), product \(json["product"] as? String ?? "?")")
     }
 
-    /// Ask again when the account never answered the first time.
+    /// Asks again when the account never answered the first time.
     ///
-    /// `loadAccount` runs exactly twice in a session — once from `restore` and
-    /// once from `connect` — and returns silently on a nil reply, any non-200
-    /// status, or an unparseable body. So one failure at launch, which is the
-    /// likeliest moment for one (waking the Mac, a captive portal, a VPN not up
-    /// yet, a 429, a 502), latched `canControlPlayback` false for the whole
-    /// session. `askPlayback` bails on that flag, so shuffle and repeat stayed
-    /// nil, `ChromeRules.modeSlots` reserved neither slot, and both controls were
-    /// simply absent until the app was relaunched — with nothing on screen or in
-    /// the menu saying why. The heart recovered from the same outage, which is
-    /// what made the modes' silence look deliberate.
+    /// `loadAccount` runs only from `restore` and `connect` and returns silently
+    /// on any failure. A single failure at launch (waking the Mac, a captive
+    /// portal, a 429) would otherwise latch `canControlPlayback` false for the
+    /// session and leave both mode controls absent with no explanation.
     ///
     /// Opening the panel is the retry rather than the poll loop, the same trade
-    /// `MediaManager.beginPolling` already makes for the heart: a persistent
-    /// failure costs one request per panel open instead of one a second at a
-    /// rate-limited endpoint. Guarded on `accountLoaded`, so an account that
-    /// answered and simply is not Premium is never asked twice.
+    /// `MediaManager.beginPolling` makes for the heart. Guarded on
+    /// `accountLoaded`, so a non-Premium account that answered is never asked
+    /// twice.
     func refreshAccountIfUnknown() async {
         guard isConnected, !accountLoaded else { return }
         await loadAccount()
@@ -341,10 +309,9 @@ final class SpotifyWeb {
 
     /// What the player is doing and what it will let us change.
     ///
-    /// The second half matters as much as the first: Spotify refuses a mode it
-    /// does not allow in the current context with "Restriction violated", and it
-    /// says so in advance under `actions.disallows`. A control offered against
-    /// that answer is a control that does nothing.
+    /// Spotify refuses a mode the current context disallows with "Restriction
+    /// violated", and announces it in advance under `actions.disallows`. A
+    /// control offered against that answer would do nothing.
     struct Playback {
         var shuffling = false
         var repeating = false
@@ -352,27 +319,18 @@ final class SpotifyWeb {
         var canRepeat = false
     }
 
-    /// Nil when there is no active device to ask about — 204 rather than 200,
-    /// which is not an error.
     /// What the panel shows when the player did not answer.
     ///
-    /// Pausing makes `/me/player` answer 204, so the modes arrive as nothing at
-    /// all — and wiping them on that took both toggles off the panel every time
-    /// the music stopped. Controls that come and go with the transport are worse
-    /// than controls that sit still: the reason the user reported them "missing"
-    /// was that Spotify happened to be paused.
+    /// Pausing makes `/me/player` answer 204, so the modes arrive as nothing, and
+    /// wiping them would remove both toggles every time the music stopped. The
+    /// last answer is kept instead, with both writes marked refused. That is
+    /// accurate: while paused they are refused, and Spotify lists
+    /// `toggling_shuffle` in `disallows` even in the replies it does send.
     ///
-    /// So the last answer is kept, with both writes marked refused. That is not a
-    /// convenient fiction — while paused they genuinely are refused, and Spotify
-    /// says so itself: `toggling_shuffle` sits in `disallows` even in the replies
-    /// it does send. The glyph stays where it was, dimmed and disabled, which is
-    /// the same thing the panel shows a second earlier while playing.
-    ///
-    /// Zeroing the two `can` flags is the whole point of keeping a COPY rather
-    /// than just declining to overwrite. `apply` recomputes `shuffleBlocked` from
-    /// `canShuffle` on every poll, so a kept answer from a context that allowed
-    /// shuffle would leave a bright, live-looking button whose write is about to
-    /// fail — exactly the thing mediacheck exists to prevent.
+    /// Zeroing the `can` flags is why this keeps a copy. `apply` recomputes
+    /// `shuffleBlocked` from `canShuffle` on every poll, so a kept answer from a
+    /// context that allowed shuffle would leave a bright button whose write is
+    /// about to fail.
     static func modes(from fresh: Playback?, keeping previous: Playback?) -> Playback? {
         if let fresh { return fresh }
         guard var kept = previous else { return nil }
@@ -381,15 +339,15 @@ final class SpotifyWeb {
         return kept
     }
 
+    /// Nil when there is no active device to ask about (204 rather than 200),
+    /// which is not an error.
     func playbackModes() async -> Playback? {
         guard canControlPlayback else { return nil }
-        // Each of these returned nil silently, and a silent nil here reads on the
-        // panel as "no shuffle button" — indistinguishable from a button that was
-        // never built. 204 is the one that actually happens, and it means PAUSED:
-        // Spotify drops the desktop app off Connect the moment the music stops,
-        // so there is no player to report even though the app is still open with
-        // the track loaded. See `modes(from:keeping:)` for what the panel shows
-        // in that window.
+        // 204 is the case that actually occurs and means paused: Spotify drops
+        // the desktop app off Connect when the music stops. See
+        // `modes(from:keeping:)` for what the panel shows then. Each failure is
+        // logged because a silent nil reads on the panel as a button that was
+        // never built.
         guard let (data, status) = await send("GET", "https://api.spotify.com/v1/me/player")
         else { log("playback: no reply"); return nil }
         guard status == 200 else {
@@ -399,18 +357,11 @@ final class SpotifyWeb {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { log("playback: unreadable body"); return nil }
         let disallows = (json["actions"] as? [String: Any])?["disallows"] as? [String: Any] ?? [:]
-        // One key, and specifically the key the write actually uses.
-        //
-        // This took a list and returned true if ANY of them was permitted, and
-        // repeat was asked about both `toggling_repeat_context` and
-        // `toggling_repeat_track`. But `setMode` only ever sends
-        // `state=context` or `state=off`, so context is the sole capability that
-        // governs this button — and Spotify's usual shape when a context cannot
-        // repeat is to name `toggling_repeat_context` and omit the track key
-        // entirely. An absent key is not a refusal, so the OR read the missing
-        // one as permission and lit a button whose every press was refused with
-        // "Restriction violated". It never settled either: the revert path does
-        // not re-ask, so the next poll recomputed the same wrong permission.
+        // Repeat is judged by `toggling_repeat_context` alone, the capability
+        // `setMode` actually uses (it only sends `state=context` or `off`). When
+        // a context cannot repeat, Spotify usually names the context key and
+        // omits the track key; an absent key is not a refusal, so also testing
+        // `toggling_repeat_track` would light a button whose every press fails.
         func allowed(_ key: String) -> Bool {
             (disallows[key] as? Bool) != true
         }
@@ -430,7 +381,8 @@ final class SpotifyWeb {
     }
 
     /// Repeat is three-state on Spotify and one glyph here, so it is set to
-    /// `context` — repeat the album or playlist, the state a single toggle means.
+    /// `context` (repeat the album or playlist), which is what a single toggle
+    /// means.
     @discardableResult
     func setMode(shuffling: Bool? = nil, repeating: Bool? = nil) async -> Bool {
         guard canControlPlayback else { return false }
@@ -452,20 +404,17 @@ final class SpotifyWeb {
     // MARK: Requests
 
     /// Earliest moment the API may be asked anything again, set from a 429's
-    /// Retry-After. Hammering through a rate limit only lengthens it.
+    /// Retry-After. Pushing through a rate limit only lengthens it.
     private var notBefore = Date.distantPast
 
     /// One authorized request. Returns nil only when there is no token, the
-    /// connection itself failed, or a rate limit is still running — an HTTP
-    /// error still comes back, because the status is the most useful thing
-    /// this API says.
+    /// connection failed, or a rate limit is still running; an HTTP error is
+    /// returned, because the status is the most useful thing this API says.
     ///
-    /// A 401 gets one retry through `token()`. The local expiry is only a
-    /// guess at the server's opinion: a password change or sign-out-everywhere
-    /// invalidates the token server-side with up to an hour left on the local
-    /// clock, and every feature went dark for that hour with nothing rendered
-    /// anywhere. The retry refreshes; a refresh refused with invalid_grant
-    /// already surfaces "revoked" properly via `refreshFailed`.
+    /// A 401 gets one retry through `token()`. The local expiry only guesses the
+    /// server's view: a password change or sign-out-everywhere invalidates the
+    /// token with up to an hour left locally. A refresh refused with
+    /// invalid_grant already surfaces as revoked via `refreshFailed`.
     private func send(_ method: String, _ url: String,
                       _ query: [String: String] = [:],
                       retried: Bool = false) async -> (Data, Int)? {
@@ -475,27 +424,27 @@ final class SpotifyWeb {
         if !query.isEmpty { c.queryItems = query.map { .init(name: $0.key, value: $0.value) } }
         var request = URLRequest(url: c.url!)
         request.httpMethod = method
-        // The default is 60s, which left a heart press or a mode toggle
-        // hanging for a minute on a stalled network.
+        // URLSession's 60 s default would leave a press hanging on a stalled
+        // network.
         request.timeoutInterval = Self.requestTimeout
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard let (data, response) = try? await URLSession.shared.data(for: request) else {
             log("\(method) \(url): request failed")
-            // Said in the menu: a heart that fills then empties with no reason
-            // given reads as a broken button.
+            // Surfaced in the menu so a heart that fills then empties has a
+            // visible reason.
             lastError = "Couldn't reach Spotify."
             return nil
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {
             guard !retried else {
-                // Refreshed and still refused — surface it where the
+                // Refreshed and still refused; surface it where the
                 // connected-but-failing menu line can render it.
                 lastError = "Spotify refused the last request."
                 return (data, status)
             }
             // Drop the cached token only if it is still the one that was
-            // refused: a slow reply's 401 must not wipe a fresh refresh.
+            // refused; a slow reply's 401 must not wipe a fresh refresh.
             if accessToken == token {
                 accessToken = nil
                 expiry = .distantPast
@@ -505,18 +454,16 @@ final class SpotifyWeb {
         if status == 429 {
             let after = (response as? HTTPURLResponse)?
                 .value(forHTTPHeaderField: "Retry-After").flatMap(Double.init) ?? 5
-            // Capped: one huge value would switch Spotify features off until
-            // the next launch.
+            // Capped: one huge value would switch Spotify features off until the
+            // next launch.
             notBefore = Date().addingTimeInterval(min(max(after, 1), 120))
             log("\(method) \(url): 429, backing off \(Int(after))s")
             lastError = "Spotify asked us to slow down. Try again shortly."
         } else if status == 403 {
             lastError = "Spotify didn't allow that for this account."
         }
-        // A request that worked is proof the complaint in the menu is over. It
-        // was only ever cleared by Connect and Disconnect, so a refresh that
-        // failed once while Wi-Fi came back after wake stayed on screen as
-        // "could not be reached" for the rest of the session.
+        // A successful request ends any earlier complaint in the menu; otherwise
+        // only Connect and Disconnect would clear it.
         if (200..<300).contains(status) { lastError = nil }
         return (data, status)
     }
@@ -536,24 +483,19 @@ final class SpotifyWeb {
 
     /// One refresh at a time, however many callers want a token.
     ///
-    /// Opening the panel asks the library about the track and the player about
-    /// its modes at nearly the same moment, and on a cold launch every one of
-    /// them finds the same expired token — three `token ok` lines in the log
-    /// from one launch. Spotify ROTATES the refresh token, so the second and
-    /// third present one the first has already spent, and whichever finishes
-    /// last writes its answer over the good one. Nothing looks wrong today; it
-    /// fails at some later launch as a refresh that is simply refused, with no
-    /// trace of what invalidated it.
+    /// Opening the panel asks about the track and the modes at nearly the same
+    /// moment, and on a cold launch each finds the same expired token. Spotify
+    /// rotates the refresh token, so concurrent refreshes would present one the
+    /// first has already spent, and the last to finish would overwrite the good
+    /// token, failing at some later launch with no trace of the cause.
     private var refreshTask: Task<String?, Never>?
 
     private func token() async -> String? {
         if let accessToken, expiry > Date().addingTimeInterval(30) { return accessToken }
-        // Only the caller that started the refresh clears it, and no new one can
-        // start while it is set, so this cannot drop somebody else's task.
+        // Only the caller that started the refresh clears it, and no new one
+        // starts while it is set, so this cannot drop somebody else's task.
         if let refreshTask {
-            // Silent in the ordinary case, and the only way to see the race
-            // being absorbed rather than merely absent — one `token ok` in a
-            // log proves nothing if only one caller ever asked.
+            // Logged so the race being absorbed is visible.
             log("refresh already in flight — joined")
             return await refreshTask.value
         }
@@ -566,11 +508,8 @@ final class SpotifyWeb {
                 return nil
             } catch let cancelled as URLError where cancelled.code == .cancelled {
                 // A cancelled refresh is not a refused one. `disconnect` cancels
-                // this on purpose, and `refreshFailed` would answer that with
-                // "Spotify could not be reached." — which the menu then shows,
-                // because disconnect has just set `isConnected` false and that
-                // is the branch `lastError` renders in. A deliberate, wholly
-                // successful disconnect would report a network failure.
+                // on purpose, and `refreshFailed` would make the menu report a
+                // network failure for a successful disconnect.
                 return nil
             } catch {
                 self.refreshFailed(error)
@@ -583,23 +522,19 @@ final class SpotifyWeb {
         return result
     }
 
-    /// A refresh that came back refused, which used to be discarded by a `try?`.
+    /// Reacts to a refresh that came back refused.
     ///
-    /// Nothing reacted: `isConnected` stayed true because it is set from the
-    /// stored file merely EXISTING, `lastError` was only ever written by
-    /// `connect()`, and not one line reached the log. Revoke the app at
-    /// spotify.com and every launch afterwards looks connected, shows no error,
-    /// offers "Disconnect Spotify Library" — and the whole Spotify half of the
-    /// panel is simply dark, for good, with nowhere to look. The file's own note
-    /// on `connect()` names this as the worst outcome, and then this path did it.
+    /// `isConnected` is set from the stored file merely existing, so without
+    /// this a revoked app would look connected on every launch with no error and
+    /// the Spotify half of the panel permanently dark.
     ///
-    /// `invalid_grant` is the terminal one: the grant is gone and no retry will
-    /// bring it back, so the token is dropped and the connection reported as
-    /// what it now is. Everything else — offline, a 500, a timeout — is left
-    /// alone, because a transient failure must not throw away a good token.
+    /// `invalid_grant` is terminal: the grant is gone, so the token is dropped
+    /// and the connection reported as what it now is. Anything else (offline, a
+    /// 500, a timeout) is left alone, because a transient failure must not
+    /// discard a good token.
     private func refreshFailed(_ error: Error) {
-        // The token endpoint's ERROR bodies carry no credential; the access and
-        // refresh tokens only ever appear in a 200, which does not reach here.
+        // The token endpoint's error bodies carry no credential; tokens appear
+        // only in a 200, which does not reach here.
         let described = error.localizedDescription
         let revoked = described.contains("invalid_grant")
         log("refresh refused\(revoked ? " (invalid_grant)" : ""): \(described)")
@@ -610,9 +545,7 @@ final class SpotifyWeb {
         lastError = "Spotify access was revoked — connect again."
         accessToken = nil
         expiry = .distantPast
-        // isConnected false is what makes the menu's error line reachable at
-        // all: it renders "Disconnect Spotify Library" whenever this is true,
-        // and puts `lastError` in the branch that only runs when it is false.
+        // The menu renders `lastError` only when this is false.
         isConnected = false
         authEpoch &+= 1
         Task { await TokenStore.delete(Self.tokenAccount) }
@@ -650,9 +583,9 @@ final class SpotifyWeb {
 
         let epoch = authEpoch
         let (data, response) = try await URLSession.shared.data(for: request)
-        // Disconnected while this was in the air. Returning rather than throwing:
-        // there is no failure to report, the answer is simply about an account
-        // that is no longer ours to write for.
+        // Disconnected while this was in flight. Return rather than throw: there
+        // is no failure to report, the answer is about an account that is no
+        // longer ours to write for.
         guard epoch == authEpoch else {
             log("token reply discarded — disconnected while it was in flight")
             return
@@ -661,8 +594,7 @@ final class SpotifyWeb {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let access = json["access_token"] as? String
         else {
-            // The menu shows this. It used to be the raw reply body, so a
-            // wrong client ID read `{"error":"invalid_client",…}`.
+            // The menu shows the mapped message, not the raw reply body.
             let code = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
             log("token request failed: \(String(data: data, encoding: .utf8) ?? "?")")
             throw NSError(domain: "SpotifyWeb", code: 1, userInfo: [
@@ -671,21 +603,18 @@ final class SpotifyWeb {
         }
         accessToken = access
         expiry = Date().addingTimeInterval((json["expires_in"] as? Double) ?? 3600)
-        // What was actually granted, which is not always what was asked for —
-        // and a 403 from the library reads identically either way.
+        // Log what was granted, which is not always what was asked for; a 403
+        // from the library looks the same either way.
         FileHandle.standardError.write(Data(
             "[spotify] token ok, scope: \(json["scope"] as? String ?? "none")\n".utf8))
-        // Spotify only returns a new refresh token sometimes; keep the old one
+        // Spotify only sometimes returns a new refresh token; keep the old one
         // when it does not.
         if let newRefresh = json["refresh_token"] as? String {
             await TokenStore.write(newRefresh, account: Self.tokenAccount)
-            // The epoch check above covers replies that landed after a
-            // disconnect; this covers the write itself. The suspension into
-            // the store releases the actor, so a disconnect can run between
-            // that check and this write's enqueue — its detached delete then
-            // loses the race and the rotated token quietly recreates the
-            // credential. Re-check and compensate, rather than trying to
-            // order two detached tasks.
+            // The check above covers replies that landed after a disconnect; this
+            // covers the write itself. The suspension into the store releases the
+            // actor, so a disconnect can run in between and its delete lose the
+            // race. Re-check and compensate rather than order two detached tasks.
             if epoch != authEpoch {
                 log("token write voided — disconnected while it was landing")
                 await TokenStore.delete(Self.tokenAccount)
@@ -696,8 +625,8 @@ final class SpotifyWeb {
     // MARK: Helpers
 
     /// `spotify:track:ID` and bare IDs both arrive here; the API wants the bare
-    /// one. Anything else — a synthesised title/artist key from a player with no
-    /// id — is refused rather than sent.
+    /// one. Anything else, such as a synthesised title/artist key from a player
+    /// with no id, is refused rather than sent.
     static func bareID(_ identity: String) -> String? {
         let prefix = "spotify:track:"
         if identity.hasPrefix(prefix) { return String(identity.dropFirst(prefix.count)) }
@@ -722,7 +651,7 @@ final class SpotifyWeb {
 }
 
 private extension Data {
-    /// base64url, unpadded — what RFC 7636 asks for.
+    /// base64url, unpadded, as RFC 7636 requires.
     var base64URL: String {
         base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
@@ -734,24 +663,19 @@ private extension Data {
 // MARK: - The loopback listener
 
 /// Waits for the browser to hit the redirect, pulls `code` out of the query,
-/// and answers with a page that tells the truth about what happened.
+/// and answers with a page that reports what happened.
 ///
-/// A plain BSD socket rather than `NWListener`. Network.framework refused this
-/// port with `POSIXErrorCode 22: Invalid argument` and, without a state handler,
-/// did so silently — the flow simply hung with nothing in the log. For a
-/// loopback accept there is nothing the framework buys that is worth that.
+/// A plain BSD socket rather than `NWListener`: Network.framework refused this
+/// port with `POSIXErrorCode 22` and, without a state handler, did so silently.
 ///
-/// Three rules earned the hard way:
-/// - A DEADLINE, because the wait used to be a bare `accept()` with none: an
-///   abandoned consent tab parked the thread forever, held the port in LISTEN
-///   for the rest of the session, and every retry died on EADDRINUSE before
-///   the browser even opened.
-/// - A LOOP with a `state` check, because the first connection on a loopback
-///   port is not necessarily the browser — a stray localhost fetch from any
-///   web page, a port scanner, a speculative browser socket. Anything that is
-///   not this flow's redirect gets a 404 and the wait continues.
-/// - The reply is chosen AFTER parsing, because the page used to say
-///   "Connected." to a declined consent.
+/// - The wait has a deadline. A bare `accept()` would let an abandoned consent
+///   tab park the thread and hold the port for the session.
+/// - The wait loops with a `state` check, since the first connection on a
+///   loopback port may not be the browser (a stray localhost fetch from a web
+///   page, a scanner). Anything that is not this flow's redirect gets a 404 and
+///   the wait continues.
+/// - The reply is chosen after parsing, so a declined consent is not reported as
+///   "Connected."
 private final class LoopbackCallback: @unchecked Sendable {
     let port: UInt16
     private let fd: Int32
@@ -764,8 +688,8 @@ private final class LoopbackCallback: @unchecked Sendable {
                 NSLocalizedDescriptionKey: "port \(wanted): \(why)",
             ])
         }
-        // A local until both members are set — Swift will not let a closure see
-        // a partially initialised self.
+        // A local until both members are set; Swift will not let a closure see a
+        // partially initialised self.
         let sock = socket(AF_INET, SOCK_STREAM, 0)
         guard sock >= 0 else { throw fail("socket() failed") }
         var yes: Int32 = 1
@@ -784,18 +708,17 @@ private final class LoopbackCallback: @unchecked Sendable {
         }
         guard bound == 0 else { close(sock); throw fail("bind: \(String(cString: strerror(errno)))") }
         guard listen(sock, 4) == 0 else { close(sock); throw fail("listen failed") }
-        // Non-blocking, so the wait below can poll against a deadline instead
-        // of parking a thread in accept() with no way home.
+        // Non-blocking, so the wait can poll against a deadline instead of
+        // parking a thread in accept().
         let flags = fcntl(sock, F_GETFL, 0)
         _ = fcntl(sock, F_SETFL, flags | O_NONBLOCK)
         fd = sock
         port = wanted
     }
 
-    /// Ends the wait from outside — a new connect superseding this one, or a
-    /// disconnect mid-consent. The worker notices within one poll tick and
-    /// closes the socket ITSELF: closing an fd out from under a thread still
-    /// polling it invites the number being reused for something else.
+    /// Ends the wait from outside (a newer connect, or a disconnect). The worker
+    /// notices within one poll tick and closes the socket itself, since closing
+    /// an fd under a thread still polling it invites the number being reused.
     func cancel() {
         lock.lock(); cancelled = true; lock.unlock()
     }
@@ -805,9 +728,9 @@ private final class LoopbackCallback: @unchecked Sendable {
         return cancelled
     }
 
-    /// How long the user gets to finish the consent page. Spotify's own
-    /// authorization codes die well within this; past it the flow is dead
-    /// anyway and holding the port only wedges the retry.
+    /// How long the user gets to finish the consent page. Spotify's authorization
+    /// codes expire well within this; past it the flow is dead and holding the
+    /// port only wedges the retry.
     private static let consentWindow: TimeInterval = 300
 
     func waitForCode(state: String) async throws -> String {
@@ -859,7 +782,7 @@ private final class LoopbackCallback: @unchecked Sendable {
                     case .stray:
                         Self.reply(client, status: "404 Not Found", body: "Nothing here.")
                         close(client)
-                        // Not the browser. Keep waiting for it.
+                        // Not the browser; keep waiting for it.
                     }
                 }
             }
@@ -873,7 +796,7 @@ private final class LoopbackCallback: @unchecked Sendable {
         case declined
         /// The redirect, state verified, but nothing usable in it.
         case failed
-        /// Anything else — not this flow's redirect.
+        /// Anything else: not this flow's redirect.
         case stray
     }
 
@@ -895,18 +818,17 @@ private final class LoopbackCallback: @unchecked Sendable {
         return denied ? .declined : .failed
     }
 
-    /// One read() can return before the request line has arrived; loop until
-    /// the header terminator or a small cap. Bounded blocking — the accepted
-    /// fd inherits non-blocking from the listener on BSD, and a slow browser
-    /// still deserves to be parsed.
+    /// Reads the request, looping until the header terminator or a small cap,
+    /// since one read() can return before the request line has arrived. The
+    /// accepted fd inherits non-blocking from the listener on BSD, so it is
+    /// switched back to blocking with timeouts.
     ///
-    /// Any local process can connect while the consent window is open, so this
-    /// is a trust boundary. Two guards: a peer that resets the connection makes
-    /// the reply's write() raise SIGPIPE, whose default action kills the whole
-    /// app — SO_NOSIGPIPE turns that into an EPIPE the reply ignores; and a
-    /// peer that trickles a byte every second or two would reset a per-read
-    /// timeout forever, holding the only worker past the consent deadline, so
-    /// the whole read gets one absolute deadline too.
+    /// Any local process can connect while the consent window is open, so this is
+    /// a trust boundary. A peer that resets the connection would make the reply's
+    /// write() raise SIGPIPE, whose default action kills the app, so SO_NOSIGPIPE
+    /// turns it into an ignored EPIPE. A peer trickling a byte every second or
+    /// two would reset a per-read timeout indefinitely, so the whole read also
+    /// gets one absolute deadline.
     private static func readRequest(_ client: Int32) -> String {
         let flags = fcntl(client, F_GETFL, 0)
         _ = fcntl(client, F_SETFL, flags & ~O_NONBLOCK)
@@ -947,40 +869,33 @@ private final class LoopbackCallback: @unchecked Sendable {
 
 /// Where the refresh token lives, and why it is not the Keychain.
 ///
-/// It was, and the Keychain is the right home for a credential — but a keychain
-/// item is bound to the exact executable that wrote it, and this app is ad-hoc
-/// signed, so every rebuild is a different executable. macOS then asks for
-/// permission on the next launch, in a dialog that opens behind whatever window
-/// is in front, and until someone finds and answers it the Spotify half of the
-/// panel is simply dark. Signing with a stable identity would fix that; this Mac
-/// has no code-signing identity to sign with. An access policy naming no
-/// application was tried too, and denies rather than opens.
+/// A keychain item is bound to the exact executable that wrote it. This app is
+/// ad-hoc signed, so every rebuild is a different executable and macOS prompts
+/// on the next launch, in a dialog that can open behind other windows, leaving
+/// the Spotify half of the panel dark until someone answers it. A stable signing
+/// identity would fix that, but none is available; an access policy naming no
+/// application was tried and denies rather than opens.
 ///
-/// So: a file, owner-read-only, in this app's own Application Support directory.
-/// What it protects is a refresh token scoped to one person's own saved songs
-/// and playback. On a FileVault volume it is encrypted at rest like everything
-/// else; the difference from a keychain item is that another process running as
-/// the same user could read it — and such a process could equally read this
-/// app's binary, its defaults, and the rest of the home directory.
+/// So the token is a file, owner-read-only, in the app's own Application Support
+/// directory. It is a refresh token scoped to one person's saved songs and
+/// playback. On FileVault it is encrypted at rest like everything else; unlike a
+/// keychain item another process running as the same user could read it, but
+/// such a process could equally read this app's binary, its defaults and the
+/// rest of the home directory.
 ///
-/// If this app is ever signed with a stable identity, the Keychain becomes the
-/// better home again and this should go back.
+/// If the app is ever signed with a stable identity, the Keychain becomes the
+/// better home again.
 enum TokenStore {
 
     private static var directory: URL {
         URL.applicationSupportDirectory.appending(path: "Magnetite", directoryHint: .isDirectory)
     }
 
-    /// Where the token lived under earlier names, newest first.
-    ///
-    /// Deliberately still spelled the old way: a migration path has to name the
-    /// old thing to find it. Nothing else in the app may use these strings.
-    ///
-    /// Two of them now. The directory was `NotchApp`, then `Ferro`, and the
-    /// token only ever exists in one place — whichever build last wrote it — so
-    /// both have to be tried or a user who skipped a release is silently signed
-    /// out of their library, with a heart that stopped working as the only
-    /// symptom.
+    /// Where the token lived under earlier names, newest first. They are still
+    /// spelled the old way because a migration has to name the old thing to find
+    /// it; nothing else in the app may use these strings. The token exists in
+    /// only one place (whichever build last wrote it), so both are tried, or a
+    /// user who skipped a release would be signed out of their library.
     private static let legacyNames = ["Ferro", "NotchApp"]
 
     private static func legacyDirectory(_ name: String) -> URL {
@@ -991,8 +906,8 @@ enum TokenStore {
         directory.appending(path: account, directoryHint: .notDirectory)
     }
 
-    // Off the main thread. File reads are quick, but this is a credential store
-    // on a shared main actor and the launch path has been frozen by one once.
+    // Off the main thread: this is a credential store on a shared main actor,
+    // and a blocking read has frozen the launch path before.
     static func read(_ account: String) async -> String? {
         await off { readNow(account) }
     }
@@ -1001,12 +916,10 @@ enum TokenStore {
         await off { writeNow(value, account: account) }
     }
 
-    /// Deletion covers everything `read` consults, or Disconnect can be
-    /// silently undone: `readNow` falls back to the legacy directories, and a
-    /// legacy file that survived its migration — a full disk mid-copy, a
-    /// swallowed removeItem — would be re-adopted on the next launch, written
-    /// forward, and reported as connected: the app re-signing in to the
-    /// account the user asked to be rid of.
+    /// Deletion covers everything `read` consults. `readNow` falls back to the
+    /// legacy directories, so a legacy file that survived its migration (a full
+    /// disk mid-copy, a swallowed removeItem) would be re-adopted on the next
+    /// launch and silently undo a Disconnect.
     static func delete(_ account: String) async {
         await off {
             let fm = FileManager.default
@@ -1034,19 +947,15 @@ enum TokenStore {
         return token.isEmpty ? nil : token
     }
 
-    /// A token written under the old directory name is still the user's token.
+    /// A token written under an old directory name is still the user's token.
+    /// Reads it once, writes it forward, removes the original, and removes the
+    /// old directory when nothing is left in it.
     ///
-    /// Without this, renaming the app silently signs everyone out of their
-    /// library and the only symptom is a heart that stopped working. Reads it
-    /// once, writes it forward, and removes the original so this never runs
-    /// twice — and takes the old directory with it when nothing is left in it.
-    ///
-    /// The original is removed only once the forward copy has been read back
-    /// and found to match. `writeNow` reports failure to stderr and returns
-    /// normally, so trusting it would turn a full disk or a bad permission into
-    /// a deleted credential; on any doubt the old file stays and the token
-    /// still works from where it is. Returning the token either way means the
-    /// session continues even when the migration could not.
+    /// The original is removed only after the forward copy has been read back
+    /// and matches. `writeNow` reports failure to stderr and returns normally, so
+    /// trusting it would turn a full disk into a deleted credential. On any doubt
+    /// the old file stays, and the token is returned either way so the session
+    /// continues.
     private static func adoptLegacyToken(_ account: String) -> String? {
         for name in legacyNames {
             let directory = legacyDirectory(name)
@@ -1078,8 +987,8 @@ enum TokenStore {
             // An existing directory keeps whatever mode it was made with.
             try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
             let url = file(account)
-            // Born 0600, then swapped in: writing first and chmodding after left
-            // the new token world-readable for the moment in between.
+            // Created 0600 and then swapped in; writing first and chmodding
+            // after would leave the token world-readable in between.
             let staging = directory.appendingPathComponent(".\(account).\(UUID().uuidString)")
             guard fm.createFile(atPath: staging.path, contents: Data(value.utf8),
                                 attributes: [.posixPermissions: 0o600]) else {
@@ -1097,10 +1006,9 @@ enum TokenStore {
         }
     }
 
-    /// Removes the credential the earlier builds left in the login keychain.
-    ///
+    /// Removes the credential earlier builds left in the login keychain.
     /// Deleting does not need the item's contents, so it does not raise the
-    /// access dialog that reading it would.
+    /// access dialog that reading would.
     static func discardLegacyKeychainItem() async {
         await off {
             _ = SecItemDelete([

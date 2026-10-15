@@ -23,14 +23,13 @@ enum PlayerState {
     /// Music only: select this track in the app's own window. Spotify has no
     /// equivalent — it is addressed by URL instead.
     @objc optional func reveal()
-    // `duration` is deliberately absent: Spotify returns Int milliseconds and
-    // Music returns Double seconds under the same selector, which no single
-    // declaration can express. It's read through KVC and normalised per source.
-    // `id` is absent for the same reason: Spotify's is its `spotify:track:` URI
-    // and Music's an integer, which a `String` declaration retained as an object
-    // pointer — 0.1.1 crashed on the first Music track it read. See
-    // `MediaBridge.trackKey`; tools/bridgecheck.py holds every member here to
-    // both dictionaries.
+    // `duration` is absent: Spotify returns Int milliseconds and Music Double
+    // seconds under one selector, which no single declaration can express. It is
+    // read through KVC and normalised per source.
+    // `id` is absent because Spotify's is a `spotify:track:` URI and Music's an
+    // integer; a `String` declaration would retain the integer as an object
+    // pointer. See `MediaBridge.trackKey`. tools/bridgecheck.py checks every
+    // member here against both apps' scripting dictionaries.
 }
 
 @objc protocol MediaArtwork {
@@ -49,7 +48,6 @@ enum PlayerState {
     @objc optional func backTrack()       // Music
 }
 
-// Declaring these conformances is what makes `as?` succeed. Without them the
-// cast silently returns nil and the whole media pipeline goes dark.
+// The conformances make `as?` succeed; without them the cast returns nil.
 extension SBApplication: MediaPlayerApp {}
 extension SBObject: MediaTrack, MediaArtwork {}

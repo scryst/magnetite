@@ -1,15 +1,11 @@
 import Foundation
 
-/// Headless checks on the media surface — the reconciliation between what the
-/// user just pressed and what the player says a moment later.
+/// Headless checks on the media surface: the reconciliation between what the
+/// user just pressed and what the player reports a moment later.
 ///
-/// Every manager here takes an INERT bridge. The toggles dispatch real commands,
-/// so with Music running and a track loaded this suite would otherwise have sent
-/// a live Apple Event and favourited whatever was playing.
-///
-/// None of this had coverage. It is the same shape of state logic that produced
-/// the settled-gate bug: cheap to get subtly wrong, invisible until it is wrong
-/// in front of someone.
+/// Every manager here takes an inert bridge. The toggles dispatch real commands,
+/// so a live Music session would otherwise receive Apple Events and have its
+/// current track favourited.
 @main
 @MainActor
 enum MediaCheck {
@@ -33,6 +29,9 @@ enum MediaCheck {
         print("mediacheck: all checks passed")
     }
 
+    /// Credits are split only on unambiguous separators, and every artist link
+    /// resolves to a safe destination: an exact catalog ID, an encoded search, or
+    /// an https music.apple.com page.
     static func artistCreditsKeepNamesAndSafeDestinations() {
         let names = ArtistCredit.fallback("A, B & C", source: .music)
         require(names.map(\.name) == ["A", "B", "C"] && ArtistCredit.line(names) == "A, B & C",
@@ -81,11 +80,9 @@ enum MediaCheck {
                 "catalog result opened an untrusted host")
     }
 
-    /// Pausing the player on screen does not hand the panel to another one.
-    ///
-    /// Spotify is asked first, so with both paused the first answer used to
-    /// win: pause Music while a paused Spotify sat behind it and the panel
-    /// jumped to Spotify's track.
+    /// Pausing the player on screen must not hand the panel to another player.
+    /// Spotify is asked first, so with both paused the first answer would
+    /// otherwise win.
     static func aPauseKeepsThePlayerOnScreen() {
         var spotify = snapshot(.spotify); spotify.isPlaying = false
         var music = snapshot(.music, identity: "music:1"); music.isPlaying = false
@@ -99,10 +96,8 @@ enum MediaCheck {
                 "the only player that answered was not shown")
     }
 
-    /// A short item keeps the track on screen, but not as playing.
-    ///
-    /// Held as playing, the track's line ran to its end and stayed there for as
-    /// long as the short item stayed current in the player.
+    /// A short item keeps the track on screen but not as playing; held as
+    /// playing, its progress line would run to the end and stay there.
     static func aShortItemDoesNotFreezeThePanel() {
         let m = MediaManager(bridge: MediaBridge(inert: true))
         m.apply(snapshot())
@@ -117,13 +112,10 @@ enum MediaCheck {
                 "the held track's line kept running: \(held)s became \(m.smoothPosition)s")
     }
 
-    /// A resume starts from where it paused, not from when.
-    ///
-    /// The interpolation clock was anchored at the last position CHANGE, and a
-    /// pause changes nothing — so pressing play after a pause elapsed the whole
-    /// pause at once. Clamped to the track's end, the progress line ran all the
-    /// way round the panel's edge and snapped back on the next poll. Both doors
-    /// in: the press here, and a resume made in the player itself.
+    /// A resume starts from the paused position, not from the time of the pause.
+    /// The interpolation clock is anchored at the last position change, which a
+    /// pause does not update, so the pause would otherwise be elapsed at once.
+    /// Covers both entry points: the press and a resume made in the player.
     static func aResumeStartsFromWhereItPaused() {
         for door in ["a press", "the player"] {
             let m = MediaManager(bridge: MediaBridge(inert: true))
@@ -161,10 +153,9 @@ enum MediaCheck {
         return s
     }
 
-    /// The arrival beat is observed from the track token, which carries no
-    /// direction — so the direction is recorded at the press and consumed when
-    /// the new track lands. It must expire, and it must be taken exactly once, or
-    /// a later organic advance inherits a lean it did not earn.
+    /// The skip direction is recorded at the press and consumed when the new
+    /// track lands. It must expire and be taken exactly once, or a later organic
+    /// advance would inherit a lean it did not earn.
     static func aSkipRemembersItsDirectionBriefly() {
         let m = MediaManager(bridge: MediaBridge(inert: true))
         m.apply(snapshot())
@@ -184,9 +175,9 @@ enum MediaCheck {
                 "an expired direction was left behind to be picked up later")
     }
 
-    /// Optimistic holds. The glyph must light under the finger and the poll must
-    /// not argue with it — but the hold has to end, or one press would pin the
-    /// interface out of step with the player for the rest of the session.
+    /// Optimistic holds: a glyph lights under the finger and a stale poll must
+    /// not undo it, but the hold must end, or one press would leave the interface
+    /// out of step with the player for the session.
     static func aPressHoldsUntilThePlayerAgrees() {
         let m = MediaManager(bridge: MediaBridge(inert: true))
         m.apply(snapshot(.music, liked: false, shuffling: false, repeating: false))
@@ -209,13 +200,10 @@ enum MediaCheck {
         require(m.shuffling == true && m.repeating == true,
                 "one mode's hold cancelled the other's (\(m.shuffling!), \(m.repeating!))")
 
-        // A track change ends every hold: the values belong to the old track.
-        //
-        // On its own manager, and with nothing applied in between. Folded into
-        // the sequence above, an intervening poll that happens to AGREE with the
-        // press releases the hold naturally, and the check passes whether or not
-        // a track change would have released it — which is exactly how this
-        // assertion was vacuous when first written.
+        // A track change ends every hold, since the values belong to the old
+        // track. This uses a fresh manager with nothing applied in between: an
+        // intervening poll that agreed with the press would release the hold and
+        // let the assertion pass either way.
         let fresh = MediaManager(bridge: MediaBridge(inert: true))
         fresh.apply(snapshot(.music, liked: false))
         fresh.toggleLike()
@@ -225,16 +213,13 @@ enum MediaCheck {
                 "the hold survived a track change and lied about the new one")
     }
 
-    /// `nil` means the player did not answer, and the control is not drawn. It
-    /// must never collapse into `false`, which would render a live-looking
-    /// control that does nothing — Spotify cannot report or set `starred` at all.
+    /// `nil` means the player did not answer and the control is not drawn; it
+    /// must never collapse into `false`, which would draw a live-looking control
+    /// that does nothing. Spotify cannot report or set `starred` at all.
     ///
-    /// For Spotify a mode the BRIDGE answers is still not a mode the bridge can
-    /// set: `shuffling` and `repeating` are declared settable in its dictionary
-    /// and the write is silently dropped. So its modes come from the Web API and
-    /// a bridge answer is deliberately ignored — showing it would be exactly the
-    /// live-looking control that does nothing. Apple Music takes the write, so
-    /// there its answer is the one that counts.
+    /// Spotify's modes come from the Web API and a bridge answer is ignored,
+    /// because the bridge accepts those writes and silently drops them. Music
+    /// takes the write, so there its answer counts.
     static func anUnansweredControlIsNotShown() {
         let m = MediaManager(bridge: MediaBridge(inert: true))
         m.apply(snapshot(.spotify, liked: nil, shuffling: true, repeating: false))
@@ -251,37 +236,29 @@ enum MediaCheck {
         m.toggleLike()
         require(m.liked == nil, "toggling an unanswerable control invented a state")
 
-        // Losing the track clears everything, rather than stranding the last
-        // track's modes on an empty panel.
-        //
-        // Asserted on the Apple Music manager, because it is the only one here
-        // with anything to lose. This ran on `m` — Spotify, whose modes come
-        // from `webModes` and are already nil with no connection — so all three
-        // comparisons were nil against nil and the assertion could not fail
-        // however the clears were broken.
+        // Losing the track clears everything. Asserted on the Music manager,
+        // the only one here with state to lose; Spotify's modes are already nil
+        // without a connection, so the comparison could not fail.
         music.apply(nil)
         require(music.liked == nil && music.shuffling == nil && music.repeating == nil,
                 "modes outlived the track")
     }
 
-    /// Pausing Spotify makes `/me/player` answer 204, which arrives here as "no
-    /// modes" rather than "shuffle is off". Wiping them on that took both toggles
-    /// off the panel every time the music stopped.
+    /// Pausing Spotify makes `/me/player` answer 204, which arrives as "no
+    /// modes", not "shuffle is off"; the toggles must keep their last state
+    /// rather than vanish whenever the music stops.
     ///
-    /// Tested through the pure decision rather than through `askPlayback`, which
-    /// bails on `isConnected` and can never reach this headlessly — an assertion
-    /// there would pass no matter what the rule said.
+    /// Tested through the pure rule: `askPlayback` bails on `isConnected` and
+    /// cannot be reached headlessly.
     static func aPauseDoesNotTakeTheTogglesAway() {
         let playing = SpotifyWeb.Playback(shuffling: true, repeating: true,
                                           canShuffle: true, canRepeat: true)
-        // The 204. The values survive so the glyphs stay put...
+        // The 204: the values survive so the glyphs stay put...
         let paused = SpotifyWeb.modes(from: nil, keeping: playing)
         require(paused?.shuffling == true && paused?.repeating == true,
                 "a pause reset the toggles instead of holding the last answer")
-        // ...and both writes are marked refused. `apply` recomputes the blocked
-        // flags from these on every poll, so carrying `canShuffle: true` through
-        // would leave a bright button whose write is about to fail — which is the
-        // live-looking-control rule this file already enforces next door.
+        // ...and both writes are marked refused, since `apply` recomputes the
+        // blocked flags from these on every poll.
         require(paused?.canShuffle == false && paused?.canRepeat == false,
                 "a kept answer still claimed the toggles were writable")
 
@@ -292,30 +269,19 @@ enum MediaCheck {
         require(fresh?.shuffling == false && fresh?.canShuffle == true,
                 "a live answer was overruled by the one before it")
 
-        // Nothing to keep is still nothing — launching while paused shows no
-        // toggles rather than inventing a state for them.
+        // Nothing to keep stays nothing: launching while paused shows no toggles.
         require(SpotifyWeb.modes(from: nil, keeping: nil) == nil,
                 "modes were conjured from no answer at all")
     }
 
-    /// A pause is a reason to ask again what the toggles can still do.
+    /// A pause or resume is a reason to ask again what the toggles can do.
+    /// Spotify restricts shuffle and repeat while playback is stopped, so the
+    /// capabilities move without a track change; without a re-ask the cached
+    /// answer would leave a bright button whose write is refused, or a dimmed
+    /// one on a player that would now accept it. The rule must also not ask on
+    /// every poll, since the endpoint is rate limited.
     ///
-    /// `aPauseDoesNotTakeTheTogglesAway` proves the app handles the 204
-    /// correctly once it has one. This is the half before that: whether anything
-    /// goes and gets it. Spotify restricts shuffle and repeat while playback is
-    /// stopped and drops the desktop app off Connect entirely, so a pause moves
-    /// what the buttons can do without moving the track — and nothing re-asked
-    /// on that transition. The identity gate sees no track change, and
-    /// `beginPolling`'s ask sits below a guard that returns early while the
-    /// panel's token is already in the set, which it always is while the panel
-    /// is open. So `apply` went on recomputing `shuffleBlocked` from the cached
-    /// answer once a second for the rest of the track, in both directions: a
-    /// bright button whose write Spotify refuses, and a dimmed one on a player
-    /// that would now take it.
-    ///
-    /// Through the pure decision for the same reason as the check above:
-    /// `askPlayback` bails on `isConnected` and cannot run headlessly, so an
-    /// assertion there would pass whatever the rule said.
+    /// Tested through the pure rule for the same reason as the check above.
     static func aPauseAsksWhatTheTogglesCanStillDo() {
         // The transition that was missed, in both directions.
         require(MediaManager.shouldAskPlayback(source: .spotify, connected: true,
@@ -329,8 +295,8 @@ enum MediaCheck {
                                                playing: true, askedPlaying: nil),
                 "the first poll of a track never asked at all")
 
-        // The half that pulls the other way. `apply` runs once a second against
-        // a rate-limited endpoint, so "ask more often" is not a free fix.
+        // The opposing half: `apply` runs once a second against a rate-limited
+        // endpoint, so asking more often is not free.
         require(!MediaManager.shouldAskPlayback(source: .spotify, connected: true,
                                                 playing: true, askedPlaying: true),
                 "a poll where nothing moved asked again anyway, once a second")
@@ -342,8 +308,9 @@ enum MediaCheck {
                 "Apple Music was asked the Spotify Web API about its own toggles")
     }
 
-    /// `identity` falls back to a synthesised title/artist key when a player
-    /// gives no id. Handing that to a URL would produce a nonsense link.
+    /// Only a real `spotify:track:` identity is shareable. `identity` falls back
+    /// to a synthesised title/artist key when a player gives no id, which would
+    /// produce a nonsense link.
     static func onlyARealTrackURLIsShareable() {
         let m = MediaManager(bridge: MediaBridge(inert: true))
         m.apply(snapshot(identity: "spotify:track:2lLzW4bflris4pkw67edvg"))
@@ -355,29 +322,15 @@ enum MediaCheck {
         require(m.shareURL == nil, "a synthesised identity was offered as a link")
     }
 
-    /// A player that takes the event and never answers costs one read, not the
-    /// app.
+    /// A player that takes an event and never answers costs one read, not the
+    /// app. Two things must hold: the read is answered off the blocked thread
+    /// within the deadline, and the next read is free of it, which requires the
+    /// wedged lane to be retired because the queue is serial.
     ///
-    /// This is the failure as it was found, not one imagined for a test: an
-    /// instance with `magnetite.media.read` pinned inside `AESendMessage` under
-    /// `playerState`, identically across two `sample` runs, more than an hour
-    /// after launch and with the connection's own timeout set. Nothing rendered
-    /// for that whole hour.
-    ///
-    /// Two independent things have to hold, and only the first is about the
-    /// deadline. The read has to come back at all — it is answered off the
-    /// blocked thread, so it can. And the *next* read has to be free of it: the
-    /// queue is serial, so unless the wedged lane is retired, every later read
-    /// simply waits behind the first one for as long as it lasts.
-    ///
-    /// What the stub does NOT reach, in this check or the three below: it
-    /// short-circuits `readSync`, so `readApp`/`snapshot` and the per-lane
-    /// ScriptingBridge connections never run. These prove the lane accounting.
-    /// They would stay green if the connections were moved back off the lane
-    /// onto the bridge — which is a crash, not merely staleness, since the
-    /// parked thread and the fresh lane's thread would then be mutating one
-    /// dictionary from two queues. Covering that needs a seam below the
-    /// connection, stubbing `connect` rather than the whole read.
+    /// The stub short-circuits `readSync`, so this exercises lane accounting
+    /// only. It would stay green if the per-lane ScriptingBridge connections
+    /// moved back onto the bridge, which would crash by mutating one dictionary
+    /// from two queues; covering that needs a seam below the connection.
     static func aWedgedReadDoesNotOwnTheNextOne() {
         let wedge = DispatchSemaphore(value: 0)
         let calls = Calls()
@@ -399,14 +352,10 @@ enum MediaCheck {
             require(false, "a player that never answered was reported as something else")
             return
         }
-        // Measured against the bridge's own constant, so this cannot quietly
-        // start passing because the deadline was changed underneath it.
-        //
-        // Bounded from ABOVE as well, which it was not: with only a floor, a
-        // watchdog that had stopped firing at all still passed this line, since
-        // the harness's own 10s give-up answers late rather than never. The
-        // upper slack is generous because a loaded machine can delay a timer
-        // queue, not because 1.5s is approximate.
+        // Measured against the bridge's own constant, and bounded above as well
+        // as below: a watchdog that never fires would otherwise pass via the
+        // harness's own 10 s give-up. The upper slack allows for a loaded
+        // machine delaying a timer queue.
         require(firstTook >= MediaBridge.readDeadline - 0.1
                 && firstTook <= MediaBridge.readDeadline + 1.0,
                 "the read gave up after \(fmt(firstTook))s, not near the "
@@ -422,13 +371,8 @@ enum MediaCheck {
                 "the next read spent \(fmt(secondTook))s waiting behind the wedged one")
     }
 
-    /// A wedged Spotify must not hide a perfectly healthy Music.
-    ///
-    /// This is the half of the original outage that the first fix did not
-    /// address: retiring the lane freed the *next* read, but one lane still
-    /// served both players, so the next read was only free once the retirement
-    /// had cost a deadline. Each player polls its own lane now, so the healthy
-    /// one is never behind the stalled one at all.
+    /// A wedged Spotify must not delay a healthy Music. Each player polls its
+    /// own lane, so the healthy one is never behind the stalled one.
     static func aWedgedPlayerDoesNotHideTheOtherOne() {
         let wedge = DispatchSemaphore(value: 0)
         let bridge = MediaBridge(inert: true, stubbedRead: { source in
@@ -436,11 +380,10 @@ enum MediaCheck {
             return .idle
         })
 
-        // Spotify's read is left IN FLIGHT — not waited out first. Waiting for
-        // it proves nothing: its deadline retires the lane on the way out, so
-        // even a single shared lane is clear again by the time the next read is
-        // asked for, and this check passed against exactly the design it was
-        // written to reject. Music has to ask while Spotify is still stuck.
+        // Spotify's read is left in flight rather than waited out. Waiting would
+        // let its deadline retire the lane, so even a single shared lane would
+        // be clear by the time Music asks, and the check would pass against the
+        // design it rejects.
         Task.detached { _ = await bridge.read(for: .spotify) }
         usleep(200_000)
 
@@ -450,25 +393,21 @@ enum MediaCheck {
             require(false, "a wedged Spotify swallowed Music's read entirely")
             return
         }
-        // Not "eventually": immediately. A Music read that waited out Spotify's
-        // deadline would still arrive, and the panel would still be a second and
-        // a half behind the music on every poll.
+        // Immediately, not eventually: a Music read that waited out Spotify's
+        // deadline would still arrive but leave the panel behind on every poll.
         require(took < 0.5,
                 "a wedged Spotify held Music's read up for \(fmt(took))s")
     }
 
-    /// A player that comes back is owed its seats back.
-    ///
-    /// Two failures live here, both of which shipped. Once every seat is taken
-    /// the lane is kept and marked, and reads after that must be REFUSED rather
-    /// than queued onto it — a block per poll behind a thread that will never
-    /// run any of them is a slow leak dressed as patience. And when the player
-    /// finally answers, the parked threads have to hand their seats back, or the
-    /// bridge stays permanently out of budget and the next stall is unsurvivable.
+    /// A player that comes back is owed its seats back. Once the budget is
+    /// spent the lane is marked blocked and further reads must be refused rather
+    /// than queued (a block per poll behind a thread that never runs is a slow
+    /// leak); and when the player answers again, parked threads must refund
+    /// their seats or the next stall is unsurvivable.
     static func aRecoveredPlayerGetsItsBudgetBack() {
-        // A gate rather than a semaphore, because this one has to close again:
-        // a semaphore signalled once per parked thread keeps the surplus, and
-        // phase 4's read walked straight through it.
+        // A resettable flag rather than a semaphore: a semaphore signalled once
+        // per parked thread keeps the surplus, and phase 4's read would walk
+        // straight through it.
         let answering = Flag()
         let bridge = MediaBridge(inert: true, stubbedRead: { _ in
             while !answering.isSet { usleep(20_000) }
@@ -506,12 +445,9 @@ enum MediaCheck {
                 + "\(fmt(refusedTook))s — one more block behind a thread that "
                 + "is never coming back, once per poll")
 
-        // Phase 3: the player answers. Every parked thread returns its seat.
-        //
-        // Bounded waits rather than one immediate read: the parked threads wake
-        // on their own schedule, so recovery is observable from the poll after
-        // they do, not from the same instant the player starts answering. The
-        // app polls at 1Hz and would see it on the next tick.
+        // Phase 3: the player answers and every parked thread returns its seat.
+        // Bounded waits, since the threads wake on their own schedule; the app
+        // would see recovery on its next 1 Hz poll.
         answering.set()
         require(waitUntil(3.0) { bridge.parkedPollLanes(for: .spotify) == 0 },
                 "the recovered player's seats never came back: "
@@ -523,7 +459,7 @@ enum MediaCheck {
                 },
                 "reads never got through again after the player recovered")
 
-        // Phase 4: and the returned budget is real, not just a zeroed counter —
+        // Phase 4: the returned budget is spendable, not just a zeroed counter;
         // the next stall is retired out of it rather than refused.
         answering.clear()
         let (again, _) = read(bridge, giveUpAfter: 10)
@@ -537,27 +473,22 @@ enum MediaCheck {
                 + "budget was not actually spendable again")
     }
 
-    /// A parked thread hands back exactly one seat, and only into the budget it
-    /// took one from.
-    ///
-    /// Both halves are guards that survive every check above, because both only
-    /// bite when more than one thing is outstanding at once. A lane can hold
-    /// several blocks — reads issued before it was retired — and they all come
-    /// back when the player does; if each refunds, the budget inflates and the
-    /// cap stops bounding anything. And `invalidate` returns the whole budget
-    /// while threads are still parked in it, so a thread that wakes afterwards
-    /// is refunding a seat that has already been given back.
+    /// A parked thread refunds exactly one seat, and only into the budget it took
+    /// one from. A lane can hold several blocks that all return together, so
+    /// refunding per block would inflate the budget; and `invalidate` restores
+    /// the whole budget while threads are still parked, so a later wake must not
+    /// refund again.
     ///
     /// Gated on the queue label so one generation can be released while another
-    /// stays wedged, which is the only way to observe either.
+    /// stays wedged, the only way to observe either.
     static func aParkedThreadReturnsExactlyOneSeat() {
         let wedge = LaneWedge()
         let bridge = MediaBridge(inert: true, stubbedRead: { _ in
             wedge.hold(); return .idle
         })
 
-        // Two reads on one lane. Concurrent, so both are admitted before either
-        // deadline retires it — a lane with two blocks on it is the whole point.
+        // Two concurrent reads on one lane, so both are admitted before either
+        // deadline retires it.
         let both = DispatchGroup()
         for _ in 0..<2 {
             both.enter()
@@ -597,12 +528,11 @@ enum MediaCheck {
         require(bridge.parkedPollLanes(for: .spotify) == 1,
                 "the post-relaunch stall was not counted")
 
-        // Now wake the thread that was parked before the relaunch. Its seat was
-        // handed back by `invalidate` already; handing it back again would leave
-        // the budget claiming a free seat that is still occupied.
-        // Waited out rather than polled for: the assertion is that the count
-        // does NOT move, and a `waitUntil` on a condition that already holds
-        // returns before the thread it is about has even woken.
+        // Wake the thread parked before the relaunch. `invalidate` already
+        // returned its seat, so refunding again would leave the budget claiming
+        // a free seat that is still occupied. Waited out rather than polled for:
+        // the assertion is that the count does not move, and `waitUntil` on a
+        // condition that already holds would return before the thread wakes.
         wedge.free(generation: 1)
         settle(1.0)
         require(bridge.parkedPollLanes(for: .spotify) == 1,
@@ -613,16 +543,11 @@ enum MediaCheck {
     }
 
     /// A player that has stopped answering is not a player with nothing to play.
+    /// The panel holds its last frame until the stall note appears, using one
+    /// patience and one counter so the frame clears on the same poll the note
+    /// explaining it shows up.
     ///
-    /// The panel used to blank 1.5s into any stall, then replay its entrance
-    /// animation when the player came back — while the note explaining the stall
-    /// waited three polls before it would even name it. One patience, one
-    /// counter, so the frame clears on the same beat the note that explains it
-    /// appears.
-    ///
-    /// Tested through the pure rule rather than through `refresh()`, which needs
-    /// a running player to reach this at all — an assertion there would pass no
-    /// matter what the rule said.
+    /// Tested through the pure rule: `refresh()` needs a running player.
     static func aStalledPanelHoldsItsLastFrame() {
         let patience = MediaManager.stallPatience
         func holds(stalled: Bool = true, foundTrack: Bool = false,
@@ -641,12 +566,11 @@ enum MediaCheck {
         // Nothing to hold: this is the launch case, not a stall over a track.
         require(!holds(hasTrack: false, reads: 1),
                 "an empty panel held a frame it never had")
-        // The other player is playing. Holding here would be the wedged-Spotify-
-        // hides-a-healthy-Music failure again, one layer up from the lanes.
+        // The other player is playing; holding would let a stalled player hide
+        // a healthy one.
         require(!holds(foundTrack: true, reads: 1),
                 "a stall on one player swallowed the other player's track")
-        // A player that answers "no" has answered, and what it said is that
-        // there is nothing to show.
+        // A player that answers "no" has answered; there is nothing to show.
         require(!holds(stalled: false, reads: 1),
                 "a refused read was given the patience owed to a silent one")
     }
@@ -655,10 +579,8 @@ enum MediaCheck {
     /// changes.
     static func settle(_ seconds: Double) { usleep(useconds_t(seconds * 1_000_000)) }
 
-    /// Spins until the condition holds or the budget runs out.
-    ///
-    /// The refund happens on each parked thread's own queue, so it is ordered
-    /// after the read that proved recovery, not before it.
+    /// Spins until the condition holds or the budget runs out. Refunds happen on
+    /// each parked thread's own queue, after the read that proved recovery.
     static func waitUntil(_ seconds: Double, _ ok: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
@@ -668,11 +590,8 @@ enum MediaCheck {
         return ok()
     }
 
-    /// Drives one async read from a synchronous check.
-    ///
-    /// `giveUpAfter` is not belt-and-braces: without it, a build whose watchdog
-    /// had been removed would hang this suite instead of failing it, and a suite
-    /// that hangs reports nothing at all.
+    /// Drives one async read from a synchronous check. `giveUpAfter` keeps a
+    /// build with no watchdog from hanging the suite instead of failing it.
     static func read(_ bridge: MediaBridge, _ source: MusicSource = .spotify,
                      giveUpAfter seconds: Double) -> (MediaBridge.Read?, Double) {
         let done = DispatchSemaphore(value: 0)
@@ -688,28 +607,21 @@ enum MediaCheck {
 
     static func fmt(_ v: Double) -> String { String(format: "%.2f", v) }
 
-    /// A cover that was promised and did not download is asked for again, a
-    /// bounded number of times.
+    /// A cover that was promised and failed to download is asked for again a
+    /// bounded number of times. The fetch cannot be driven here, but its bound
+    /// can: never retrying leaves a placeholder on a track that has a cover, and
+    /// retrying forever turns a 404 into a request loop.
     ///
-    /// The fetch is a network round trip and nothing here can drive it. The
-    /// bound is the checkable half, and it is the half with two wrong answers
-    /// available: never ask again and one dropped packet leaves a placeholder
-    /// and a neutral colour field on a track that has a cover, for as long as it
-    /// plays; ask forever and a 404 becomes a request loop that outlives the
-    /// album.
-    ///
-    /// The delays themselves are a judgement and are not asserted here — that
-    /// would only be the constants restated. What is asserted is every way the
-    /// sequence could be shaped wrong.
+    /// The delay values are a judgement and are not asserted; the check covers
+    /// every way the sequence could be shaped wrong.
     static func aPromisedCoverIsAskedForAgain() {
         require(MediaManager.artworkRetryDelay(attempt: 1) != nil,
                 "a cover that failed to download was never asked for again, so a "
                 + "single dropped request costs the track its artwork and its "
                 + "whole colour field")
 
-        // Bounded. Walk far past any plausible count rather than probing the
-        // one attempt the rule happens to stop at, which would pass against a
-        // rule that stops somewhere else and never.
+        // Bounded. Walk far past any plausible count rather than probing the one
+        // attempt the rule happens to stop at.
         let attempts = 1...64
         guard let last = attempts.last(where: { MediaManager.artworkRetryDelay(attempt: $0) != nil })
         else {
@@ -719,15 +631,13 @@ enum MediaCheck {
         require(last < 64, "the retry never gives up, so a cover that does not "
                 + "exist is requested for as long as the track plays")
 
-        // The attempts it answers to are a run from the first, with no hole in
-        // it — which is also what makes giving up final, since a rule that
-        // resumed would have to leave one. Asserted as a prefix rather than as
-        // "nil after the last one" because that second form cannot fail: `last`
-        // is by construction the last attempt with an answer.
+        // The answered attempts form an unbroken run from the first, which also
+        // makes giving up final. Checked as a prefix because "nil after the last
+        // one" cannot fail: `last` is by construction the last answered attempt.
         //
-        // Every wait in the run is real and never shortens. A zero spins the
-        // task against the network as fast as it will answer; a shrinking one is
-        // a retry getting more insistent as it runs out of reasons to hope.
+        // Every wait is real and never shortens: zero would spin against the
+        // network, and a shrinking delay would grow more insistent as hope
+        // runs out.
         var previous: TimeInterval = 0
         for attempt in 1...last {
             guard let delay = MediaManager.artworkRetryDelay(attempt: attempt) else {
@@ -749,9 +659,8 @@ enum MediaCheck {
     }
 }
 
-/// Both exist because the check reaches across threads: the stub runs on the
-/// bridge's lane, the answer arrives on whichever queue resumed it, and the
-/// check itself is waiting on the main thread.
+/// Counts calls across threads: the stub runs on the bridge's lane while the
+/// check waits on the main thread.
 final class Calls: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
@@ -763,12 +672,10 @@ final class Calls: @unchecked Sendable {
 
 /// A stubbed player that can be unstuck one lane at a time.
 ///
-/// Which lane a block is on is not something the stub is told — it is handed
-/// only the source. The dispatch queue label carries it, because the bridge puts
-/// the generation there for exactly this kind of after-the-fact identification:
-/// `magnetite.media.read.spotify.2`. Releasing by generation is the only way to
-/// wake one parked thread while its neighbours stay wedged, and without that,
-/// every refund is indistinguishable from every other.
+/// The stub is told only the source, so the lane is identified from the dispatch
+/// queue label, which carries the generation (`magnetite.media.read.spotify.2`).
+/// Releasing by generation wakes one parked thread while its neighbours stay
+/// wedged.
 final class LaneWedge: @unchecked Sendable {
     private let lock = NSLock()
     private var freed = Set<Int>()

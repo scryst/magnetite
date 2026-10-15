@@ -1,11 +1,8 @@
 import AppKit
 
-// notchruler — measure the physical notch, and draw guides over it.
-//
-// The notch metrics macOS reports disagree across hardware and OS versions, and
-// every alignment bug in a notch app traces back to trusting the wrong number.
-// This prints exactly what the system says, and `--overlay` draws those numbers
-// on the screen so you can see whether they match the actual cutout.
+// notchruler: prints the notch metrics macOS reports for each display, and with
+// `--overlay` draws them over the screen so they can be compared with the real
+// cutout. The reported values differ across hardware and OS versions.
 
 struct Metrics {
     let screen: NSScreen
@@ -70,7 +67,7 @@ final class GuideView: NSView {
         NSColor.black.withAlphaComponent(0.18).setFill()
         bounds.fill()
 
-        // Convert screen coords -> view coords (view sits at the top of the screen).
+        // Screen to view coordinates; the view sits at the top of the screen.
         let sf = metrics.frame
         let x0 = notch.minX - sf.minX
         let x1 = notch.maxX - sf.minX
@@ -79,7 +76,6 @@ final class GuideView: NSView {
         let magenta = NSColor.systemPink
         let cyan = NSColor.cyan
 
-        // Vertical guides at the cutout edges, full height of the overlay.
         magenta.setStroke()
         for x in [x0, x1] {
             let p = NSBezierPath()
@@ -89,7 +85,6 @@ final class GuideView: NSView {
             p.stroke()
         }
 
-        // Horizontal guide at the bottom of the cutout / menu-bar band.
         cyan.setStroke()
         let hb = NSBezierPath()
         hb.move(to: CGPoint(x: 0, y: h))
@@ -97,13 +92,12 @@ final class GuideView: NSView {
         hb.lineWidth = 1
         hb.stroke()
 
-        // Outline the cutout itself.
         magenta.withAlphaComponent(0.9).setStroke()
         let box = NSBezierPath(rect: CGRect(x: x0, y: 0, width: notch.width, height: h))
         box.lineWidth = 1.5
         box.stroke()
 
-        // 10pt ticks along the top, every 50pt labelled.
+        // Ticks every 10 pt, labelled every 50 pt.
         NSColor.white.withAlphaComponent(0.5).setStroke()
         var x = CGFloat(0)
         while x < bounds.width {
@@ -172,7 +166,7 @@ for m in all where m.notch != nil {
     w.isOpaque = false
     w.backgroundColor = .clear
     w.hasShadow = false
-    w.ignoresMouseEvents = true          // never blocks what's underneath
+    w.ignoresMouseEvents = true
     let v = GuideView(frame: NSRect(origin: .zero, size: rect.size))
     v.metrics = m
     w.contentView = v

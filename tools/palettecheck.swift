@@ -4,9 +4,9 @@ import Foundation
 
 /// Headless checks for the album-art palette.
 ///
-/// These exist because the failures they cover are invisible on a normal cover:
-/// you only see them when a specific kind of artwork comes up, and by then the
-/// panel is already illegible or wearing the wrong record's colour.
+/// The failures covered here only appear with particular kinds of artwork, by
+/// which point the panel is already illegible or wearing the wrong record's
+/// colour.
 @main
 enum PaletteCheck {
     static func main() {
@@ -24,20 +24,18 @@ enum PaletteCheck {
 
     // MARK: The check's own ruler
 
-    // Written from the WCAG definition, not from ArtworkPalette: linearise each
-    // channel with the sRGB EOTF, then weight. Agreement between this and the
-    // app's arithmetic is asserted explicitly below — a shared implementation
-    // would validate nothing, which is exactly how the last inflated ruler
-    // survived its own gate.
+    // Written from the WCAG definition rather than from ArtworkPalette: linearise
+    // each channel with the sRGB EOTF, then weight. Agreement with the app's
+    // arithmetic is asserted below; a shared implementation would validate
+    // nothing.
     private static func lum(_ v: Double) -> Double {
         v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
     }
     private static func lum(_ p: ArtworkPalette.Peak) -> Double {
         0.2126 * lum(p.r) + 0.7152 * lum(p.g) + 0.0722 * lum(p.b)
     }
-    /// The black scrim composites per channel in gamma space (SwiftUI's
-    /// measured behaviour), so the field is the colour scaled before it is
-    /// linearised.
+    /// The black scrim composites per channel in gamma space (as SwiftUI does),
+    /// so the field is the colour scaled before it is linearised.
     private static func field(_ p: ArtworkPalette.Peak, scrim: Double)
         -> ArtworkPalette.Peak {
         .init(r: p.r * (1 - scrim), g: p.g * (1 - scrim), b: p.b * (1 - scrim))
@@ -55,9 +53,8 @@ enum PaletteCheck {
     }
 
     /// Every colour a palette may legally carry: an HSB lattice pushed through
-    /// the REAL `capped()`. The set is the code's own — a hand-built set would
-    /// prove things about colours the app never paints, and miss the ones it
-    /// does — while the ruler above is not.
+    /// the real `capped()`. The set must be the code's own; a hand-built set
+    /// could prove things about colours the app never paints.
     private static let reachable: [ArtworkPalette.Peak] = {
         var out: [ArtworkPalette.Peak] = []
         for h in stride(from: 0.0, to: 1.0, by: 1.0 / 48) {
@@ -77,12 +74,10 @@ enum PaletteCheck {
 
     // MARK: Checks
 
-    /// A dark sleeve with one neon element is the hard case: the bucket pass
-    /// throws the dark greys away, so the accent wins outright and `spread`'s
-    /// 1.18 brightness offset could push it past full brightness. Measured with
-    /// the check's own ruler, in TRUE luminance — the ceiling used to be an
-    /// encoded-units fence, which let colours through at 1.6x the light the
-    /// scrim was tuned for.
+    /// No wash colour may emit more light than the ceiling, and `washPeak` must be
+    /// the brightest colour actually painted. The hard case is a dark sleeve with
+    /// one neon element: the bucket pass drops the greys, so the accent wins and
+    /// `spread`'s 1.18 brightness offset could exceed full brightness.
     private static func washCannotOutshineTheCeiling() {
         for art in [neonOnBlack, pureWhite, vividRed] {
             guard let p = ArtworkPalette.extract(from: art) else {
@@ -91,8 +86,7 @@ enum PaletteCheck {
             require(lum(p.washPeak) <= ArtworkPalette.washLuminanceCeiling + 1e-4,
                     "wash peak emits \(lum(p.washPeak)) against a ceiling of "
                     + "\(ArtworkPalette.washLuminanceCeiling)")
-            // And the declared peak is the brightest colour actually painted —
-            // a peak picked by the wrong rule lets a brighter colour ship
+            // A peak picked by the wrong rule would let a brighter colour ship
             // ungated beside it.
             let brightest = p.colors.map { c -> Double in
                 let n = NSColor(c).usingColorSpace(.sRGB) ?? .black
@@ -106,8 +100,9 @@ enum PaletteCheck {
         }
     }
 
-    /// Greyscale art used to return nil, and callers keep their previous palette
-    /// on nil — so a black-and-white cover wore the previous song's colour.
+    /// Greyscale art must produce its own palette. A nil result makes callers
+    /// keep the previous palette, so a black-and-white cover would wear the last
+    /// song's colour.
     private static func monochromeCoverGetsItsOwnPalette() {
         guard let grey = ArtworkPalette.extract(from: greyscale) else {
             fail("greyscale cover returned no palette (it would inherit the last track's)")
@@ -118,19 +113,17 @@ enum PaletteCheck {
                 "greyscale palette came out the same as a red cover's")
     }
 
-    /// The whole point: white type has to hold contrast over the composited wash
-    /// AND the wash has to survive the scrim that guarantees it.
+    /// White type holds contrast over the composited wash, and the wash survives
+    /// the scrim that guarantees it.
     ///
-    /// The bar is 7:1, not AA's 4.5, and that is deliberate. In real terms 4.5
-    /// barely constrains this panel at all: deleting the scrim outright still
-    /// measures 4.71:1 on the neutral at the ceiling, so an AA bar would
-    /// certify a wash bright enough to swallow the artwork. 7:1 is the product
-    /// line from PRODUCT.md instead — the type has to clearly beat the field it
-    /// sits on, and the ferrofluid, not the colour, is what earns the spectacle.
+    /// The bar is 7:1 rather than AA's 4.5:1. With the scrim deleted entirely the
+    /// neutral at the ceiling still measures 4.71:1, so an AA bar would certify a
+    /// wash bright enough to swallow the artwork. 7:1 is the product line from
+    /// PRODUCT.md.
     ///
-    /// The guarantee is asserted over the whole reachable set, scored with the
-    /// check's own ruler, at the HEAD — a deeper scrim only darkens the field,
-    /// so the top of the gradient is the worst case for the type.
+    /// Asserted over the whole reachable set with the check's own ruler, at the
+    /// head: a deeper scrim only darkens the field, so the top of the gradient
+    /// is the worst case for the type.
     private static func typeStaysLegibleOnEveryCover() {
         for (name, art) in [("neon-on-black", neonOnBlack), ("white", pureWhite),
                             ("vivid red", vividRed), ("greyscale", greyscale)] {
@@ -145,37 +138,31 @@ enum PaletteCheck {
                     "white title over legal wash (\(String(format: "%.3f", p.r)), "
                     + "\(String(format: "%.3f", p.g)), \(String(format: "%.3f", p.b))) "
                     + "is only \(String(format: "%.2f", specTitle(p, scrim: head))):1")
-            // The app's ruler and the spec's agree everywhere. If they drift,
-            // one of them is not measuring light.
+            // The app's ruler and the spec's must agree everywhere; if they
+            // drift, one of them is not measuring light.
             require(abs(ArtworkPalette.titleContrast(over: p) - specTitle(p, scrim: head)) < 0.01,
                     "titleContrast disagrees with the WCAG definition at "
                     + "(\(String(format: "%.3f", p.r)), \(String(format: "%.3f", p.g)), "
                     + "\(String(format: "%.3f", p.b)))")
         }
 
-        // The other direction, and the one with no natural floor: the scrim that
-        // protects the type also eats the record's colour. The foot is where it
-        // is deepest, and it spent a long time as a bare literal in NotchView
-        // where nothing here could see it — the exact hazard the comment on
-        // `scrimAlpha` describes.
+        // The opposing bound: the scrim that protects the type also eats the
+        // record's colour, and is deepest at the foot.
         let foot = ArtworkPalette.scrimAlpha(depth: 1)
         require(foot <= 0.50,
                 "the scrim reaches \(String(format: "%.2f", foot)) at the panel's foot — that is "
                 + "a black panel, and the album colour it exists to protect is gone")
-        // A gradient that darkens downward, stated as a rule rather than left to
-        // the order of two literals in a view. Swap them and the panel lights
-        // from the bottom, which reads as a shadow cast upward onto the notch.
+        // The gradient must darken downward; reversed, the panel lights from the
+        // bottom and reads as a shadow cast upward onto the notch.
         require(foot >= head,
                 "the scrim's foot (\(String(format: "%.2f", foot))) is lighter than its head "
                 + "(\(String(format: "%.2f", head))) — the gradient runs the wrong way")
     }
 
-    /// The 10.5pt band clocks and the idle card wear `chromeTypeAlpha` white,
-    /// and small translucent type is the tier that actually binds: at 0.62 it
-    /// measured 3.63:1 over a legal magenta wash while the title's gate read
-    /// green. AA's 4.5:1 for small text is the floor, held over every legal
-    /// wash. The constant lives in ArtworkPalette precisely so this check gates
-    /// the value the views actually use.
+    /// The 10.5 pt band clocks and the idle card wear `chromeTypeAlpha` white,
+    /// and small translucent type is the tier that binds. AA's 4.5:1 must hold
+    /// over every legal wash. The constant lives in ArtworkPalette so this check
+    /// gates the value the views actually use.
     private static func chromeTypeStaysLegibleToo() {
         let head = ArtworkPalette.scrimAlpha()
         let alpha = ArtworkPalette.chromeTypeAlpha
@@ -197,16 +184,11 @@ enum PaletteCheck {
         }
     }
 
-    /// Retracted, the shell is a strip of menu bar and nothing else.
-    ///
-    /// This exists because lifting the open panel's field silently lifted the
-    /// closed band with it — one scrim served both states — and the band went
-    /// from 0.0248 to 0.0942 relative luminance against the wallpaper behind it,
-    /// which is the difference between reading as the notch's own black and
-    /// reading as a coloured slab laid on top of the menu bar. PRODUCT.md puts
-    /// the hardware first and gives the retracted state entirely to the band, so
-    /// the rule belongs in the gate rather than in whoever next touches a scrim
-    /// constant remembering to check both states.
+    /// Retracted, the shell must read as a strip of menu bar, not a coloured
+    /// slab. Open and closed once shared one scrim, so lightening the open panel
+    /// also lit the band (0.0248 to 0.0942 relative luminance). PRODUCT.md gives
+    /// the retracted state entirely to the hardware, so the rule belongs in the
+    /// gate.
     private static func theClosedBandStaysInTheMenuBar() {
         let open = ArtworkPalette.scrimAlpha(depth: 1)
         let closed = ArtworkPalette.scrimAlpha(expanded: false)
@@ -214,8 +196,8 @@ enum PaletteCheck {
                 "the closed band's scrim (\(String(format: "%.2f", closed))) is lighter than the "
                 + "open panel's deepest point (\(String(format: "%.2f", open))) — retracting the "
                 + "notch would brighten it")
-        // And an absolute bound over every legal wash, because "darker than the
-        // open panel" is only a relative claim and both could drift up together.
+        // Plus an absolute bound over every legal wash, since "darker than the
+        // open panel" is only relative and both could drift up together.
         for p in reachable {
             let lit = lum(field(p, scrim: closed))
             require(lit <= 0.035,
@@ -224,28 +206,24 @@ enum PaletteCheck {
         }
     }
 
-    /// The unit bug that made the panel three times darker than anyone asked.
-    ///
-    /// WCAG's weights apply to LINEARISED components; applied to gamma-encoded
-    /// ones the output is not relative luminance and must never be scored
-    /// against 1.05. A previous session lost itself to exactly this: model,
-    /// sampler and compiled repo value all agreed, because all three shared the
-    /// missing linearisation. This pins the transfer curve so the two scales
-    /// cannot quietly merge again.
+    /// Pins the sRGB transfer curve so encoded and linear values cannot merge
+    /// again. WCAG's weights apply to linearised components; applied to
+    /// gamma-encoded ones the result is not relative luminance and must not be
+    /// scored against 1.05.
     private static func theContrastRulerIsLinearised() {
         // Mid grey: sRGB 0.5 encodes about 21.4% of the light, not 50%.
         let mid = ArtworkPalette.relativeLuminance(encoded: 0.5)
         require(abs(mid - 0.2140) < 0.001,
                 "sRGB 0.5 linearises to \(String(format: "%.4f", mid)), expected 0.2140 — "
                 + "the transfer curve is wrong")
-        // The endpoints have to survive it exactly, or every ratio drifts.
+        // The endpoints must survive exactly, or every ratio drifts.
         require(ArtworkPalette.relativeLuminance(encoded: 0) == 0,
                 "black did not linearise to 0")
         require(abs(ArtworkPalette.relativeLuminance(encoded: 1) - 1) < 1e-9,
                 "white did not linearise to 1")
-        // And the thing that first bit: scoring encoded values directly
-        // understates the ratio badly. On the neutral at the old encoded
-        // ceiling, the naive form reports about 2.8:1 where the truth is 7.8:1.
+        // Scoring encoded values directly understates the ratio badly: on the
+        // neutral at the old encoded ceiling the naive form gives about 2.8:1
+        // where the truth is 7.8:1.
         let neutral = ArtworkPalette.Peak(r: 0.46, g: 0.46, b: 0.46)
         let naive = 1.05 / (0.46 * (1 - ArtworkPalette.scrimAlpha()) + 0.05)
         let real = ArtworkPalette.titleContrast(over: neutral)
@@ -255,20 +233,16 @@ enum PaletteCheck {
                 + "so titleContrast is probably scoring encoded values again")
     }
 
-    /// The ORDER of linearise and weight, pinned where the two disagree.
+    /// Pins the order of linearise and weight, where a grey cannot tell the
+    /// orderings apart: the weights sum to 1, so on r=g=b they agree. The sRGB
+    /// curve is convex, so linearising the weighted sum understates every
+    /// saturated field; pure magenta under the head scrim reports 12.67:1 for a
+    /// field that truly offers 5.91:1.
     ///
-    /// A grey cannot tell them apart: the weights sum to 1, so on r=g=b every
-    /// ordering agrees to the digit — which is how the previous version of this
-    /// gate certified a ruler that linearised the already-weighted sum. The
-    /// sRGB curve is convex, so that ordering understates every saturated
-    /// field and inflates its ratio; on pure magenta under the head scrim it
-    /// reports 12.67:1 for a field that truly offers 5.91:1.
-    ///
-    /// The constant below is Σw·lin(v·0.70) computed from the WCAG definition
-    /// outside this repo, with the 0.30 head folded in — nothing in
-    /// ArtworkPalette can drift it. If the head scrim is retuned, recompute it
-    /// the same way; a surprise failure here after a scrim edit is this check
-    /// working.
+    /// The constant is the WCAG value for the 0.30 head scrim, computed outside
+    /// this repo so nothing in ArtworkPalette can drift it. If the head scrim is
+    /// retuned, recompute it the same way; a failure here after a scrim edit is
+    /// this check working.
     private static func theRulerWeighsAfterItLinearises() {
         let magenta = ArtworkPalette.Peak(r: 1, g: 0, b: 1)
         let ratio = ArtworkPalette.titleContrast(over: magenta)
@@ -278,12 +252,10 @@ enum PaletteCheck {
                 + "(the inflated ordering reports 12.67:1)")
     }
 
-    /// The fallback has to obey the same rule every extracted palette does.
-    ///
-    /// It is a literal, so it never passes through `capped()` on its own and
-    /// nothing checked it: the declared luminance said 0.30 while its own
-    /// brightest colour measured 0.476, and since the scrim was derived from
-    /// that field the no-artwork panel was under-scrimmed at 3.42:1.
+    /// The no-artwork palette obeys the same rules as an extracted one: its
+    /// declared peak is its real brightest colour, and it sits under the ceiling.
+    /// Hand-picked seeds do not pass through `capped()` on their own, so nothing
+    /// else keeps the no-artwork panel from being the brightest field in the app.
     private static func theFallbackDescribesItself() {
         let p = ArtworkPalette.fallback
         let brightest = p.colors.map { c -> Double in
@@ -295,10 +267,6 @@ enum PaletteCheck {
         require(abs(brightest - lum(p.washPeak)) < 0.005,
                 "the fallback declares a peak emitting \(lum(p.washPeak)) but its "
                 + "brightest colour emits \(String(format: "%.3f", brightest))")
-        // Declaring itself honestly is half of it. Every extracted palette is
-        // pulled under the ceiling by `capped()`; the fallback is hand-picked
-        // seeds, so nothing else stops the no-artwork panel from being the
-        // brightest field in the app — brighter than any record can legally be.
         require(lum(p.washPeak) <= ArtworkPalette.washLuminanceCeiling + 1e-4,
                 "the fallback's wash emits \(String(format: "%.3f", lum(p.washPeak))) against "
                 + "a ceiling of \(ArtworkPalette.washLuminanceCeiling) — the one palette that "

@@ -1,11 +1,9 @@
 import Foundation
 import SwiftUI
 
-/// Headless checks on the ferrofluid's *geometry* — where the lobes sit on the
-/// silhouette and how far the surface may travel.
-///
-/// Everything here was a bug that shipped and could only be seen on screen.
-/// The physics in `fluidcheck` was fine each time; the seating was not.
+/// Headless checks on the ferrofluid's geometry: where the lobes sit on the
+/// silhouette and how far the surface may travel. `fluidcheck` covers the
+/// physics; these cover how it is seated.
 @main
 @MainActor
 enum GeometryCheck {
@@ -41,15 +39,12 @@ enum GeometryCheck {
     }
 
     /// Displacement sampled along one run of the outline.
-    /// Displacement along one run.
     ///
-    /// This calls `displacement` directly, so it sees the physics WITHOUT the
-    /// bezel fillet or the outline relaxation that `poolPath` applies. That is
-    /// deliberate — these three checks are about where the crown sits and how the
-    /// lobes resolve, which are properties of the field. Anything about the
-    /// SHAPE that ships has to go through `poolPath`, as
-    /// `theInkLeavesTheBezelOnACurve` and `wholeOutlineIsSmooth` do; a check
-    /// written against a re-derivation of the maths cannot test the maths.
+    /// This calls `displacement` directly, so it sees the physics without the
+    /// bezel fillet or outline relaxation that `poolPath` applies. That suits the
+    /// checks that use it, which are about the field. Anything about the shape
+    /// that ships must go through `poolPath`, since a check written against a
+    /// re-derivation of the maths cannot test the maths.
     static func profile(_ g: Geometry, heights: [Double],
                         swell: CGFloat = 0.55, raised: CGFloat = 0.30,
                         from: Double, to: Double, steps: Int = 120) -> [CGFloat] {
@@ -71,10 +66,9 @@ enum GeometryCheck {
 
     // MARK: checks
 
-    /// The regression that started all of this: "we had the base warp out, now
-    /// only bottom area moves". 13 of 17 seats had ended up on the bottom run
-    /// with lobes too narrow to reach the verticals, so the sides only inflated
-    /// uniformly — bigger, but never undulating, which reads as dead.
+    /// The sides must undulate, not just inflate. When most seats sit on the
+    /// bottom run with lobes too narrow to reach the verticals, the sides grow
+    /// uniformly and read as dead.
     static func theSidesMoveAtAll() {
         let g = Geometry(notch: notch, panel: expanded, openness: 1)
         let edge = leftEdge(g, flat(0.55))
@@ -83,13 +77,12 @@ enum GeometryCheck {
         require(edge.max()! > 25, "the left edge hardly leaves the cutout (max \(edge.max()!)pt)")
     }
 
-    /// The notch widens with the sound, and the ink leaves the bezel on a curve.
+    /// The notch widens with the sound, and the ink leaves the bezel on a curve
+    /// rather than a slab edge.
     ///
-    /// Driven through `poolPath`, which is what actually builds the outline. An
-    /// earlier version of this check recomputed the displacement itself, fillet
-    /// and all — so deleting the fillet from the renderer changed nothing it
-    /// looked at and it passed a mutation that removed the very thing it was
-    /// written to protect. A check that mirrors the code cannot test the code.
+    /// Driven through `poolPath`, which builds the real outline. Recomputing the
+    /// displacement here would leave a renderer that dropped the fillet
+    /// unnoticed.
     static func theInkLeavesTheBezelOnACurve() {
         let g = Geometry(notch: notch, panel: expanded, openness: 1)
 
@@ -122,24 +115,17 @@ enum GeometryCheck {
         let loud = leftEdge(heights: flat(1.0), swell: 1)
         require(loud.count > 4, "the outline gave too few samples on the left flank")
 
-        // It still widens. Without this the rule below is satisfied by ink that
-        // never moves.
+        // It still widens; otherwise the bound below is met by ink that never
+        // moves.
         let widest = loud.map(\.out).max() ?? 0
         require(widest > 15, "the notch barely widens under drive (\(widest)pt)")
 
-        // The bound below is written against `edgeSlope`, which is the declared
-        // contract — so raising it would move its own goalposts. Pin the value
-        // too: past about 6pt out per point down the join stops reading as a
-        // curve at all, whatever the implementation faithfully does with it.
-        // The shoulder has to open on screen and still be a shoulder. Too
-        // shallow and the top of the notch never reaches full width — it reads as
-        // choked; too steep and it is a chamfer. Both ends of that have shipped.
-        // The floor exists so the top of the notch widens with the music; it was
-        // 0 twice and choked both times. It is bounded above because past ~0.45
-        // the ink arrives at the bezel already wide, which is the slab edge.
-        // Two-sided. The upper bound arrived when the lower one was dropped, and
-        // a floor of 0 would sail through it — 0 is exactly the value that
-        // choked the top of the notch and had to be fixed twice.
+        // The slope bound below is written against `edgeSlope`, so raising it
+        // would move its own goalposts; the constants are pinned too. The floor
+        // lets the top of the notch widen with the music (0 choked it). Above
+        // about 0.45 the ink arrives at the bezel already wide, which is a slab
+        // edge. Past roughly 6 pt out per point down, the join stops reading as
+        // a curve.
         require(Geometry.edgeFloor >= 0.2, "edgeFloor is \(Geometry.edgeFloor) — at that "
                 + "floor the top of the notch cannot widen with the music")
         require(Geometry.edgeFloor <= 0.45,
@@ -148,31 +134,20 @@ enum GeometryCheck {
         require(Geometry.edgeSlope >= 3 && Geometry.edgeSlope <= 10,
                 "edgeSlope is \(Geometry.edgeSlope) — outside the range that reads as a shoulder")
 
-        // The whole outline, not just this flank.
-        //
-        // Every assertion in this check sampled the left flank between y=0 and
-        // y=20. Expanded, the mass that is actually on screen droops off the
-        // BOTTOM run — so the region being complained about was the one region
-        // nothing tested, and this check passed while the ink was visibly
-        // angular. That is the gap that let "fixed" be reported when it was not.
+        // The whole outline, not just this flank: expanded, the visible mass
+        // droops off the bottom run, which the flank samples never touch.
         wholeOutlineIsSmooth()
 
-        // No sharp edge from the top of the screen to the ink.
-        //
-        // Stated as a slope bound measured from the bezel itself, which needs no
-        // sample at y = 0 — and there is none: the rim is sampled every 1.8pt, so
-        // the first point on the visible flank sits at y = 1.2. An earlier
-        // version looked for a sample below y = 1, found none, fell through to
-        // its default and passed every mutation including deleting the fillet
-        // outright. The 1.2 allows for smoothstep running above its own average
-        // slope through the middle of the join.
+        // No sharp edge from the top of the screen to the ink, stated as a slope
+        // bound from the bezel itself. The rim is sampled every 1.8 pt, so the
+        // first visible sample sits at y = 1.2; the 1.3 factor allows for
+        // smoothstep running above its average slope through the middle of the
+        // join.
         for p in loud {
-            // Measured from the POOL's top, 6pt above the screen, which is where
-            // the join starts — anchoring it at the visible edge pinned the ink
-            // exactly where it shows most and the notch never widened at the top.
-            // The floor is deliberate: the ink is already most of the way out at
-            // the bezel so the top widens with the music. Smoothness is the
-            // outline relaxation's job, not this one's.
+            // Measured from the pool's top, 6 pt above the screen, where the join
+            // starts. The floor is deliberate: the ink is already most of the way
+            // out at the bezel so the top widens with the music. Smoothness is
+            // the outline relaxation's job.
             let bound = widest * Geometry.edgeFloor
                       + Geometry.edgeSlope * p.y * 1.3 + 2
             require(p.out <= bound,
@@ -202,14 +177,10 @@ enum GeometryCheck {
                     }
                 }
                 let rim = Array(pts.prefix(Geometry.outlineSamples + 1))
-                // TURN ANGLE, not step length.
-                //
-                // Step length is the wrong metric and it cost an afternoon: on
-                // the corner arcs the normal itself rotates ~15 degrees per
-                // sample, so at 40pt of displacement a point moves 12.8pt along a
-                // perfectly smooth arc. That is coarse sampling of a curve, not a
-                // corner. What makes an outline read as sharp is how hard it
-                // turns between one segment and the next.
+                // Measured as turn angle, not step length: on a corner arc the
+                // normal rotates about 15 degrees per sample, so a point moves
+                // 12.8 pt along a smooth arc at 40 pt of displacement. What makes
+                // an outline read as sharp is how hard it turns between segments.
                 var worst: Double = 0, worstAt = -1, worstY: CGFloat = 0
                 for i in 1..<(rim.count - 1) {
                     let a = rim[i - 1], b = rim[i], c = rim[i + 1]
@@ -228,9 +199,9 @@ enum GeometryCheck {
         }
     }
 
-    /// Which band is loud must decide WHERE on the side the crown sits. Without
-    /// this the edge carries no information: every spectrum produced the same
-    /// ramp toward the corner and the side read as one uniform bulge.
+    /// Which band is loud decides where on the side the crown sits. Without
+    /// this every spectrum produces the same ramp toward the corner and the side
+    /// reads as one uniform bulge.
     static func theCrownFollowsFrequency() {
         let g = Geometry(notch: notch, panel: expanded, openness: 1)
         func crown(_ loud: Int) -> Double {
@@ -246,9 +217,9 @@ enum GeometryCheck {
                 "the crown barely moves between the lowest and highest side band (\(high - low))")
     }
 
-    /// Scalloped, not fused and not a comb. Three equal side bands must read as
-    /// more than one peak, while the trough between them stays well clear of the
-    /// baseline — isolated bumps are the spike comb this renderer exists not to be.
+    /// The side lobes are scalloped: three equal bands must read as more than
+    /// one peak, while the troughs stay well clear of the baseline. Isolated
+    /// bumps would be the spike comb this renderer exists not to be.
     static func theSideLobesResolve() {
         let g = Geometry(notch: notch, panel: expanded, openness: 1)
         var h = flat(0.20); h[0] = 0.7; h[1] = 0.7; h[2] = 0.7
@@ -261,10 +232,9 @@ enum GeometryCheck {
         }
     }
 
-    /// The anti-comb jitter is a fraction of the LOCAL seat spacing. A flat
+    /// The anti-comb jitter is a fraction of the local seat spacing. A flat
     /// fraction of the whole rim is 30% of the spacing on the bottom run but 47%
-    /// of it on a side, where it threw two lobes 3pt apart and fused them however
-    /// narrow they were made.
+    /// on a side, where it could throw two lobes 3 pt apart and fuse them.
     static func jitterNeverCollidesTwoSeats() {
         let g = Geometry(notch: notch, panel: expanded, openness: 1)
         let seats = g.lobes(of: sites(flat(0.5))).map(\.seat).sorted()
@@ -274,9 +244,9 @@ enum GeometryCheck {
                 "two seats collided (smallest gap \(gaps.min()!) vs nominal \(nominal))")
     }
 
-    /// A lobe thrown past the top of the run tilts the surface instead of
-    /// crowning it, and it is always the loudest band that goes — band 0 sits
-    /// closest to the lip.
+    /// Every seat stays on the visible body. A lobe thrown past the top of the
+    /// run tilts the surface instead of crowning it, and the loudest band
+    /// suffers first since band 0 sits closest to the lip.
     static func noSeatIsThrownOffTheBody() {
         for openness in stride(from: 0.0, through: 1.0, by: 0.25) {
             let g = Geometry(notch: notch, panel: expanded, openness: CGFloat(openness))
@@ -287,9 +257,9 @@ enum GeometryCheck {
         }
     }
 
-    /// Retracted this had never been checked at all, and retracted is the state
-    /// that must not paint over window chrome. Driven flat out at every openness,
-    /// the outline has to stay inside the panel it is drawn in.
+    /// Driven flat out at every openness, the outline must stay inside the panel
+    /// it is drawn in. Retracted is the state that must not paint over window
+    /// chrome.
     static func theInkStaysInsideThePanel() {
         for openness in stride(from: 0.0, through: 1.0, by: 0.1) {
             let panel = CGSize(width: notch.width + (expanded.width - notch.width) * CGFloat(openness),
@@ -314,21 +284,16 @@ enum GeometryCheck {
         }
     }
 
-    /// The progress trace is the silhouette moved INWARD by its own half-width,
-    /// everywhere — not just where the edge is straight.
-    ///
-    /// `NotchBottomEdge` insets its frame and then clamped the SHELL's corner
-    /// radius against it, which translates the corner by (inset, -inset) instead
-    /// of offsetting it: exact at both tangent points, `inset * sqrt(2)` along the
-    /// normal at 45 degrees. The stroke's outer boundary therefore left the
-    /// silhouette on both bottom corners — the property the type's own doc
-    /// comment claims for it — while every assertion about the trace looked at
-    /// the straight bottom run, where it held. Half a rule again, and the half
-    /// that was missing is the half with the curves in it.
+    /// The progress trace is the silhouette offset inward by its own half-width
+    /// everywhere, including the curves. Insetting the frame and clamping the
+    /// shell's corner radius against it translates the corner by (inset, -inset)
+    /// instead of offsetting it: exact at the tangent points but
+    /// `inset * sqrt(2)` along the normal at 45 degrees, so the stroke would
+    /// leave the silhouette at both bottom corners while a check on the straight
+    /// run still passed.
     static func theTraceOffsetsTheSilhouetteRatherThanTranslatingIt() {
         // 1.25 is the resting stroke's half-width, 1.7 the hover swell's and 2
-        // the grab's — the inset animates, so the property has to hold at all
-        // three rather than at the one the panel happens to rest in.
+        // the grab's; the inset animates, so the property must hold at all three.
         for inset in [CGFloat(1.25), 1.7, 2] {
             for (width, height, radius) in [(CGFloat(372), CGFloat(159), CGFloat(24)),
                                             (232, 73, 18), (322, 33, 9)] {
@@ -340,14 +305,11 @@ enum GeometryCheck {
                                  steps: 240)
                 for p in trace {
                     let d = distance(from: p, toPolyline: shell)
-                    // Two edges, because the defect had a direction: too far in
-                    // and the outline breaks into two lines round the corner, too
-                    // far out and the stroke hangs past the shell.
-                    // 1.12, from measurement on both sides: offset properly the
-                    // ratio runs 1.000 to 1.061 — a quadratic quarter-turn is not
-                    // quite a circular arc, so the exact offset is unreachable —
-                    // and translated it reaches 1.190. The bound sits between the
-                    // two with room on each side rather than hugging either.
+                    // Two-sided: too far in breaks the outline into two lines
+                    // round the corner, too far out hangs the stroke past the
+                    // shell. A proper offset measures 1.000 to 1.061 of the inset
+                    // (a quadratic quarter-turn is not quite a circular arc) and
+                    // a translated corner reaches 1.190, so 1.12 sits between.
                     require(d <= inset * 1.12,
                             "at inset \(inset) on a \(width)x\(height) shell the trace runs "
                             + "\(d)pt inside the silhouette — the corner is translated, "
@@ -360,19 +322,15 @@ enum GeometryCheck {
         }
     }
 
-    /// The pill silhouette and the trace must draw the SAME bottom corner.
-    ///
+    /// The pill silhouette and the trace must draw the same bottom corner.
     /// `NotchShape`'s pill branch floors its radius at 10 so a menu-bar-height
-    /// capsule still reads as a capsule; `NotchBottomEdge` and every other
-    /// consumer of the same `bottomCornerRadius` never heard of the floor. With
-    /// the cutout radius at its shipped default of 9, the silhouette rounds at
-    /// 10 while the trace rounds at 9 − inset from a shifted centre, so the
-    /// stroke's outer boundary leaves the shell at both bottom corners — tinted
-    /// ink on the menu bar beside the pill. Same class as the translation
-    /// defect above, in the one branch that check never walks.
+    /// capsule reads as a capsule, while `NotchBottomEdge` and other consumers of
+    /// `bottomCornerRadius` do not know the floor. With the default cutout radius
+    /// of 9 the silhouette would round at 10 and the trace at 9 minus the inset,
+    /// leaving tinted ink on the menu bar beside the pill.
     static func thePillTraceDrawsTheSilhouettesOwnCorner() {
-        // The rule itself, pinned: floor 10, straight passthrough above the
-        // floor, half-height clamp on shells too short to carry it.
+        // The rule itself: floor 10, passthrough above it, half-height clamp on
+        // shells too short to carry it.
         require(NotchShape.pillCornerRadius(height: 24, bottomCornerRadius: 9) == 10,
                 "the pill floor moved off 10 — the capsule reading of a "
                 + "menu-bar-height shell was a measured product decision")
@@ -394,8 +352,8 @@ enum GeometryCheck {
             for inset in [CGFloat(0), 1.25, 2] {
                 let edge = NotchBottomEdge(width: w, height: h,
                                            bottomCornerRadius: handed, inset: inset)
-                // The edge path opens with its move — (minX, maxY − br) — so
-                // the drawn radius falls straight out of the first element.
+                // The edge path opens with its move to (minX, maxY - br), so the
+                // drawn radius falls out of the first element.
                 var start = CGPoint.zero
                 var seenMove = false
                 edge.path(in: CGRect(x: 0, y: 0, width: w, height: h)).forEach {
@@ -409,10 +367,9 @@ enum GeometryCheck {
             }
         }
 
-        // The walk above proves the shapes agree when handed one value; this
-        // proves the shipped wiring hands them one value. NotchController
-        // cannot be compiled here (it needs a live screen), so it is read the
-        // way fluidcheck reads the tap's queue structure.
+        // The walk above shows the shapes agree when handed one value; this
+        // shows the shipped wiring hands them one value. NotchController needs a
+        // live screen and cannot be compiled here, so it is read as source.
         let controller = strippedSource("Sources/NotchApp/Notch/NotchController.swift")
         require(controller.contains("NotchShape.pillCornerRadius("),
                 "NotchController.bottomCornerRadius no longer routes the pill "
@@ -425,10 +382,10 @@ enum GeometryCheck {
                 + "quarter-turns — no radius can make the trace sit on them")
     }
 
-    /// The bottom corner radius a shape actually draws, recovered from its
-    /// path: the bottom run's leftmost endpoint is (minX + radius, maxY).
-    /// Element endpoints, not sampled trim points, so the answer is exact even
-    /// at the capsule limit where the straight side vanishes.
+    /// The bottom corner radius a shape actually draws, recovered from its path:
+    /// the bottom run's leftmost endpoint is (minX + radius, maxY). Uses element
+    /// endpoints, not sampled trim points, so it is exact even at the capsule
+    /// limit where the straight side vanishes.
     static func pillDrawnRadius(_ shape: NotchShape, width: CGFloat, height: CGFloat) -> CGFloat {
         let path = shape.path(in: CGRect(x: 0, y: 0, width: width, height: height))
         var ends: [CGPoint] = []
@@ -444,8 +401,8 @@ enum GeometryCheck {
         return bottom.min() ?? .nan
     }
 
-    /// The file with line comments removed, so a lint can neither be tripped
-    /// nor satisfied by prose.
+    /// The file with line comments removed, so a lint can be neither tripped nor
+    /// satisfied by prose.
     static func strippedSource(_ path: String) -> String {
         guard let s = try? String(contentsOfFile: path, encoding: .utf8) else {
             require(false, "cannot read \(path)")
@@ -465,9 +422,8 @@ enum GeometryCheck {
         }
     }
 
-    /// Distance to the polyline's SEGMENTS, not to its vertices: measured to the
-    /// vertices, the answer carries the sample spacing as a bias and the bound
-    /// above would be measuring the sampling rate.
+    /// Distance to the polyline's segments, not its vertices; measured to the
+    /// vertices the answer carries the sample spacing as a bias.
     static func distance(from p: CGPoint, toPolyline pts: [CGPoint]) -> CGFloat {
         var best = CGFloat.infinity
         for i in 1..<pts.count {

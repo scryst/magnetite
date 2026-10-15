@@ -1,10 +1,7 @@
 import Foundation
 
-/// Headless checks on the ferrofluid's physics.
-///
-/// Every one of these encodes a complaint that was found by watching the screen
-/// and could only be diagnosed by measuring. They are here so none of them can
-/// come back quietly.
+/// Headless checks on the ferrofluid's physics. Each encodes a behaviour that
+/// can only be diagnosed by measuring, so it cannot regress quietly.
 @main
 enum FluidCheck {
     @MainActor
@@ -33,30 +30,24 @@ enum FluidCheck {
         print("fluidcheck: all checks passed")
     }
 
-    /// Drive must measure change, not volume. Music sits at 0.5-0.8 forever, and
-    /// keying off absolute level pinned 16 of 17 peaks permanently up — a static
-    /// jagged wall that no rendering change could revive.
+    /// Drive must measure change, not volume. Music sits at 0.5-0.8 for long
+    /// stretches, and keying off absolute level would pin 16 of 17 peaks up as a
+    /// static jagged wall.
     ///
-    /// Held at 0.8 rather than 0.7, because at 0.7 the first assertion could not
-    /// fail. A site's drive is `dev * 0.5 + kick * 0.8`, and a held level decays
-    /// `kick` to nothing, so a level-reading drive is just half the level: 0.35
-    /// at 0.7, a hair under the 0.36 critical field. No site ever rose, so
-    /// `standing` was 0 and the assertion that names this very defect passed
-    /// against it — putting the original bug back as `result[index] = value` in
-    /// `deviation` was caught only by the swell line below. At 0.8 the drive is
-    /// 0.40, clear of the field, and that same mutant stands 8 of 17 peaks and
-    /// fails on the count first. 0.8 is still inside the band the paragraph
-    /// above cites, and the margin is only 0.04 — a `criticalField` raised past
-    /// 0.40 would make the count vacuous again rather than red, so the margin
-    /// is asserted first, below, and that raise fails here by name.
+    /// Held at 0.8 so the first assertion can fail. A site's drive is
+    /// `dev * 0.5 + kick * 0.8` and a held level decays `kick` to nothing, so a
+    /// level-reading drive is half the level: 0.35 at 0.7, just under the 0.36
+    /// critical field, which leaves no site rising and the count vacuous. At 0.8
+    /// the drive is 0.40. The margin is only 0.04, so a `criticalField` raised
+    /// past 0.40 would make the count vacuous again; the margin is therefore
+    /// asserted first and that change fails by name.
     @MainActor
     private static func heldLoudnessDoesNotPinTheCrown() {
         let sim = FerrofluidSim()
         let level: Float = 0.8
-        // The check's own premise, held rather than hoped. `0.5` restates the
-        // dev weight in `updateSites` (`dev * 0.5 + kick * 0.8`); if that weight
-        // ever moves, this fails red rather than passing green, which is the
-        // safe direction for a guard.
+        // The check's premise, held rather than hoped. `0.5` restates the dev
+        // weight in `updateSites` (`dev * 0.5 + kick * 0.8`); if that weight
+        // moves, this fails red, the safe direction for a guard.
         let levelReadingDrive = Double(level) * 0.5
         let margin = levelReadingDrive - sim.criticalField
         require(margin >= 0.01,
@@ -73,8 +64,8 @@ enum FluidCheck {
         require(sim.swell < 0.15, "held loudness kept the pool swollen (\(sim.swell))")
     }
 
-    /// A crown whose peaks are all nearly the same height is the "same-height
-    /// spike comb" the product contract rules out.
+    /// A crown whose peaks are all nearly the same height is the same-height
+    /// spike comb the product contract rules out.
     @MainActor
     private static func theCrownIsNotAComb() {
         let sim = FerrofluidSim()
@@ -93,8 +84,9 @@ enum FluidCheck {
                 "peak heights span only \(String(format: "%.1f", ratio)):1 — that is a comb")
     }
 
-    /// When the music stops the ink must come home and stay there. No clock term
-    /// anywhere may keep it moving.
+    /// When the music stops the ink must come home and stay there; no clock term
+    /// may keep it moving. Measures how long it takes to settle, not only that
+    /// it does.
     @MainActor
     private static func silenceIsGenuinelyStill() {
         let sim = FerrofluidSim()
@@ -108,15 +100,10 @@ enum FluidCheck {
         for _ in 0..<30 { sim.advance(levels: hit, dt: 1.0 / 60) }
         require(sim.sites.contains { $0.height > 0.05 }, "test never raised a crown")
 
-        // How LONG it takes, not merely that it gets there.
-        //
-        // This used to snapshot the heights once settled, step 120 more silent
-        // frames and assert they had not drifted. That cannot fail: `advance`
-        // early-returns the moment the fluid is settled and silent, so those 120
-        // frames execute nothing. It was asserting that the early-return exists,
-        // which `theGateNeverOutlivesTheClock` already covers from the side that
-        // matters. Settling time is the property with something to say — a drain
-        // that stops draining, or a gate that never publishes, shows up here.
+        // Settling time is the property with something to say. Asserting that
+        // heights do not drift after settling cannot fail, because `advance`
+        // returns early once the fluid is settled and silent; a drain that stops
+        // draining, or a gate that never publishes, shows up here instead.
         let silence = [Float](repeating: 0, count: 12)
         var frames = 0
         while !sim.isSettled, frames < 60 * 10 {
@@ -131,8 +118,8 @@ enum FluidCheck {
                 "the fluid settled in \(frames) frames, which is a cut rather than a decay")
     }
 
-    /// Bass is heavy and treble is light: one drain rate for every band made the
-    /// whole crown breathe as a single object.
+    /// Bass is heavy and treble is light: one drain rate for every band would
+    /// make the whole crown breathe as a single object.
     @MainActor
     private static func bassOutlastsTreble() {
         let sim = FerrofluidSim()
@@ -156,8 +143,8 @@ enum FluidCheck {
                 "bass kept \(bassKept) and treble \(trebleKept) — bands drain alike")
     }
 
-    /// A track change is an event, so it goes in through the same door a drum
-    /// hit does — and then ordinary physics takes over, including settling.
+    /// A track change is an event, so it enters through the same door a drum hit
+    /// does, and then ordinary physics takes over, including settling.
     @MainActor
     private static func aTrackChangeMovesTheInk() {
         let sim = FerrofluidSim()
@@ -175,9 +162,9 @@ enum FluidCheck {
         require(sim.isSettled, "the surge left the fluid unsettled")
     }
 
-    /// The case a track change during a quiet passage produces: fully settled,
-    /// then surged. `advance` early-returns while isSettled is true, so the surge
-    /// has to republish the gate itself or it is skipped by the very next step.
+    /// A track change during a quiet passage arrives when the fluid is fully
+    /// settled. `advance` returns early while `isSettled` is true, so the surge
+    /// must republish the gate itself or the next step skips it.
     @MainActor
     private static func aSurgeIntoStillnessStillMoves() {
         let sim = FerrofluidSim()
@@ -191,8 +178,8 @@ enum FluidCheck {
         require(sim.impact > 0.1, "a surge into stillness produced no impact")
     }
 
-    /// The first song of a session is exactly when the reaction matters most,
-    /// and it arrives in the window before `kick` has been sized.
+    /// The first song of a session is when the reaction matters most, and it
+    /// arrives before `kick` has been sized.
     @MainActor
     private static func aSurgeBeforeTheFirstTickIsNotLost() {
         let sim = FerrofluidSim()
@@ -204,8 +191,8 @@ enum FluidCheck {
         require(sim.impact > 0.1, "a surge before the first tick was lost")
     }
 
-    /// stop() must leave the gates consistent with the state it just cleared, or
-    /// the renderer runs at 60fps for the rest of the session.
+    /// stop() must leave the gates consistent with the state it cleared, or the
+    /// renderer runs at 60 fps for the rest of the session.
     @MainActor
     private static func stoppingLeavesItSettled() {
         let sim = FerrofluidSim()
@@ -218,11 +205,10 @@ enum FluidCheck {
         require(sim.sites.isEmpty, "stop() left sites behind")
     }
 
-    /// Letting go of the audio on screen must not move the ink.
-    ///
-    /// Capture shuts off three seconds after a pause, and `stop()` there zeroed
-    /// the swell, the glow and the pointer's pull in one frame. The ink has to
-    /// come to rest from where it is, on its own clock, and then stop it.
+    /// Letting go of the audio on screen must not move the ink. Capture shuts off
+    /// shortly after a pause; the ink must come to rest from where it is, on its
+    /// own clock, and then stop, rather than zeroing the swell, glow and pointer
+    /// pull in one frame.
     @MainActor
     private static func releasingKeepsThePicture() {
         let sim = FerrofluidSim()
@@ -245,23 +231,19 @@ enum FluidCheck {
     }
 
     /// Anything that clears the settled gate must leave something driving it.
+    /// `isSettled` pauses the renderer; clearing it with no clock leaves
+    /// TimelineView rebuilding a 144-sample outline at 60 Hz over a picture that
+    /// cannot change, and nothing recomputes the gate.
     ///
-    /// `isSettled` is what pauses the renderer. Clearing it with no clock leaves
-    /// TimelineView rebuilding a 144-sample outline at 60Hz over a picture that
-    /// cannot change, and nothing ever recomputes the gate.
-    ///
-    /// This became reachable when the clock learned to retire on its own. Before
-    /// that it ran exactly start() -> stop(), and stop() empties `kick`, so a
-    /// surge with no clock always took the held-surge branch, which publishes
-    /// nothing. An idle pour now sizes `kick` and then the clock retires, so the
-    /// next surge takes the main path and clears the gate with nothing behind it.
+    /// Reachable since the clock learned to retire on its own: an idle pour sizes
+    /// `kick` and then the clock retires, so the next surge takes the main path
+    /// and clears the gate with nothing behind it.
     @MainActor
     private static func theGateNeverOutlivesTheClock() {
         let sim = FerrofluidSim()
         let floor = [Float](repeating: 0.2, count: 12)
-        // Driven by hand, exactly as this file drives everything — so `kick` is
-        // sized and there is deliberately no clock, which is the shape the app is
-        // in after an idle pour has finished.
+        // Driven by hand, as this file drives everything, so `kick` is sized and
+        // there is deliberately no clock: the state after an idle pour finishes.
         for _ in 0..<30 { sim.advance(levels: floor, dt: 1.0 / 60) }
         require(!sim.isDriven, "the harness started a clock; this check proves nothing")
 
@@ -282,17 +264,11 @@ enum FluidCheck {
         require(scrub.isDriven, "the pointer cleared the gate with no clock")
     }
 
-    /// The ink arrives behind the shell, and brings no beat with it.
-    ///
-    /// It used to be driven straight off `openness`, so the fluid and the chrome
-    /// finished together. The follower is asymmetric: slow to fill, quick to
-    /// drain.
-    ///
-    /// Opening also used to inject into the kick, the swell and the glow, which
-    /// made the panel manufacture a drum hit with no drum — visible immediately
-    /// with nothing playing, and against PRODUCT.md's second design principle:
-    /// audio causes events, a clock only advances the simulation. The open is not
-    /// audio. It moves the shape and nothing else.
+    /// The ink arrives behind the shell and brings no beat with it. The follower
+    /// is asymmetric: slow to fill, quick to drain. Opening must move the shape
+    /// and nothing else; injecting into the kick, swell or glow would manufacture
+    /// a drum hit with no drum, against PRODUCT.md's second design principle
+    /// (audio causes events, a clock only advances the simulation).
     @MainActor
     private static func theInkWashesInBehindTheShell() {
         let sim = FerrofluidSim()
@@ -310,8 +286,7 @@ enum FluidCheck {
             peakImpact = max(peakImpact, sim.impact)
             peakHeight = max(peakHeight, sim.sites.map(\.height).max() ?? 0)
         }
-        // The shell is at 0.896 here. This fails the instant anyone re-couples
-        // the ink to it.
+        // The shell is at 0.896 here; this fails if the ink is re-coupled to it.
         require(sim.inkOpen < 0.5,
                 "the ink kept pace with the shell instead of trailing it (\(sim.inkOpen))")
 
@@ -336,9 +311,7 @@ enum FluidCheck {
         require(sim.inkOpen == 0, "the ink did not drain with the shell (\(sim.inkOpen))")
 
         // An idle panel moves too. With no track the pump is down and `sites` is
-        // empty, and setOpen used to snap in that case — so the one state where
-        // the ink has nothing else to do was the one state where opening it did
-        // nothing.
+        // empty; opening must not snap in that case.
         let idle = FerrofluidSim()
         idle.setOpen(true)
         require(!idle.isSettled, "opening an idle panel did not wake the fluid")
@@ -364,12 +337,10 @@ enum FluidCheck {
                 "Reduce Motion did not shorten the open (\(reduced) vs \(plain) frames)")
     }
 
-    /// Forward and back must not produce the same heave.
-    ///
-    /// They did: `surge` was scalar, so the ink announced that a track had
-    /// changed and never which way you went. Forward leans the high bands, which
-    /// under the band -> rim -> seatU chain is the RIGHT — the same direction
-    /// `next()` runs the progress trace.
+    /// Forward and back must not produce the same heave. A scalar `surge` would
+    /// announce that a track changed but never which way. Forward leans the high
+    /// bands, which under the band -> rim -> seatU chain is the right, the same
+    /// direction `next()` runs the progress trace.
     @MainActor
     private static func aSkipHasADirection() {
         func lean(_ direction: Double, frames: Int = 10) -> (low: Double, high: Double, centroid: Double) {
@@ -395,7 +366,7 @@ enum FluidCheck {
         require(f.centroid > 0.55 && b.centroid < 0.45,
                 "the two skips are not mirrored (forward \(f.centroid), back \(b.centroid))")
         // Peaks, not sums: the `fall` drain gradient is band-dependent, so the
-        // two totals legitimately diverge while the crests stay matched.
+        // totals legitimately diverge while the crests stay matched.
         let peaks = (f.high, b.low)
         require(abs(peaks.0 - peaks.1) / max(peaks.0, peaks.1) < 0.15,
                 "one direction hits harder than the other (\(peaks.0) vs \(peaks.1))")
@@ -411,18 +382,15 @@ enum FluidCheck {
                 "a held surge lost its direction through pendingSurge (\(lo) vs \(hi))")
     }
 
-    /// Every band is its own slice of the spectrum.
+    /// Every band is its own slice of the spectrum. With log spacing, bands 0 and
+    /// 1 shared a bin, so two sites on the left run rose in lockstep: a
+    /// same-height spike comb produced by the analyser, which PRODUCT.md rules
+    /// out. The other checks feed the sim constructed levels and never ask where
+    /// a real level comes from.
     ///
-    /// Log spacing sent bands 0 and 1 to the same bin, so two of the three sites
-    /// on the left vertical run were driven by one identical signal and rose in
-    /// lockstep — a same-height spike comb produced by the analyser, which is the
-    /// first thing PRODUCT.md says this must never look like. It was invisible to
-    /// every check here because they all feed the sim CONSTRUCTED levels and
-    /// never ask where a real level comes from.
-    ///
-    /// Asserted as a partition — strictly increasing, gapless, non-empty, in
-    /// range — rather than against a table of expected edges, which would be the
-    /// implementation copied out and would pass for any spacing at all.
+    /// Asserted as a partition (strictly increasing, gapless, non-empty, in
+    /// range) rather than against a table of edges, which would copy the
+    /// implementation and pass for any spacing.
     static func noTwoBandsCarryTheSameBin() {
         let fftSize = 1024, half = fftSize / 2
         let edges = AudioTap.bandPartition(fftSize: fftSize, bandCount: AudioTap.bandCount)
@@ -433,7 +401,7 @@ enum FluidCheck {
                     "band \(b) is \(e), outside bins 1..<\(half)")
             require(e.1 > e.0, "band \(b) is empty (\(e)) — it would always read zero")
             if b > 0 {
-                // Equality here IS the bug: (1,2) twice summed bin 1 twice.
+                // Equality here is the bug: (1,2) twice summed bin 1 twice.
                 require(e.0 == edges[b - 1].1,
                         "band \(b) starts at \(e.0) where band \(b - 1) ended at "
                         + "\(edges[b - 1].1) — bins are \(e.0 < edges[b - 1].1 ? "shared" : "skipped")")
@@ -447,21 +415,16 @@ enum FluidCheck {
                 "the partition covers \(edges.first!.0)..<\(edges.last!.1) of 1..<\(half)")
     }
 
-    /// The fluid stays in its working range on REAL music, not just on synthetic
-    /// spectra.
+    /// The fluid stays in its working range on real music, not just on synthetic
+    /// spectra. The other checks use constructed levels and miss sustained music,
+    /// where bands neither hold still nor spike cleanly.
+    /// `Resources/real-levels.txt` is 240 frames captured from the app's own tap.
     ///
-    /// Every other check here drives the sim with constructed levels — a held
-    /// floor, a single hit, silence. Those catch the shapes they were written
-    /// for and miss the one that matters most: sustained music, where the bands
-    /// neither hold still nor spike cleanly. `Resources/real-levels.txt` is 240
-    /// frames captured from the running app's own tap with music playing.
-    ///
-    /// The failure this guards is saturation. If the whole-body swell pins near
-    /// 1 the outline is lifted uniformly, tanh compresses it to the ceiling and
-    /// the silhouette becomes a smooth wall with no crowns — which is not a
-    /// crash, not a hang, and invisible to every other assertion in this file.
-    /// Measured against this capture: swell mean 0.35, sd 0.23, never above
-    /// 0.95, and the site budget reached only 2% of the time.
+    /// The failure guarded is saturation: if the whole-body swell pins near 1 the
+    /// outline lifts uniformly, tanh compresses it to the ceiling and the
+    /// silhouette becomes a smooth wall with no crowns, with no crash or hang to
+    /// reveal it. On this capture the swell has mean 0.35, sd 0.23, never above
+    /// 0.95, and the site budget is reached only 2% of the time.
     @MainActor
     private static func realMusicDoesNotSaturateIt() {
         let path = "Resources/real-levels.txt"
@@ -477,8 +440,8 @@ enum FluidCheck {
         let sim = FerrofluidSim()
         var swells: [Double] = [], ups: [Int] = []
         for (i, f) in frames.enumerated() {
-            // The app steps at 60Hz while levels arrive at 30, so each frame is
-            // stepped twice — and the second step sees a delta of exactly zero.
+            // The app steps at 60 Hz while levels arrive at 30, so each frame is
+            // stepped twice and the second step sees a delta of exactly zero.
             sim.advance(levels: f, dt: 1.0 / 60)
             sim.advance(levels: f, dt: 1.0 / 60)
             guard i > frames.count / 4 else { continue }      // let the baseline settle
@@ -492,33 +455,23 @@ enum FluidCheck {
                 + "lifts the whole outline and the crowns flatten into a wall")
         require(mean > 0.10 && mean < 0.60,
                 "the swell averages \(mean) on real music, outside its working range")
-        // And the surface must be doing something: a fluid that never raises a
+        // The surface must also be doing something: a fluid that never raises a
         // site on real music is as wrong as one that raises all of them.
         let atCap = ups.filter { $0 >= 9 }.count * 100 / ups.count
         require(atCap < 25, "the site budget is exhausted \(atCap)% of the time")
         require(ups.contains { $0 >= 3 }, "real music never raised three crowns at once")
     }
 
-    /// Coming back from a pause must not hit the fluid harder than the music does.
-    ///
-    /// `realMusicDoesNotSaturateIt` replays the same capture start to finish, so
-    /// the one transition a listener makes constantly — pause, wait, play — is
-    /// the window it never enters. Both of the sim's inputs measure change
-    /// against a remembered past, and silence poisons that memory: `rise` is
-    /// measured from levels that decayed to zero, and `delta` is divided by a
-    /// `spread` that stopped adapting when the settled early-return stopped
-    /// calling `deviation`. So resuming read as a full-scale event on both paths
-    /// at once.
-    ///
-    /// Measured on this capture with four seconds of silence cut into it, before
-    /// the fix: the resume heaved the whole body to swell 0.973 and peak height
-    /// 0.997 — HARDER than the loudest frame of the music either side of it
-    /// (0.879), which is the saturation wall the check above exists to forbid,
-    /// reached by the analyser rather than by the music.
+    /// Coming back from a pause must not hit the fluid harder than the music
+    /// does. Both inputs measure change against a remembered past, and silence
+    /// poisons that memory: `rise` is measured from levels decayed to zero, and
+    /// `delta` is divided by a `spread` that stopped adapting once the settled
+    /// early return stopped calling `deviation`. A resume then read as a
+    /// full-scale event (swell 0.973, peak 0.997 against a loudest music frame of
+    /// 0.879), the saturation wall reached by the analyser rather than the music.
     ///
     /// Both assertions are relative to the same capture rather than to a tuned
-    /// constant: the fluid is allowed to react to a resume exactly as much as it
-    /// reacts to music, and no more.
+    /// constant: a resume may move the fluid exactly as much as the music does.
     @MainActor
     private static func resumingIsNotAnEvent() {
         let path = "Resources/real-levels.txt"
@@ -532,9 +485,9 @@ enum FluidCheck {
         require(music.count > 200, "the capture has only \(music.count) frames")
         let silence = [Float](repeating: 0, count: 12)
 
-        // Site height rises with a 1/24s time constant, so twelve frames at 60Hz
-        // is several of them: past that the surface is answering the music, not
-        // the resume.
+        // Site height rises with a 1/24 s time constant, so twelve frames at 60 Hz
+        // is several of them: past that the surface answers the music, not the
+        // resume.
         let window = 12
         let sim = FerrofluidSim()
         var musicSwell = 0.0, musicMove = 0.0
@@ -543,7 +496,7 @@ enum FluidCheck {
         var frame = 0
 
         func step(_ levels: [Float], record: (Double, Double) -> Void) {
-            // Levels arrive at 30Hz and the app steps at 60, as elsewhere here.
+            // Levels arrive at 30 Hz and the app steps at 60, as elsewhere here.
             sim.advance(levels: levels, dt: 1.0 / 60)
             sim.advance(levels: levels, dt: 1.0 / 60)
             let heights = sim.sites.map(\.height)
@@ -563,12 +516,11 @@ enum FluidCheck {
                 musicMove = max(musicMove, move)
             }
         }
-        // Four seconds paused — long enough for the levels to decay to zero and
+        // Four seconds paused: long enough for the levels to decay to zero and
         // the fluid to settle, which is what poisons the memory.
         for _ in 0..<120 { step(silence) { _, _ in } }
-        // Then the SAME music again, so the two windows differ only in what came
-        // before them. Scoring the resume against a different passage is how an
-        // earlier version of this measurement reported an improvement as a
+        // Then the same music again, so the two windows differ only in what came
+        // before them; a different passage could report an improvement as a
         // regression.
         var resumed = 0
         for f in music.prefix(120) {
@@ -589,16 +541,13 @@ enum FluidCheck {
                 + "music's own peak of \(musicMove)")
     }
 
-    /// The halo must never appear or vanish in one frame.
+    /// The halo must never appear or vanish in one frame. `glowGate` is a hard
+    /// threshold, so without the ease the bloom would switch on and off at alpha
+    /// 0.1868, the largest per-frame change in the effect.
     ///
-    /// The gate at `glowGate` is a hard threshold, so the bloom used to switch on
-    /// and off at alpha 0.1868 — the single largest per-frame change anywhere in
-    /// the effect was the moment it stopped existing.
-    ///
-    /// A fixed count, which is the house style here and no longer a workaround.
-    /// It was one: `updateImpact` snapped at 0.002 while `publishGates` called
-    /// settled at 0.004, so impact froze in the gap at 0.00395 and "step until
-    /// impact == 0" hung forever. The two now share `settledEpsilon`.
+    /// A fixed frame count is the house style here. `updateImpact` and
+    /// `publishGates` now share `settledEpsilon`, so impact no longer freezes
+    /// between two different thresholds and a step-until-zero loop cannot hang.
     @MainActor
     private static func theGlowNeverSwitchesOnOrOff() {
         let sim = FerrofluidSim()
@@ -627,14 +576,10 @@ enum FluidCheck {
                 "the halo survives a retracted panel")
     }
 
-    /// Letting go of the scrub must release the ink.
-    ///
-    /// The scrub is now the ONLY thing that sets the pointer — the hover magnet
-    /// was removed because it made the ink track the cursor rigidly. Its
-    /// `onEnded` used to re-arm the magnet at normal strength and rely on the
-    /// next mouse-move to clear it; with nothing left to overwrite it, anything
-    /// other than a release pins the swell up for the rest of the session and
-    /// isSettled never comes back, so the renderer never pauses again.
+    /// Letting go of the scrub must release the ink. The scrub is the only thing
+    /// that sets the pointer, so anything other than a release on `onEnded` pins
+    /// the swell up for the session and `isSettled` never returns, leaving the
+    /// renderer running.
     @MainActor
     private static func aFinishedScrubReleasesTheInk() {
         let sim = FerrofluidSim()
@@ -643,8 +588,8 @@ enum FluidCheck {
         for _ in 0..<30 { sim.advance(levels: silence, dt: 1.0 / 60) }
         require(sim.pointerPull > 0.5, "the scrub never pulled")
 
-        // The old onEnded: re-arm at normal strength and wait for a mouse move to
-        // clear it. Prove that this can never release on its own now.
+        // Re-arming at normal strength and waiting for a mouse move to clear it
+        // can never release on its own now.
         sim.setPointer(rim: 0.6)
         for _ in 0..<(60 * 3) { sim.advance(levels: silence, dt: 1.0 / 60) }
         require(sim.pointerPull > 0.5 && !sim.isSettled,
@@ -658,12 +603,11 @@ enum FluidCheck {
                 "a finished scrub left the renderer running forever")
     }
 
-    /// The swell is dragged by the cursor, not pinned to it.
-    ///
-    /// `setPointer` used to assign `pointerRim` directly, so the mound teleported
-    /// along the rim on every mouse-move event and the ink tracked the cursor
-    /// rigidly. It must lag: visibly behind after one frame, still short of the
-    /// target a tenth of a second later, and arrived by half a second.
+    /// The swell is dragged by the cursor, not pinned to it. Assigning
+    /// `pointerRim` directly would teleport the mound along the rim on every
+    /// mouse move, so the ink tracks rigidly. It must lag: visibly behind after
+    /// one frame, still short of the target a tenth of a second later, and
+    /// arrived by half a second.
     @MainActor
     private static func theSwellTrailsTheCursor() {
         let sim = FerrofluidSim()
@@ -687,10 +631,9 @@ enum FluidCheck {
                 "the swell never arrived where the cursor is (\(sim.pointerRim))")
     }
 
-    /// The pointer is a magnet the ink had never answered. It has to work in
-    /// SILENCE — that is the whole point — which means the pull must be
-    /// integrated before advance()'s settled early-return, and its arrival has to
-    /// wake a renderer that is gated on isSettled.
+    /// The pointer is a magnet that must work in silence, so its pull is
+    /// integrated before `advance()`'s settled early return, and its arrival
+    /// wakes a renderer gated on `isSettled`.
     @MainActor
     private static func theInkAnswersThePointer() {
         let sim = FerrofluidSim()
@@ -711,11 +654,8 @@ enum FluidCheck {
     }
 
     /// Dragging the playhead should feel like dragging the surface, so a scrub
-    /// pulls harder than a plain pointer would.
-    ///
-    /// The hover magnet it was named against is gone — it read as the ink
-    /// tracking the cursor — so both calls here are scrubs and what is compared
-    /// is the strength argument, which is the thing the drag actually varies.
+    /// pulls harder than a plain pointer. Both calls are scrubs; what differs is
+    /// the strength argument.
     @MainActor
     private static func aScrubPullsHarderThanAHover() {
         let sim = FerrofluidSim()
@@ -736,23 +676,18 @@ enum FluidCheck {
 
     /// Core Audio's callback queue must never be the queue teardown runs on.
     ///
-    /// This is the one defect in the audio path that nothing else here can
-    /// reach. Core Audio delivers the IOProc by `dispatch_sync`ing onto whichever
-    /// queue it was handed, *while holding its own IO mutex* — so handing it the
-    /// queue that also runs `AudioDeviceStop` is an ABBA deadlock, and not a
-    /// race: sampling the shipped app caught both halves pinned for all 1653
-    /// samples of a two-second window. Nothing recovers from it. The wedge sits
-    /// upstream of `setState(running: false)`, so `isRunning` stays true,
-    /// `levels()` goes on serving the last bands it computed, and every status
-    /// the app can report says capture is healthy while the visualiser is dead
-    /// for the rest of the session.
+    /// Core Audio delivers the IOProc by `dispatch_sync`ing onto the queue it was
+    /// handed while holding its own IO mutex. If that queue also runs
+    /// `AudioDeviceStop` the result is an ABBA deadlock, not a race, and nothing
+    /// recovers: the wedge sits upstream of `setState(running: false)`, so
+    /// `isRunning` stays true, `levels()` keeps serving the last bands, and every
+    /// status reports capture healthy while the visualiser is dead.
     ///
-    /// Exercising it honestly would mean building a live process tap, capturing
-    /// the user's system audio, and then deadlocking this checker on purpose. So
-    /// it reads the source instead — and asserts the RELATIONSHIP rather than the
-    /// spelling, because the names are not the property: whatever the two queues
-    /// are called, the one handed to Core Audio must not be the one `start()` and
-    /// `stop()` dispatch onto.
+    /// Exercising it would need a live process tap capturing system audio and a
+    /// deliberate deadlock, so this reads the source and asserts the
+    /// relationship rather than the spelling: whatever the queues are called, the
+    /// one handed to Core Audio must not be the one `start()` and `stop()`
+    /// dispatch onto.
     private static func theIOProcNeverSharesTheLifecycleQueue() {
         let path = "Sources/NotchApp/Audio/AudioTap.swift"
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
@@ -777,9 +712,9 @@ enum FluidCheck {
             return
         }
 
-        // Serialising teardown behind start was itself a fix: run inline, a stop
-        // could complete while a start was mid-flight and leave a live tap and
-        // aggregate device with no handle able to reach them.
+        // Teardown is serialised behind start: run inline, a stop could complete
+        // while a start was mid-flight and leave a live tap and aggregate device
+        // with no handle able to reach them.
         require(startQueue == stopQueue,
                 "start() dispatches onto \(startQueue) and stop() onto \(stopQueue); "
                 + "a start racing a stop is only ordered while both use one queue")
@@ -807,8 +742,8 @@ enum FluidCheck {
                 + "so AudioDeviceStop blocks on that mutex while the IO thread blocks on "
                 + "the queue, and the tap wedges with every status still reporting healthy")
 
-        // The runtime half. If the two ever converge again by some route this
-        // source read cannot see, teardown trips instead of hanging silently.
+        // The runtime half: if the queues converge again by a route this source
+        // read cannot see, teardown traps instead of hanging silently.
         require(teardown.contains("dispatchPrecondition") && teardown.contains("notOnQueue"),
                 "teardown() no longer asserts it is off the IOProc's queue, so the deadlock "
                 + "would come back as a silent permanent hang rather than a crash")
