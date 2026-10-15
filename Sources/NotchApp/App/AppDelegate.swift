@@ -208,14 +208,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // IOProc or start belongs to the audio system.
         if let text = coordinator?.audioPermissionNote {
             if text.contains("permission") {
-                note("Visualiser can't hear system audio", text)
+                note("Visualiser can't hear system audio",
+                     "Allow Magnetite under Screen & System Audio Recording, then quit and reopen it.")
                 items.append(action("Open Privacy Settings…", key: "") {
                     NSWorkspace.shared.open(URL(string:
                         "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")!)
                 })
             } else {
                 note("Visualiser couldn't start audio capture",
-                     "\(text). Switching the output device or reopening Magnetite usually clears this.")
+                     "Switching the output device or reopening Magnetite usually clears this. (\(text))")
             }
         }
 
@@ -356,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         nudge("Squarer Corners", "") { settings.notchAdjustedRadius -= 1 }
         nudge("Rounder Corners", "") { settings.notchAdjustedRadius += 1 }
         sub.addItem(.separator())
-        nudge("Reset to Hardware", "") {
+        nudge("Reset Calibration", "") {
             settings.notchAdjustedWidth = 0
             settings.notchAdjustedHeight = 0
             settings.notchAdjustedRadius = 0
