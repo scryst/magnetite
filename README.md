@@ -4,9 +4,7 @@ Free, open-source Spotify and Apple Music controls in your MacBook notch, with f
 
 [![Magnetite playing Chrome Funk: album art, playback controls and a liquid outline around the camera notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4)
 
-[![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest)
-[![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements)
-[![MIT license](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
 
 ## Install
 
@@ -28,14 +26,31 @@ Start music in Spotify or Music, then **hover the notch**. The **M** in the menu
 
 These are frames from the [31-second recording of the real app](https://magnetite.app/media/film.mp4), not interface mockups. Follow a frame to watch the behavior.
 
-| Feature | Real app footage |
-| --- | --- |
-| **Music becomes liquid.** One black surface responds to system audio around familiar playback controls. | [![Expanded player with ferrofluid responding around the notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4#t=0,6) |
-| **Skip with a swipe.** Two fingers sideways change tracks; up or down plays or pauses. | [![The player after a two-finger skip changes the track](docs/media/skip.webp)](https://magnetite.app/media/film.mp4#t=1,10) |
-| **Seek on the edge.** Drag the player's bottom outline to move through a track. | [![Pointer dragging the progress strip along the bottom of the player](docs/media/seek.webp)](https://magnetite.app/media/film.mp4#t=17,20) |
-| **Back into the menu bar.** Move away and the player retracts; hover to open it again. | [![Retracted player with artwork and elapsed time beside the camera notch](docs/media/retracted.webp)](https://magnetite.app/media/film.mp4#t=21,31) |
+### Music becomes liquid
 
-Film: Punch Deck's “Chrome Funk,” “Cyberpunk Renaissance” and “Neon Underworld,” [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). [Music credits](https://magnetite.app/#credits). Frames are cropped from that recording; see [media provenance](docs/media/README.md).
+One black surface responds to system audio around familiar playback controls.
+
+[![Expanded player with ferrofluid responding around the notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4#t=0,6)
+
+### Skip with a swipe
+
+Two fingers sideways change tracks; up or down plays or pauses.
+
+[![The player after a two-finger skip changes the track](docs/media/skip.webp)](https://magnetite.app/media/film.mp4#t=1,10)
+
+### Seek on the edge
+
+Drag the player's bottom outline to move through a track.
+
+[![Pointer dragging the progress strip along the bottom of the player](docs/media/seek.webp)](https://magnetite.app/media/film.mp4#t=17,20)
+
+### Back into the menu bar
+
+Move away and the player retracts; hover to open it again.
+
+[![Retracted player with artwork and elapsed time beside the camera notch](docs/media/retracted.webp)](https://magnetite.app/media/film.mp4#t=21,31)
+
+Film: [Punch Deck](https://punchdeck.bandcamp.com)'s “Chrome Funk,” “Cyberpunk Renaissance” and “Neon Underworld,” [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Frames are cropped from that recording; see [media provenance](docs/media/README.md).
 
 ## Requirements
 
@@ -47,12 +62,10 @@ Film: Punch Deck's “Chrome Funk,” “Cyberpunk Renaissance” and “Neon Un
 
 No Magnetite account, analytics, telemetry or crash reporter. Audio is processed in memory on your Mac; it is never saved or uploaded.
 
-| Access | Why it is needed |
-| --- | --- |
-| **Automation / Apple Events** (the same macOS permission used by AppleScript) | Read now-playing information and control the local Spotify or Music app through ScriptingBridge. Ordinary playback needs no Spotify Web API connection. |
-| **System audio recording** | A CoreAudio process tap reads the system mix for the ferrofluid visualiser. It does not record your microphone or upload audio. |
-| **Artwork downloads** | Fetch the current cover from the URL supplied by the music player, then use its colours in the interface. |
-| **Optional Spotify connection** | `user-library-read` and `user-library-modify` read/save/remove liked tracks; `user-read-playback-state` and `user-modify-playback-state` support shuffle/repeat; `user-read-private` checks account capability before offering those controls. |
+- **Automation / Apple Events** (the same macOS permission used by AppleScript): reads now-playing information and controls the local Spotify or Music app through ScriptingBridge. Ordinary playback needs no Spotify Web API connection.
+- **System audio recording:** a CoreAudio process tap reads the system mix for the ferrofluid visualiser. It does not record your microphone or upload audio.
+- **Artwork downloads:** fetches the current cover from the URL supplied by the music player, then uses its colours in the interface.
+- **Optional Spotify connection:** `user-library-read` and `user-library-modify` read/save/remove liked tracks; `user-read-playback-state` and `user-modify-playback-state` support shuffle/repeat; `user-read-private` checks account capability before offering those controls.
 
 Spotify authorization uses PKCE, without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. Spotify receives authorized API requests; artwork hosts receive image requests. [Full privacy details](https://magnetite.app/privacy.html).
 
