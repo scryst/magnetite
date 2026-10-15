@@ -44,7 +44,11 @@ final class NotchCoordinator {
     private var closeHoldDeadline: ContinuousClock.Instant?
     private var wasPlaying = false
     private var lastSurgedToken = -1
-    private var systemHidden = false
+    private var systemHidden: Bool { lockedOrSaver || displaysAsleep }
+    private var lockedOrSaver = false
+    /// Its own flag, not folded into the lock one: displays wake before the
+    /// user unlocks, and a shared flag would show the panel over the lock.
+    private var displaysAsleep = false
     private var clickAway: Any?
     private let gestures = NotchGestures()
 
@@ -217,7 +221,7 @@ final class NotchCoordinator {
         gestures.isOverNotch = { [weak self] point in
             guard let self else { return false }
             return self.hosts.values.contains {
-                self.isOverNotch(point, controller: $0.controller)
+                self.isOverNotch(point, controller: $0.controller, forGesture: true)
             }
         }
         // `hasTrack`, because it is what every gesture callback ultimately
@@ -285,6 +289,19 @@ final class NotchCoordinator {
                 MainActor.assumeIsolated { self?.setSystemHidden(false) }
             }
         }
+        // Display sleep without a lock: the audio tap, the ~60Hz ink clock and
+        // the polls kept running for a screen nobody could see.
+        for (name, asleep) in [(NSWorkspace.screensDidSleepNotification, true),
+                               (NSWorkspace.screensDidWakeNotification, false)] {
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: name, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.displaysAsleep = asleep
+                    self?.refreshEnvironment()
+                }
+            }
+        }
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil, queue: .main
@@ -319,7 +336,7 @@ final class NotchCoordinator {
 
     /// Lock and screensaver are global; fullscreen is not.
     private func setSystemHidden(_ hidden: Bool) {
-        systemHidden = hidden
+        lockedOrSaver = hidden
         refreshEnvironment()
     }
 
@@ -331,6 +348,7 @@ final class NotchCoordinator {
     private func refreshEnvironment() {
         for host in hosts.values {
             let hide = systemHidden || menuBarIsHidden(on: host.controller.screen)
+            let reappearing = !hide && !host.controller.isVisible
             host.controller.setVisible(!hide)
             // Genuinely absent, not transparent. An ordered-out window cannot be
             // hovered, cannot be made interactive, and cannot be hit-tested at
@@ -338,6 +356,14 @@ final class NotchCoordinator {
             if hide {
                 host.panel.orderOut(nil)
             } else {
+                // Re-measured on the way back: the menu-bar band reads 0 while a
+                // fullscreen app owns the display, and a display change or wake
+                // during it left the mini player and HUD 0pt tall afterwards.
+                // Only on the hidden-to-shown edge: observation invalidates on
+                // assignment, and this runs on every space change.
+                if reappearing, let screen = host.controller.screen {
+                    host.controller.refreshMetrics(for: screen)
+                }
                 host.panel.orderFrontRegardless()
             }
         }
@@ -398,8 +424,10 @@ final class NotchCoordinator {
     }
 
     /// Is `point` over this notch? One definition, shared by hover and gestures,
-    /// so the two can never disagree about where the notch is.
-    private func isOverNotch(_ point: NSPoint, controller: NotchController) -> Bool {
+    /// so the two can never disagree about where the notch is; only the open
+    /// panel's keep-open pad is hover's alone.
+    private func isOverNotch(_ point: NSPoint, controller: NotchController,
+                             forGesture: Bool = false) -> Bool {
         // A hidden notch is not anywhere. Without this the hot zone stayed live
         // through the entire hidden period, so two-finger scrolling at the top of
         // a fullscreen video skipped tracks with no visible UI to explain it —
@@ -414,16 +442,24 @@ final class NotchCoordinator {
                                y: screen.frame.maxY - size.height,
                                width: size.width,
                                height: size.height)
-        let edgeRect = NSRect(x: shapeRect.minX - 8,
+        // Closed, exactly the drawn shell: with the mini player off that is the
+        // camera cutout, and a pad round it opened the panel from the menu bar
+        // beside and below the notch, an invisible area larger than the notch.
+        let edgeRect = NSRect(x: shapeRect.minX,
                               y: screen.frame.maxY - 4,
-                              width: shapeRect.width + 16,
+                              width: shapeRect.width,
                               height: 4)
 
         // Generous once open, and generous *below* in particular: the progress
         // line lives on the bottom edge and it moves, so a tight region meant the
         // panel snapped shut just as you got the cursor onto it.
-        let sidePad: CGFloat = controller.isExpanded ? 30 : 6
-        let belowPad: CGFloat = controller.isExpanded ? 40 : 6
+        // Hover only. A swipe is read by a global monitor that cannot consume
+        // it, so over the 40pt below an open panel a two-finger scroll in a
+        // browser's tab strip skipped the track AND scrolled the page.
+        // Gestures take the drawn shell.
+        let generous = controller.isExpanded && !forGesture
+        let sidePad: CGFloat = generous ? 30 : 0
+        let belowPad: CGFloat = generous ? 40 : 0
         let hoverRect = NSRect(x: shapeRect.minX - sidePad,
                                y: shapeRect.minY - belowPad,
                                width: shapeRect.width + sidePad * 2,
@@ -525,7 +561,13 @@ final class NotchCoordinator {
 
     private func syncMiniPlayerAndCapture() {
         // On transition. `hasMedia` is observed and this runs on every poll.
-        broadcast { c in if c.hasMedia != media.hasTrack { c.hasMedia = media.hasTrack } }
+        // Animated while open: the idle card and the player are different
+        // sizes, and this lands a hop after the content switched, so an
+        // unanimated write snapped the shell from 232pt to 372pt under it.
+        broadcast { c in
+            guard c.hasMedia != media.hasTrack else { return }
+            withAnimation(c.isExpanded ? Motion.expand : nil) { c.hasMedia = media.hasTrack }
+        }
 
         // Two gates, not one. The mini player and the visualiser used to share
         // one condition, so turning the mini player off also detached the audio

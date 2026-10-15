@@ -125,6 +125,12 @@ final class MediaManager {
     private var positionAnchor = Date()
     private var artworkTask: Task<Void, Never>?
     private var artworkGeneration = 0
+    /// The generation whose answer (cover or none) is on screen, and the album
+    /// it belongs to. A new album's cover that is slow to arrive must not leave
+    /// the previous record under the new title: see `loadArtwork`.
+    @ObservationIgnored private var artworkShown = 0
+    @ObservationIgnored private var artworkAlbum = ""
+    @ObservationIgnored private var artworkGraceTask: Task<Void, Never>?
     /// SHA-256 of the last artwork's bytes, so the same cover is not
     /// re-processed. Not `Data.hashValue`: that covers the length and the first
     /// 80 bytes only, so two same-sized covers with a matching top edge (a black
@@ -744,6 +750,28 @@ final class MediaManager {
         let generation = artworkGeneration
         artworkTask?.cancel()
 
+        // A different record: if its cover is not here in 0.3s, put the
+        // neutral placeholder up rather than leave the last album's cover and
+        // colours under the new title for the whole download (up to 6s on a
+        // slow network). Same album, the cover will be the same, so keep it.
+        // The grace keeps a fast fetch from flashing the placeholder.
+        artworkGraceTask?.cancel()
+        let newRecord = snap.album.isEmpty || snap.album != artworkAlbum
+        artworkAlbum = snap.album
+        if newRecord, artwork != nil {
+            artworkGraceTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                guard let self, !Task.isCancelled,
+                      generation == self.artworkGeneration,
+                      self.artworkShown != generation else { return }
+                self.artworkDigest = nil
+                withAnimation(Motion.track) {
+                    self.artwork = nil
+                    self.palette = .fallback
+                }
+            }
+        }
+
         artworkTask = Task { @MainActor [weak self] in
             guard let self else { return }
 
@@ -846,6 +874,7 @@ final class MediaManager {
         // Re-checked after the hop: a newer track may have claimed the panel
         // while the encode ran.
         guard !Task.isCancelled, generation == artworkGeneration else { return false }
+        artworkShown = generation
         if result.identical { return true }
         artworkDigest = result.digest
 

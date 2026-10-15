@@ -178,6 +178,13 @@ enum Motion {
         reduceMotion ? .easeOut(duration: 0.16)
                      : .spring(response: 0.34, dampingFraction: 0.82)
     }
+    /// The mini player's clock. Out fast, before the panel's content (delayed
+    /// 0.07s) is visible; in only once the panel's content (0.175s exit) has
+    /// gone. A readout should never be on screen twice.
+    static var miniClockOut: Animation { .easeOut(duration: 0.07) }
+    static var miniClockIn: Animation {
+        .easeOut(duration: reduceMotion ? 0.12 : 0.18).delay(0.16)
+    }
     /// Progress and level bars: no bounce, they read as measurement.
     static var meter: Animation {
         reduceMotion ? .easeOut(duration: 0.14) : .smooth(duration: 0.22)

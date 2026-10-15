@@ -32,6 +32,23 @@ final class SpotifyWeb {
     private static let tokenAccount = "spotify-refresh-token"
     private static let requestTimeout: TimeInterval = 10
 
+    /// Spotify's OAuth error code, said plainly for the menu.
+    static func tokenFailureMessage(_ code: String?) -> String {
+        switch code {
+        case "invalid_client":
+            return "Spotify didn't recognise that Client ID. Use Change Spotify Client ID…"
+        case "invalid_grant":
+            return "Spotify sign-in expired. Click to connect again."
+        default:
+            return "Spotify sign-in failed. Click to try again."
+        }
+    }
+
+    /// `lastError` as a menu title: most messages already name Spotify.
+    var lastErrorTitle: String? {
+        lastError.map { $0.hasPrefix("Spotify") ? $0 : "Spotify: \($0)" }
+    }
+
     /// A FIXED port, because the dashboard rejects the portless form.
     ///
     /// Spotify's own documentation says a loopback literal may be registered
@@ -464,6 +481,9 @@ final class SpotifyWeb {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard let (data, response) = try? await URLSession.shared.data(for: request) else {
             log("\(method) \(url): request failed")
+            // Said in the menu: a heart that fills then empties with no reason
+            // given reads as a broken button.
+            lastError = "Couldn't reach Spotify."
             return nil
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -489,6 +509,9 @@ final class SpotifyWeb {
             // the next launch.
             notBefore = Date().addingTimeInterval(min(max(after, 1), 120))
             log("\(method) \(url): 429, backing off \(Int(after))s")
+            lastError = "Spotify asked us to slow down. Try again shortly."
+        } else if status == 403 {
+            lastError = "Spotify didn't allow that for this account."
         }
         // A request that worked is proof the complaint in the menu is over. It
         // was only ever cleared by Connect and Disconnect, so a refresh that
@@ -638,9 +661,12 @@ final class SpotifyWeb {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let access = json["access_token"] as? String
         else {
+            // The menu shows this. It used to be the raw reply body, so a
+            // wrong client ID read `{"error":"invalid_client",…}`.
+            let code = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+            log("token request failed: \(String(data: data, encoding: .utf8) ?? "?")")
             throw NSError(domain: "SpotifyWeb", code: 1, userInfo: [
-                NSLocalizedDescriptionKey:
-                    String(data: data, encoding: .utf8) ?? "token request failed",
+                NSLocalizedDescriptionKey: Self.tokenFailureMessage(code),
             ])
         }
         accessToken = access

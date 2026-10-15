@@ -102,7 +102,19 @@ struct NotchRootView: View {
             // the player cut, and started fading only once it was moved in
             // here beside `content`.
             SwipeLeanFrame(controller: controller, expanded: expanded) {
-                ZStack(alignment: .top) { content }
+                ZStack(alignment: .top) {
+                    content
+                    miniClock
+                    if media.hasTrack {
+                        PanelClocks(media: media,
+                                    shownPosition: shownPosition,
+                                    scrubbing: scrubbing,
+                                    band: band,
+                                    notchWidth: controller.notchSize.width,
+                                    width: size.width,
+                                    visible: expanded)
+                    }
+                }
             }
                 .frame(width: size.width, height: size.height, alignment: .top)
                 .clipShape(shape)
@@ -228,6 +240,14 @@ struct NotchRootView: View {
             glassLayer
                 .frame(width: size.width, height: size.height)
                 .allowsHitTesting(false)
+                // A bare notch is black. Filmed with the mini player off, the
+                // tint rode the spring's tail down to the cutout and left a
+                // brown ring round the camera for 4-5 frames: the shell read
+                // as larger than the notch. Scoped, so the frame keeps its own
+                // spring.
+                .animation(shellTinted ? .easeOut(duration: 0.12) : .easeOut(duration: 0.16)) {
+                    $0.opacity(shellTinted ? 1 : 0)
+                }
 
             FerrofluidView(sim: fluid,
                            notchSize: controller.notchSize,
@@ -284,6 +304,13 @@ struct NotchRootView: View {
     }
 
     /// Tinted Liquid Glass plus the blurred cover, blooming out of the cutout.
+    /// Whether the shell shows anything beyond the cutout: open, the mini
+    /// player, or a volume/brightness HUD. Otherwise it is the notch, and black.
+    private var shellTinted: Bool {
+        expanded || controller.notification.isSome
+            || (controller.isMiniPlayerShown && media.hasTrack)
+    }
+
     private var glassLayer: some View {
         Color.clear
             .glassEffect(.regular.tint(tint.opacity(0.65)), in: shape)
@@ -652,7 +679,8 @@ struct NotchRootView: View {
                 // itself does.
                 .transition(.opacity.animation(Motion.swap))
         } else if controller.isMiniPlayerShown, media.hasTrack {
-            CollapsedActivity(media: media,
+            CollapsedActivity(layer: .artwork,
+                              media: media,
                               notchWidth: controller.notchSize.width,
                               glass: glass)
                 // On the shell's own vocabulary, and asymmetric. The flanks are
@@ -666,6 +694,27 @@ struct NotchRootView: View {
                     removal: .scale(scale: 0.90, anchor: .center)
                         .combined(with: .opacity)
                         .animation(Motion.collapse.speed(1.3))))
+        }
+    }
+
+    /// The mini player's elapsed clock, on its own layer so it can leave and
+    /// arrive on its own clock. Filmed: inside the cover's container it shared
+    /// that container's centre-anchored scale, so it slid IN toward the camera
+    /// while the shell grew out, and it was still fading when the panel's
+    /// elapsed clock faded in on the far side: one time, twice, for 4-5 frames.
+    /// Opacity only, so it never moves. Gone before the panel's content shows
+    /// on open; back only once the panel's content has left on close.
+    @ViewBuilder
+    private var miniClock: some View {
+        if !expanded, !controller.notification.isSome,
+           controller.isMiniPlayerShown, media.hasTrack {
+            CollapsedActivity(layer: .clock,
+                              media: media,
+                              notchWidth: controller.notchSize.width,
+                              glass: glass)
+                .transition(.asymmetric(
+                    insertion: .opacity.animation(Motion.miniClockIn),
+                    removal: .opacity.animation(Motion.miniClockOut)))
         }
     }
 
@@ -980,80 +1029,9 @@ private struct ExpandedPlayer: View {
             // has to be read LIVE inside the closure, because the closure
             // captures `shownPosition` frozen at init and a new date over a
             // stale Double still renders the stale second.
-            TimelineView(.animation(minimumInterval: 1.0 / 10.0,
-                                    paused: !media.isPlaying || scrubbing)) { _ in
-                let pos = scrubbing ? shownPosition : media.smoothPosition
-                HStack(spacing: 0) {
-                    Text(ExpandedPlayer.time(pos))
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                        .monospacedDigit()
-                        // The tier's opacity lives in ArtworkPalette beside the
-                        // scrim it is read against, so palettecheck gates the
-                        // real value rather than a hand copy.
-                        .foregroundStyle(.white.opacity(ArtworkPalette.chromeTypeAlpha))
-                        // Flexible, so the flanks resolve against the SAME padded
-                        // edges the body below uses. Hard-coding `flank - margin`
-                        // subtracted the margin a second time inside a container
-                        // that was already padded, and the elapsed clock ended up
-                        // 50pt from the right edge while the remaining clock —
-                        // its own matched pair — sat at 16pt.
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        // A readout jumps; it does not dissolve. Both halves
-                        // carry it — see the note under the timeline.
-                        .contentTransition(.identity)
-                        .transaction { $0.animation = nil }
-
-                    // The camera's span, reserved and left empty.
-                    Color.clear.frame(width: notchWidth)
-
-                    // Its matched half. One datum split in two, so both keep the
-                    // same weight and tier — at different ones the elapsed time
-                    // outranked the artist's name.
-                    // Empty for a live stream: it has no end to count down to,
-                    // and "-0:00" read as a track about to finish.
-                    Text(media.duration > 0
-                         ? "-" + ExpandedPlayer.time(max(0, media.duration - pos)) : "")
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white.opacity(ArtworkPalette.chromeTypeAlpha))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .contentTransition(.identity)
-                        .transaction { $0.animation = nil }
-                }
-                .frame(height: band)
-            }
-            // A readout jumps; it does not dissolve. Under an animation a
-            // `Text` whose string changes is crossfaded — both glyph runs
-            // painted at once. Overlaid exactly that is invisible, which is why
-            // the transport's own skip button always looked clean. But a swipe
-            // commits WHILE `SwipeLeanFrame` is easing the sheet back from its
-            // lean, so the two runs land at different x and separate into
-            // "2:0100" for a fifth of a second — on the one beat the ratchet
-            // exists to show.
-            //
-            // The fix belongs on the Texts, and the first attempt put it here
-            // instead: `.animation(nil, value: media.trackToken)` on this
-            // TimelineView. It compiled, read correctly, and did nothing —
-            // filmed at 58fps the doubled run was still there for twelve
-            // frames. `.animation(_:value:)` only suppresses animation
-            // attributed to THAT value changing, and the glyphs do not change
-            // because `trackToken` changed; they change because `pos` jumps to
-            // zero, re-read inside the timeline's own redraw, which still
-            // carries whatever ambient animation is open around it. A
-            // back-swipe two minutes in makes that plain: it restarts the
-            // track already playing, `identity` does not change, so
-            // `trackToken` never increments, and a suppression scoped to it
-            // has nothing whatever to fire on. The suppression has to sit
-            // where the content change happens and be unconditional:
-            // `.contentTransition(.identity)` says a changed string is not a
-            // thing to interpolate, and the `.transaction` strips any
-            // animation inherited from an ancestor's transaction. Layout
-            // still animates from the parent — only the glyph swap is
-            // instant, which is what a clock should do.
-            //
-            // Do not re-verify this by reading it. It was source-verified once
-            // already and was wrong; only a swipe filmed and looked at proves it.
-
+            // The band's clocks are drawn by `PanelClocks` on a layer of their
+            // own, so they follow the shell's moving edges; this keeps their row.
+            Color.clear.frame(height: band)
             Spacer(minLength: Grid.bandGap)
 
             // Body: the artwork is SQUARE and the column is 62 tall, so they no
@@ -1158,16 +1136,28 @@ private struct ExpandedPlayer: View {
 /// Artwork and elapsed time hugging either side of the physical cutout.
 /// Nothing may sit in the middle — that's where the camera lives.
 private struct CollapsedActivity: View {
+    /// Drawn twice on the same layout: once for the cover, once for the clock.
+    /// They need different exits. The cover morphs into the panel's cover over
+    /// the whole open; the clock must be gone before the panel's own elapsed
+    /// clock arrives across the camera, or the time reads twice.
+    enum Layer { case artwork, clock }
+    var layer: Layer
     var media: MediaManager
     var notchWidth: CGFloat
     var glass: Namespace.ID
 
     var body: some View {
         HStack(spacing: 0) {
-            Artwork(image: media.artwork, palette: media.palette, size: 19, radius: 5.5)
-                .matchedGeometryEffect(id: "artwork", in: glass)
-                .frame(width: 19, height: 19)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if layer == .artwork {
+                    Artwork(image: media.artwork, palette: media.palette, size: 19, radius: 5.5)
+                        .matchedGeometryEffect(id: "artwork", in: glass)
+                        .frame(width: 19, height: 19)
+                } else {
+                    Color.clear.frame(width: 19, height: 19)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // The camera's span, reserved and left empty.
             Color.clear.frame(width: notchWidth)
@@ -1203,18 +1193,157 @@ private struct CollapsedActivity: View {
             // retracted band is the state whose cost actually matters. Paused
             // with playback, where `smoothPosition` returns the stored value and
             // there is nothing to re-read.
-            TimelineView(.animation(minimumInterval: 1.0 / 10.0,
-                                    paused: !media.isPlaying)) { _ in
-                Text(ExpandedPlayer.time(media.smoothPosition))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(media.isPlaying ? 0.62 : 0.4))
-                    .animation(Motion.swap, value: media.isPlaying)
+            Group {
+                if layer == .clock {
+                    TimelineView(.animation(minimumInterval: 1.0 / 10.0,
+                                            paused: !media.isPlaying)) { _ in
+                        Text(ExpandedPlayer.time(media.smoothPosition))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(media.isPlaying ? 0.62 : 0.4))
+                            .animation(Motion.swap, value: media.isPlaying)
+                    }
+                } else {
+                    Color.clear
+                }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 11)
         .frame(maxHeight: .infinity)
+    }
+}
+
+/// The panel's band: elapsed and remaining time flanking the camera.
+///
+/// Its own layer, always in the tree and faded by `visible`, rather than part
+/// of `ExpandedPlayer`. A removed view keeps its last layout, so on close the
+/// clocks stayed at full-panel width while the shell shrank through them:
+/// filmed, "-1:32" was cut to "-1:3", "-1", then a lone "-" before the mini
+/// clock arrived, which read as the time sliding. Live, they are laid out
+/// against the shell's moving edges and ride in with them as they fade.
+private struct PanelClocks: View {
+    var media: MediaManager
+    var shownPosition: Double
+    var scrubbing: Bool
+    var band: CGFloat
+    var notchWidth: CGFloat
+    /// The shell's width. Layout takes a new size on the frame it changes; only
+    /// the shape's path animates. Filmed with plain layout, the clocks jumped
+    /// ~40pt inward on the first frame of a close, and on open appeared at
+    /// full width while the shell was still growing, cut by its edge. Animated
+    /// here on the shell's own transaction, they sit on its moving edges.
+    var width: CGFloat
+    var visible: Bool
+
+    private struct AnimatedWidth: ViewModifier, Animatable {
+        var width: CGFloat
+        var animatableData: CGFloat {
+            get { width }
+            set { width = newValue }
+        }
+        func body(content: Content) -> some View { content.frame(width: width) }
+    }
+
+    var body: some View {
+        // 10Hz from the display clock, for the same reason the collapsed
+        // clock runs that way: the poll lands every ~1.09s, so a clock
+        // sampled at poll cadence visibly skips a second roughly every
+        // eleventh tick. The timeline only schedules the redraw — the value
+        // has to be read LIVE inside the closure, because the closure
+        // captures `shownPosition` frozen at init and a new date over a
+        // stale Double still renders the stale second. Paused while hidden.
+        TimelineView(.animation(minimumInterval: 1.0 / 10.0,
+                                paused: !visible || !media.isPlaying || scrubbing)) { _ in
+            let pos = scrubbing ? shownPosition : media.smoothPosition
+            HStack(spacing: 0) {
+                Text(ExpandedPlayer.time(pos))
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    // The tier's opacity lives in ArtworkPalette beside the
+                    // scrim it is read against, so palettecheck gates the
+                    // real value rather than a hand copy.
+                    .foregroundStyle(.white.opacity(ArtworkPalette.chromeTypeAlpha))
+                    // One line at its own width. Riding a closing edge, the
+                    // flank gets narrower than the time; filmed, "-4:55" then
+                    // wrapped to "-4:5" over "5". Unwrapped it slides under the
+                    // camera as it fades.
+                    .lineLimit(1)
+                    .fixedSize()
+                    // Flexible, so the flanks resolve against the SAME padded
+                    // edges the body below uses. Hard-coding `flank - margin`
+                    // subtracted the margin a second time inside a container
+                    // that was already padded, and the elapsed clock ended up
+                    // 50pt from the right edge while the remaining clock —
+                    // its own matched pair — sat at 16pt.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // A readout jumps; it does not dissolve. Both halves
+                    // carry it — see the note below.
+                    .contentTransition(.identity)
+                    .transaction { $0.animation = nil }
+
+                // The camera's span, reserved and left empty.
+                Color.clear.frame(width: notchWidth)
+
+                // Its matched half. One datum split in two, so both keep the
+                // same weight and tier — at different ones the elapsed time
+                // outranked the artist's name.
+                // Empty for a live stream: it has no end to count down to,
+                // and "-0:00" read as a track about to finish.
+                Text(media.duration > 0
+                     ? "-" + ExpandedPlayer.time(max(0, media.duration - pos)) : "")
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(ArtworkPalette.chromeTypeAlpha))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .contentTransition(.identity)
+                    .transaction { $0.animation = nil }
+            }
+            .frame(height: band)
+        }
+        // A readout jumps; it does not dissolve. Under an animation a
+        // `Text` whose string changes is crossfaded — both glyph runs
+        // painted at once. Overlaid exactly that is invisible, which is why
+        // the transport's own skip button always looked clean. But a swipe
+        // commits WHILE `SwipeLeanFrame` is easing the sheet back from its
+        // lean, so the two runs land at different x and separate into
+        // "2:0100" for a fifth of a second — on the one beat the ratchet
+        // exists to show.
+        //
+        // The fix belongs on the Texts, and the first attempt put it on
+        // the TimelineView instead: `.animation(nil, value:
+        // media.trackToken)`. It compiled, read correctly, and did nothing —
+        // filmed at 58fps the doubled run was still there for twelve
+        // frames. `.animation(_:value:)` only suppresses animation
+        // attributed to THAT value changing, and the glyphs do not change
+        // because `trackToken` changed; they change because `pos` jumps to
+        // zero, re-read inside the timeline's own redraw, which still
+        // carries whatever ambient animation is open around it. The
+        // suppression has to sit where the content change happens and be
+        // unconditional: `.contentTransition(.identity)` says a changed
+        // string is not a thing to interpolate, and the `.transaction`
+        // strips any animation inherited from an ancestor's transaction.
+        // Layout still animates from the parent — only the glyph swap is
+        // instant, which is what a clock should do.
+        //
+        // Do not re-verify this by reading it. It was source-verified once
+        // already and was wrong; only a swipe filmed and looked at proves it.
+        .padding(.horizontal, Grid.margin)
+        .modifier(AnimatedWidth(width: width))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Arrives with the panel's content, leaves faster than it, as the
+        // content transition does — but in place, riding the edges. Scoped to
+        // the opacity: a plain `.animation(_:value:)` here also retimed the
+        // width above, and the clocks drifted off the shell's spring.
+        // Out in ~0.12s, inside the mini clock's 0.16s delay: at the content's
+        // own 0.175s a faint "-5:1" still sat under the arriving "2:30".
+        .animation(visible ? Motion.content.delay(0.07) : Motion.content.speed(2.4)) {
+            $0.opacity(visible ? 1 : 0)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(!visible)
     }
 }
 
@@ -1566,8 +1695,11 @@ private struct MeshField: View {
         // Runs exactly when there is sound. Gating on `media.isPlaying` instead
         // would let the audio-driven phase advance unseen while another app makes
         // noise, then jump when the player resumes.
+        // Held still under Reduce Motion: a full-panel colour drift at 60fps is
+        // exactly the ambient motion that setting asks apps to stop. The
+        // colours still follow the cover and the level still follows the music.
         TimelineView(.animation(minimumInterval: 1.0 / 60.0,
-                                paused: !fluid.hasSound)) { _ in
+                                paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
             // Audio-integrated, never wall-clock: the field advances as far as
             // the music pushes it and stalls when the music stops.
             let t = fluid.flowPhase
