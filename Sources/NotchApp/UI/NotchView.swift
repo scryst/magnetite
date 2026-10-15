@@ -685,7 +685,7 @@ private struct ExpandedPlayer: View {
             if modeSlots.shuffle, let shuffling = media.shuffling {
                 TransportButton(symbol: "shuffle",
                                 label: media.shuffleBlocked
-                                    ? "Shuffle unavailable here"
+                                    ? "Shuffle Not Available"
                                     : shuffling ? "Shuffle On" : "Shuffle Off",
                                 diameter: Grid.mode, glyph: 8,
                                 tint: shuffleStyle.tint,
@@ -703,7 +703,7 @@ private struct ExpandedPlayer: View {
             if modeSlots.repeat, let repeating = media.repeating {
                 TransportButton(symbol: "repeat",
                                 label: media.repeatBlocked
-                                    ? "Repeat unavailable here"
+                                    ? "Repeat Not Available"
                                     : repeating ? "Repeat On" : "Repeat Off",
                                 diameter: Grid.mode, glyph: 8,
                                 tint: repeatStyle.tint,
