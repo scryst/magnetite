@@ -17,6 +17,8 @@ import SwiftUI
 struct MarqueeText: View {
     let text: String
     var font: Font = .system(size: 13, weight: .semibold)
+    /// Links share the title's layout and scrolling path, including its fallback.
+    var attributedText: AttributedString? = nil
     /// Stillness at each end of a pass.
     var hold: Double = 1.9
     var pointsPerSecond: Double = 22
@@ -50,14 +52,16 @@ struct MarqueeText: View {
                                          reduceMotion: reduceMotion)
     }
     private var travel: Double { max(0.8, Double(overflow) / pointsPerSecond) }
+    private var label: Text { attributedText.map { Text($0) } ?? Text(text) }
 
     var body: some View {
-        Text(text)
+        label
             .font(font)
             .lineLimit(1)
             .truncationMode(.tail)
             // Hidden while the scrolling overlay is up, but still driving layout.
             .opacity(hidesLabel ? 0 : 1)
+            .allowsHitTesting(!hidesLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { measurement }
             .overlay(alignment: .leading) { scroller }
@@ -83,7 +87,7 @@ struct MarqueeText: View {
     @ViewBuilder
     private var scroller: some View {
         if showsScroller {
-            Text(text)
+            label
                 .font(font)
                 .lineLimit(1)
                 .fixedSize()
@@ -93,6 +97,7 @@ struct MarqueeText: View {
                     .repeatForever(autoreverses: true),
                            value: shifted)
                 .frame(width: boxWidth, alignment: .leading)
+                .contentShape(Rectangle())
                 .clipped()
                 .mask {
                     // Dissolve at the trailing edge instead of a hard cut.
@@ -104,7 +109,7 @@ struct MarqueeText: View {
                         ],
                         startPoint: .leading, endPoint: .trailing)
                 }
-                .allowsHitTesting(false)
+                .allowsHitTesting(attributedText != nil)
         }
     }
 }

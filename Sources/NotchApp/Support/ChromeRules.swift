@@ -10,6 +10,15 @@ import CoreGraphics
 /// these live in chrome layout.
 enum ChromeRules {
 
+    /// A radial black core covering even the camera's far bottom corner.
+    static func cameraFadeStart(notch: CGSize) -> CGFloat {
+        hypot(notch.width / 2, notch.height) + 2
+    }
+
+    static func drawsTrace(hasTrack: Bool, hasShell: Bool, width: CGFloat) -> Bool {
+        hasTrack && hasShell && width > 0
+    }
+
     /// The retracted shell's size.
     ///
     /// Height is pinned to the hardware. `collapsed` is the cutout on a notched
@@ -494,46 +503,13 @@ enum ChromeRules {
                 RimStop(location: 1, alpha: tail)]
     }
 
-    // MARK: The sleeve's edge
+    // MARK: The artwork's lift
 
     /// The size above which the sleeve is the panel's subject rather than a
     /// thumbnail in the menu-bar band.
     ///
-    /// One name for what were three separate `size > 30` ternaries in the view,
-    /// so the mount and the cast shadow cannot drift apart about which sleeve is
-    /// which. Inherited from the recovered prototype and never reviewed since: a
-    /// threshold, not a measurement.
     static let sleeveFull: CGFloat = 30
-
-    /// The tile's own thickness — an outer bevel, and the line it shadows onto
-    /// the print — both INSIDE the sleeve's silhouette.
-    ///
-    /// The edge used to be `strokeBorder(white 0.28 -> 0.04, 0.5pt)` drawn over
-    /// the artwork, and an alpha stroke over an image composites to
-    /// `art * (1 - a) + a`: 0.89 on a 0.85 cover, a step of 0.04 that is simply
-    /// gone, and 0.32 on a 0.05 cover, a hard bright seam. The edge's presence
-    /// was a property of the album and no alpha value fixes that. An opaque ring
-    /// cannot take its tone from what is under it.
-    ///
-    /// Inward, never outward: the sleeve's left edge holds the margin the mode
-    /// cluster is nudged by `controlInset` to land on, so an outer ring would
-    /// break an alignment this file goes out of its way to establish. Footprint,
-    /// margin and `artworkClearance` are unchanged — the artwork gives up the
-    /// ring, not the panel.
-    static func sleeveMount(size: CGFloat) -> (bevel: CGFloat, innerLine: CGFloat) {
-        size > sleeveFull ? (bevel: 1, innerLine: 0.5) : (bevel: 0.5, innerLine: 0)
-    }
-
-    /// The bevel's tone, top and bottom. Opaque greys, NOT alphas.
-    ///
-    /// The top keeps the 0.28 the old stroke's top stop had. What changed is that
-    /// it is the tile's thickness rather than a wash over the print, so it is
-    /// that value on every record instead of only on a black one.
-    static let sleeveBevel: (top: Double, bottom: Double) = (0.28, 0.12)
-
-    /// The shadow the tile casts on the wash. Not the defect, and it keeps its
-    /// values; it lives here only so it shares `sleeveFull` with the mount.
-    /// Inherited from the recovered prototype and never reviewed.
+    /// No bevel, ring or matte: the cover is the tile. Only the large one lifts.
     static func sleeveShadow(size: CGFloat)
     -> (opacity: Double, radius: CGFloat, y: CGFloat) {
         size > sleeveFull ? (0.55, 9, 4) : (0, 0, 0)

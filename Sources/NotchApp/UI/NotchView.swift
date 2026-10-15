@@ -176,7 +176,9 @@ struct NotchRootView: View {
     /// in one place, for the same reason `traceWidth` and `traceInset` are
     /// single-sourced: a rim and a track that disagree about who owns the bottom
     /// either double it or leave it bare.
-    private var trackDrawn: Bool { media.hasTrack && hasShellForTrace }
+    private var trackDrawn: Bool {
+        ChromeRules.drawsTrace(hasTrack: media.hasTrack, hasShell: hasShellForTrace, width: traceWidth)
+    }
 
     /// Is the shell wider than the bare cutout right now?
     private var hasShellForTrace: Bool {
@@ -278,6 +280,19 @@ struct NotchRootView: View {
             .overlay { coverWash }
             .compositingGroup()
             .mask(shape)
+            .mask {
+                // Closed, the black core covers the camera's full rectangle.
+                // Open, compress its falloff into the band so it does not
+                // swallow the title row; the crisp fluid core covers the camera.
+                let verticalScale: CGFloat = expanded ? 0.35 : 1
+                RadialGradient(colors: [.clear, .black],
+                               center: .top,
+                               startRadius: ChromeRules.cameraFadeStart(notch: controller.notchSize),
+                               endRadius: ChromeRules.cameraFadeStart(notch: controller.notchSize) + 35)
+                    .frame(width: size.width, height: size.height / verticalScale)
+                    .scaleEffect(x: 1, y: verticalScale, anchor: .top)
+                    .frame(width: size.width, height: size.height, alignment: .top)
+            }
     }
 
     /// Four palette colours arranged over the mesh's nine cells.
@@ -776,8 +791,7 @@ private struct ExpandedPlayer: View {
                             removal: .offset(y: -6 * Motion.travel)
                                 .combined(with: .opacity)))
 
-                    MarqueeText(text: media.artist,
-                                font: .system(size: 12.5, weight: .medium))
+                    ArtistLine(media: media)
                         .foregroundStyle(.white.opacity(0.76))
                         .id(media.trackToken)
                         .transition(.asymmetric(
@@ -800,7 +814,7 @@ private struct ExpandedPlayer: View {
                                 .lineLimit(1).fixedSize().hidden()
                                 .onGeometryChange(for: CGFloat.self) { $0.size.width }
                                     action: { titleWidth = $0 }
-                            Text(media.artist)
+                            Text(media.artistLine)
                                 .font(.system(size: 12.5, weight: .medium))
                                 .lineLimit(1).fixedSize().hidden()
                                 .onGeometryChange(for: CGFloat.self) { $0.size.width }
@@ -1229,51 +1243,68 @@ private struct IdleCard: View {
 
 // MARK: - Pieces
 
+private struct ArtistLine: View {
+    var media: MediaManager
+    @ViewState private var hovering = false
+
+    private var linkedText: AttributedString {
+        var line = AttributedString()
+        for (index, credit) in media.artists.enumerated() {
+            line += AttributedString(ArtistCredit.separator(before: index, count: media.artists.count))
+            var name = AttributedString(credit.name)
+            if let source = media.source { name.link = credit.url(in: source) }
+            // Mac convention: a name reads as a link once the pointer is on the line,
+            // not as permanent web-style underlines across the player.
+            if hovering { name.underlineStyle = .single }
+            line += name
+        }
+        return line
+    }
+
+    var body: some View {
+        MarqueeText(text: media.artistLine, font: .system(size: 12.5, weight: .medium),
+                    attributedText: linkedText)
+            .tint(.white.opacity(0.76))
+            .brightness(hovering ? 0.12 : 0)
+            .onHover { inside in
+                hovering = inside
+                if inside { NSCursor.pointingHand.set() }
+                else { NSCursor.arrow.set() }
+            }
+            .environment(\.openURL, OpenURLAction { url in
+                if let source = media.source,
+                   let credit = media.artists.first(where: { $0.url(in: source) == url }) {
+                    media.openArtist(credit)
+                }
+                return .handled
+            })
+            .accessibilityRepresentation {
+                HStack {
+                    ForEach(Array(media.artists.enumerated()), id: \.offset) { _, credit in
+                        Button("Open \(credit.name) in \(media.source?.displayName ?? "player")") {
+                            media.openArtist(credit)
+                        }
+                    }
+                }
+            }
+    }
+}
+
 private struct Artwork: View {
     var image: NSImage?
     var palette: ArtworkPalette
     var size: CGFloat
     var radius: CGFloat
 
-    private var mount: (bevel: CGFloat, innerLine: CGFloat) {
-        ChromeRules.sleeveMount(size: size)
-    }
-    private var mountInset: CGFloat { mount.bevel + mount.innerLine }
     private var cast: (opacity: Double, radius: CGFloat, y: CGFloat) {
         ChromeRules.sleeveShadow(size: size)
     }
 
     var body: some View {
-        // Three concentric layers, each radius reduced by the same amount as its
-        // frame so the corners stay concentric. The top-lit rim's old job — sell
-        // the tile as a physical object — is intact; it has moved off the print
-        // and onto the tile's own thickness, where it cannot be washed out by a
-        // light cover or cut a seam across a dark one.
-        ZStack {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(white: ChromeRules.sleeveBevel.top),
-                             Color(white: ChromeRules.sleeveBevel.bottom)],
-                    startPoint: .top, endPoint: .bottom))
-
-            // The shadow the bevel casts on the print — and the print's ground
-            // where there is no image, which is what the black fill used to be.
-            // The darkest of the three tones on purpose: the artwork's only
-            // neighbour is darker than any cover, so the failure mode is a
-            // contour going invisible, never a seam lighting up.
-            RoundedRectangle(cornerRadius: radius - mount.bevel, style: .continuous)
-                .fill(.black)
-                .frame(width: size - mount.bevel * 2, height: size - mount.bevel * 2)
-
-            face
-                .frame(width: size - mountInset * 2, height: size - mountInset * 2)
-                .clipShape(.rect(cornerRadius: radius - mountInset, style: .continuous))
-        }
-        .frame(width: size, height: size)
-        // Flatten first. A shadow on a bare stack casts from every layer, and the
-        // one that matters here would blur the bevel's own dark bottom into the
-        // wash — the tone the mount rests on. `chrome` does the same two lines
-        // above its shadow for the same reason.
+        face
+            .frame(width: size, height: size)
+            .clipShape(.rect(cornerRadius: radius, style: .continuous))
+        // Flatten the print and fallback before casting the large tile's shadow.
         .compositingGroup()
         .shadow(color: .black.opacity(cast.opacity), radius: cast.radius, y: cast.y)
     }
