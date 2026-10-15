@@ -3,47 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magnetite — A ferrofluid music player for the MacBook notch</title>
+<title>Magnetite: a ferrofluid music player for the MacBook notch</title>
 <meta name="description" content="Free, open-source Spotify and Apple Music controls in your MacBook notch, with sound-driven ferrofluid. macOS 26+, Apple silicon. Audio stays on your Mac.">
 <meta name="application-name" content="Magnetite">
 <meta name="author" content="scryst">
 <meta name="robots" content="index, follow, max-image-preview:large">
 
-<!--
-  MAGNETITE FIELD NOTES
-  01 / Fe3O4 is ferrimagnetic. The interface answers a field, too.
-  02 / The liquid is rendered from the app's own audio capture.
-       The player in the middle is the only film on this page.
-  03 / A personal project by scryst. No trackers. No frameworks.
--->
-
 <link rel="canonical" href="https://magnetite.app/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<!-- The same mark flat, for the browsers that never promised to read the SVG
-     — which on a Mac-only product's page is Safari. The touch icon is the
-     app's own tile: a home-screen bookmark is an app-icon surface. -->
+<!-- PNG fallback for browsers that do not read the SVG icon. -->
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<!-- The browser's chrome meets the paper the whole page is printed on. -->
 <meta name="theme-color" content="#ECEBE6">
 
-<!-- The share card. og.png is rendered by test/og.html with this site's own
-     press against the app's own captured audio, so an unfurl in Slack or
-     iMessage shows a real frame of the real fluid rather than a mock-up. -->
+<!-- Share card: og.png is rendered from test/og.html. -->
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="Magnetite">
-<meta property="og:title" content="Magnetite — A ferrofluid music player for the MacBook notch">
+<meta property="og:title" content="Magnetite: a ferrofluid music player for the MacBook notch">
 <meta property="og:description" content="Spotify and Apple Music in your MacBook notch. Free and open source, with ferrofluid that moves to your music. macOS 26+, Apple silicon.">
-<!-- Absolute, and it has to be: og:image is fetched by a crawler that has no
-     page to resolve a relative path against, so "og.png" unfurls as nothing. -->
+<!-- og:image needs an absolute URL. -->
 <meta property="og:url" content="https://magnetite.app/">
 <meta property="og:image" content="https://magnetite.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A MacBook printed in black, pink and blue ink, with black ferrofluid hanging from its notch.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Magnetite — A ferrofluid music player for the MacBook notch">
+<meta name="twitter:title" content="Magnetite: a ferrofluid music player for the MacBook notch">
 <meta name="twitter:description" content="Spotify and Apple Music in your MacBook notch. Free and open source, with ferrofluid that moves to your music. macOS 26+, Apple silicon.">
 <meta name="twitter:image" content="https://magnetite.app/og.png">
 <meta name="twitter:image:alt" content="A MacBook printed in black, pink and blue ink, with black ferrofluid hanging from its notch.">
@@ -75,13 +61,8 @@
 }
 </script>
 
-<!-- Scripted pages hold each print's plain words back until the first sheet
-     is on its canvas, so the printed layout never follows a flash of the
-     unprinted one. A page whose scripts never run shows the plain words. -->
-<!-- Reloaded mid-journey, the page is only its right height once the tunnel
-     has run, so the browser put it back short and moved it again a few frames
-     later. The page puts itself back instead (js/tunnel.js) and shows nothing
-     until it has; the browser keeps the last frame up meanwhile. -->
+<!-- With scripts on, each print's plain text waits until its canvas is drawn. -->
+<!-- On reload, js/tunnel.js restores the scroll position once the page has its full height. -->
 <script>
 document.documentElement.classList.add('js');
 try {
@@ -95,9 +76,7 @@ try {
 } catch (e) { /* the browser's own restoring, short a few frames */ }
 </script>
 
-<!-- One local face, Gloock, for the headline, the section title and the name.
-     Everything else is the Mac's own system face, because this is a Mac app's
-     page and the words should read like the Mac they describe. -->
+<!-- Gloock for the headline, section titles and name; everything else uses the system font. -->
 <link rel="preload" href="fonts/gloock-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/type.css">
 <link rel="stylesheet" href="css/magnetite.css">
@@ -123,9 +102,7 @@ try {
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
-<!-- The name, poured: GENERATED by test/gen-wordmark.mjs from the distance field
-     in js/wordmark.js, the same field the finale draws live. Edit the field or
-     the generator, never this path. -->
+<!-- Wordmark path generated by test/gen-wordmark.mjs from js/wordmark.js. Edit those, not this. -->
 <svg class="defs" aria-hidden="true" focusable="false">
   <symbol id="wordmark" viewBox="0 0 1278 140">
     <path fill="currentColor" d="M26.7 2.1C36.3 0.5 39.5 8 45.1 13.5C57.4 25.6 70.1 37.2 82.5 49
@@ -283,14 +260,7 @@ try {
   <a class="masthead__source" href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
 </header>
 
-<!-- ══ THE SOUNDTRACK ═══════════════════════════════════════════════════════
-     Circles at the foot of the window: one plays and pauses, its ring the
-     track's progress, and one per track chooses it by its sleeve. Early in
-     the page, so the keyboard reaches them before the page's links. It asks
-     to play as the page loads; a browser that wants a gesture first gets it
-     from the visitor's first click or tap, never a key, and a pause is
-     remembered. The music drives the page's one simulation through the app's
-     own analyser. -->
+<!-- Soundtrack controls. Placed early so keyboard users reach them first; the audio drives the simulation. -->
 <section class="player" data-player aria-label="Soundtrack">
   <button type="button" class="player__toggle" data-soundtrack-toggle data-playing="false">
     <svg class="player__ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28.5" pathLength="1" data-player-ring/></svg>
@@ -313,12 +283,7 @@ try {
 </section>
 
 <main id="main">
-  <!-- ══ THE PRINT ═══════════════════════════════════════════════════════════
-       A MacBook in three spot inks, the way a risograph prints: black, pink
-       and blue, each screened into dots at its own angle and a hair out of
-       register. The liquid hanging from its notch is the page's one
-       simulation, driven by the app's own audio capture. The headline is the
-       pink plate; the h1 carries the words and the print sets them. -->
+  <!-- Hero: a laptop drawn in black, pink and blue dots on a canvas, with the simulation hanging from its notch. -->
   <section class="hero" data-print-host>
     <canvas class="hero__print" id="hero-print" aria-hidden="true" data-render-check-ignore></canvas>
     <h1 class="headline"><span>Music,</span> <span>magnetized.</span></h1>
@@ -340,25 +305,11 @@ try {
     </div>
   </section>
 
-  <!-- ══ THE FILM ════════════════════════════════════════════════════════════
-       The shipping app, screen-recorded on a whole MacBook desktop, in its
-       own pixels. The one picture on the page that is never printed: it is
-       the proof of what the app looks like. Reduce Motion holds frame 0, the
-       player open. -->
+  <!-- Film: a screen recording of the app. Reduce Motion holds the first frame. -->
   <section class="film" aria-labelledby="film-title" data-tunnel>
-    <!-- Scrolled through, this is the middle of one camera move (js/tunnel.js):
-         the hero's printed laptop dives until its screen is the window, and
-         the screen comes on, the recorded desktop laid on the printed one;
-         the camera then follows the footage, in on the player for each
-         gesture and back out to the whole desktop, and scrolling on, the
-         desktop rides down onto the menu bar below until its notch is the
-         band's notch, the download link. The gestures the recording cannot
-         show are drawn on it (js/touches.js). The desktop is a still of the
-         take's first frame; the footage covers the part of it that moves.
-         Without scripts, or under Reduce Motion, it is the desktop's top
-         and the footage alone, as they were. -->
+    <!-- Camera moves are scripted in js/tunnel.js; touch overlays in js/touches.js. -->
     <div class="film__pin">
-      <h2 class="film__title" id="film-title">Recorded on a MacBook. <span class="film__phrase">Not a mock-up.</span></h2>
+      <h2 class="film__title" id="film-title">Screen recording <span class="film__phrase">of the real app.</span></h2>
       <div class="film__mac" data-tunnel-mac data-render-check-ignore>
         <img class="film__desk" src="media/desktop.webp" width="1512" height="982" loading="lazy" decoding="async" alt="">
         <div class="film__stage" data-render-check-ignore>
@@ -389,16 +340,12 @@ try {
     </div>
   </section>
 
-  <!-- ══ THE MENU BAR ════════════════════════════════════════════════════════
-       The top edge of the display at page scale, with the liquid retracted
-       into the notch, where the app keeps it when nothing is open. The notch
-       is the download: the print is drawn to the link's own box. -->
+  <!-- Download: the notch in the menu-bar print is the download link. -->
   <section class="get" aria-labelledby="get-title">
-    <!-- Where the page has the download: the link to it lands here, not on
-         the runway the journey holds it through. -->
+    <!-- Anchor target for links to the download. -->
     <span class="get__mark" id="download"></span>
     <div class="get__sheet">
-      <h2 class="get__title" id="get-title">Idle, it never leaves the menu bar.</h2>
+      <h2 class="get__title" id="get-title">Download Magnetite</h2>
       <div class="band" data-print-host>
         <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
         <img class="band__sleeve" src="media/cover-chrome-funk.webp" alt="" width="36" height="36" hidden>
@@ -409,11 +356,7 @@ try {
       <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 634 KB.
         To check, open Apple menu → About This Mac. It should say Chip Apple M… and macOS 26.</p>
       <p class="get__all"><a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions and checksums</a></p>
-      <!-- The zip is ad-hoc signed, not notarised, so macOS blocks the first
-           launch once. The dialog offers no way forward, so this box says
-           where Open Anyway lives. portcheck reads the zip for a stapled
-           ticket and requires this box exactly while the Gatekeeper dialog
-           will appear. -->
+      <!-- The zip is ad-hoc signed and not notarised, so macOS blocks the first launch. -->
       <div class="get__first" data-firstlaunch id="first-launch">
         <h3 id="first-launch-title">Opening it the first time</h3>
         <ol>
@@ -430,14 +373,11 @@ try {
         </ol>
         <p>You only do this once. Only open a download you trust.</p>
       </div>
-      <!-- The installer fetches the same release with curl, which does not
-           quarantine, so the app opens on the first try. One click selects the
-           whole command. -->
       <div class="get__install" id="install">
         <p>Prefer to skip the warning? Paste this into Terminal (Spotlight → Terminal):</p>
         <code class="install">curl -fsSL <span class="install__tail">https://magnetite.app/install.sh | sh</span></code>
-        <p class="get__aside">It checks the download’s checksum and signature first.
-          That shows the file is intact, not that Apple has reviewed it.</p>
+        <p class="get__aside">The checksum and signature confirm the download is intact;
+          Apple hasn’t reviewed it.</p>
       </div>
       <p class="get__help"><a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>
         · <a href="#setup">First launch &amp; FAQ</a></p>
@@ -446,7 +386,7 @@ try {
 
   <section class="setup" id="setup" aria-labelledby="setup-title">
     <div class="setup__intro">
-      <h2 id="setup-title">One hover away.</h2>
+      <h2 id="setup-title">Using it</h2>
       <p>Open Spotify or Music and play a track on this Mac. Hover the notch to
         open Magnetite; move away to tuck it back into the menu bar.</p>
       <p>The <b>M</b> menu holds your music source, gestures, notch calibration,
@@ -456,20 +396,10 @@ try {
       <h3>Before you press play</h3>
       <details>
         <summary>macOS says it can’t open Magnetite</summary>
-        <p>That’s expected on the first launch. Magnetite is free and not in
-          Apple’s paid programme, so macOS can’t verify it. You can still open
-          it, once:</p>
-        <ol>
-          <li>Double-click Magnetite in Applications, then click <b>Done</b>.</li>
-          <li>Open System Settings → Privacy &amp; Security and scroll down to
-            Security.</li>
-          <li>Click <b>Open Anyway</b> next to Magnetite and confirm with Touch
-            ID or your password.</li>
-          <li>Open Magnetite again and allow its two permission prompts.</li>
-        </ol>
-        <p>Right-click → Open no longer works on macOS 15 and later. Prefer to
-          skip all this? Paste the Terminal line from the <a href="#install">download section</a>.
-          Only open a download you trust.</p>
+        <p>That’s expected on the first launch: Magnetite isn’t notarised by
+          Apple. Follow the <a href="#first-launch">first-launch steps</a> above,
+          or use the Terminal line in the <a href="#install">download section</a>.
+          Right-click → Open no longer works on macOS 15 and later.</p>
       </details>
       <details>
         <summary>What permissions does it need?</summary>
@@ -511,12 +441,7 @@ try {
     </div>
   </section>
 
-  <!-- ══ THE NAME ════════════════════════════════════════════════════════════
-       The one thing on the page still wet: the name, poured when it comes into
-       view, lit like the ferrofluid, in a field of iron filings. The pointer is
-       a magnet, and with the soundtrack playing each drop meters a band. The
-       still underneath is the same shape traced, for every browser that cannot
-       pour it. Decorative: the name is text in the masthead and the foot. -->
+  <!-- Decorative closing animation; the static wordmark underneath is the fallback. -->
   <div class="finale" data-finale aria-hidden="true">
     <svg class="finale__still" viewBox="0 0 1278 140" data-wordmark focusable="false"><use href="#wordmark"/></svg>
     <canvas class="finale__filings" data-finale-filings data-render-check-ignore></canvas>
@@ -526,12 +451,7 @@ try {
 
 <footer class="foot">
   <p class="mark">
-    <!-- The app's own mark: the poured M, GENERATED by test/gen-mark.mjs from
-         the icon master at test/icon-1024.png — the same pixels the icns and
-         the favicon are built from. portcheck re-derives it and asserts this
-         glyph and the favicon are each what the derivation produces. Edit the
-         master or the generator, never this path. Hidden from the tree: the
-         name beside it is the text. -->
+    <!-- Glyph generated by test/gen-mark.mjs from test/icon-1024.png. Edit those, not this. -->
     <svg class="mark__glyph" viewBox="181 282 660 458" aria-hidden="true">
           <path fill="currentColor" d="M272.5 283C278.4 281.8 285.4 283.9 291 285.8C305 290.5 317.3 301.7 328 311.6
             C331.4 314.7 334.4 318.4 338 321.3C344.1 326.3 349.4 332 355 337.5
@@ -573,11 +493,9 @@ try {
     </svg>
     Magnetite
   </p>
-  <!-- Who is handing you this binary, where its source is, and where to write
-       when it breaks. The zip carries the license in Resources/LICENSE. -->
   <nav class="foot__links" aria-label="About this project">
     <a href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
-    <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT license</a>
+    <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT licence</a>
     <a href="mailto:scrystyt@gmail.com">scrystyt@gmail.com</a>
     <a href="privacy.html">Privacy</a>
     <a href="terms.html">Terms</a>
@@ -598,6 +516,5 @@ try {
 </footer>
 
 <script type="module" src="js/site.js"></script>
-<script type="module" src="js/webmcp.mjs"></script>
 </body>
 </html>

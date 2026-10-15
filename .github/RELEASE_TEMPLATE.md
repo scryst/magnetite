@@ -16,8 +16,8 @@ unzip it and move Magnetite.app to Applications. Or inspect and run the installe
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
-<State the verified signing and notarisation status of THIS artifact. If it is
-not notarised, include System Settings → Privacy & Security → Open Anyway.>
+This build is ad-hoc signed and not notarised by Apple. The first time you open
+it, use System Settings → Privacy & Security → Open Anyway.
 
 ## Verify the download
 
@@ -29,8 +29,8 @@ shasum -a 256 -c Magnetite-<VERSION>.sha256
 
 Expected: `Magnetite-<VERSION>.zip: OK`.
 
-Source revision: <exact source commit URL>
-Checks: <actual gate results and rendered/native proof; do not infer from build success>
+Source: <commit URL>
+Tested on: <macOS version, Mac model>
 
 [Privacy](https://magnetite.app/privacy.html) ·
 [Report a bug](https://github.com/scryst/magnetite/issues) ·

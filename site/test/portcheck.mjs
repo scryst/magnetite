@@ -50,7 +50,6 @@ import {
 } from '../js/visibility.js';
 import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
-import { buildWebMcpTools, initWebMcp, resolveModelContext } from '../js/webmcp.mjs';
 import { hold, camera, sheet, reach, shown, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS, DOT } from '../js/tunnel.js';
 import { CUES, HAND, touchesAt } from '../js/touches.js';
 
@@ -1220,15 +1219,9 @@ function theDownloadLinkPointsAtARealBuild() {
     `the page says ${printed[1]} KB, the build on disk is ${actualKB.toFixed(0)} KB`);
 }
 
-/** The source carries its own field notes; the rendered page carries none of them. */
-function theFieldNotesStayInTheSource() {
+/** The footer formula stays a quiet mark. */
+function theFooterFormulaStaysAQuietMark() {
   const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
-  const fieldNotes = /<!--\s*MAGNETITE FIELD NOTES([\s\S]*?)-->/.exec(page)?.[1];
-  require(fieldNotes?.includes('01 / Fe3O4 is ferrimagnetic.')
-      && fieldNotes.includes("02 / The liquid is rendered from the app's own audio capture.")
-      && fieldNotes.includes('The player in the middle is the only film on this page.')
-      && fieldNotes.includes('03 / A personal project by scryst. No trackers. No frameworks.'),
-  'the inspectable Magnetite field notes are missing or incomplete');
   require(/<p class="foot__formula">Fe<sub>3<\/sub>O<sub>4<\/sub><\/p>/.test(page)
       && !/<a\b[^>]*class="foot__formula"/.test(page),
   'the footer formula is masquerading as the Easter egg instead of remaining a quiet mark');
@@ -1266,14 +1259,14 @@ function theSiteIsCrawlableAtItsCanonicalDomain() {
   'the sitemap does not contain exactly the canonical product page');
   require(!/github\.io|vercel\.app/.test(sitemap),
     'the sitemap exposes a deployment host instead of magnetite.app');
-  require(llms.startsWith('# Magnetite\n\n> A free, native macOS music player')
+  require(llms.startsWith('# Magnetite\n\n> A music player that shows the song as black ferrofluid around the MacBook notch.')
       && llms.includes('[Live demo](https://magnetite.app/)')
       && llms.includes(`[Magnetite v${metadata?.softwareVersion}](${metadata?.downloadUrl})`)
       && llms.includes('[Privacy](https://magnetite.app/privacy.html)')
       && llms.includes('[Terms](https://magnetite.app/terms.html)')
-      && llms.includes('Downloading, installing, connecting a music account, and granting macOS permissions are human actions')
+      && llms.includes('not notarised by Apple, so on first launch macOS asks you to approve it')
       && !/github\.io|vercel\.app/.test(llms),
-  'llms.txt does not map agents to the current canonical, human-gated product');
+  'llms.txt does not describe the current canonical product and its first-launch approval');
 }
 
 /** The public trust pages state the app's real data and distribution boundaries. */
@@ -1747,83 +1740,6 @@ function theSoundtrackUsesTheAppsBands() {
       && /new Float32Array\(BAND_COUNT\)/.test(worklet)
       && /registerProcessor\('bands', BandsProcessor\);/.test(worklet),
   'the audio thread is not registered against the shared checked analyser and band count');
-}
-
-/**
- * The page exposes discovery, not remote control, through the current WebMCP
- * surface. Its tools read the visible page at invocation time, register once,
- * and describe all three pieces of evidence the visitor sees: the hero print,
- * real app footage, and the menu-bar print whose notch is the download.
- */
-async function thePageExposesOnlyReadOnlyDiscoveryTools() {
-  const page = readFileSync(join(here, '..', 'index.html'), 'utf8');
-  require(/<script type="module" src="js\/webmcp\.mjs"><\/script>/.test(page),
-    'index.html does not load the WebMCP discovery tools');
-
-  const modelContext = { registerTool() {} };
-  require(resolveModelContext({ modelContext }) === modelContext,
-    'the tools do not resolve the current document.modelContext WebMCP surface');
-  require(resolveModelContext({}) === null,
-    'an unsupported browser is not treated as though it implements WebMCP');
-
-  const link = {
-    href: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.1/Magnetite-0.1.1.zip',
-    textContent: 'Download, Magnetite v0.1.1 ZIP from GitHub',
-  };
-  const requirement = { textContent: 'macOS 26 · Apple silicon · Free · 575 KB' };
-  const documentRef = {
-    title: 'Magnetite — A ferrofluid music player for the MacBook notch',
-    querySelector(selector) {
-      if (selector === '[data-download]') return link;
-      if (selector === '[data-requires]') return requirement;
-      return null;
-    },
-  };
-  const windowRef = {
-    location: { origin: 'https://scryst.github.io', pathname: '/magnetite-releases/' },
-  };
-  const tools = buildWebMcpTools({ documentRef, windowRef });
-  require(tools.map((tool) => tool.name).join(',') === [
-    'magnetite_site_overview',
-    'magnetite_get_download',
-    'magnetite_get_demo_states',
-  ].join(','), 'the page does not expose exactly its three approved discovery tools');
-  for (const tool of tools) {
-    require(tool.annotations.readOnlyHint && !tool.annotations.untrustedContentHint,
-      `${tool.name} is not annotated as trusted read-only discovery`);
-    require(Object.keys(tool.annotations).sort().join(',')
-      === 'readOnlyHint,untrustedContentHint',
-    `${tool.name} carries annotations outside the current WebMCP surface`);
-  }
-
-  const byName = new Map(tools.map((tool) => [tool.name, tool]));
-  const overview = await byName.get('magnetite_site_overview').execute({});
-  const download = await byName.get('magnetite_get_download').execute({});
-  const states = await byName.get('magnetite_get_demo_states').execute({});
-  require(/read-only/i.test(overview.protectedBoundary)
-      && /do not download, install, launch, control audio, or change/i.test(
-        overview.protectedBoundary,
-      ),
-  'the overview does not state the human-only native-app boundary');
-  require(download.version === '0.1.1' && download.label.startsWith('Download, Magnetite')
-      && download.requirements.endsWith('575 KB')
-      && /human chooses/i.test(download.action),
-  'the download tool does not return the visible build while leaving its action to a human');
-  require(states.views.map((view) => view.element).join(',')
-      === '#hero-print,#demo-film,#band-print',
-  'the demo tool does not distinguish the page simulation, native film, and retracted view');
-  for (const { element } of states.views) {
-    require(page.includes(`id="${element.slice(1)}"`),
-      `the WebMCP demo tool names ${element}, which is not on the page`);
-  }
-
-  const registered = [];
-  const registeringContext = { registerTool(tool) { registered.push(tool); } };
-  const first = await initWebMcp({ documentRef, windowRef, modelContext: registeringContext });
-  const second = await initWebMcp({ documentRef, windowRef, modelContext: registeringContext });
-  require(first.supported && first.registeredToolNames.length === 3
-      && second.registeredToolNames.length === 0 && registered.length === 3,
-  `WebMCP registered ${registered.length} tools across two initialisations instead of three once`);
 }
 
 /**
@@ -4111,7 +4027,7 @@ const CHECKS = {
   aSkipLeansTheWayItWent,
   theInkFollowsTheShellSlowlyAndLeavesQuickly,
   theSwellTrailsTheCursor,
-  theFieldNotesStayInTheSource,
+  theFooterFormulaStaysAQuietMark,
   theOutlineIsTheShippingOutline,
   theSurfaceNormalTurnsWithTheSurface,
   aPeakHoldsBelowTheFieldThatRaisedIt,
@@ -4126,7 +4042,6 @@ const CHECKS = {
   theFirstLaunchStoryMatchesTheBuild,
   theFrameLoopCannotRunTwice,
   theSoundtrackUsesTheAppsBands,
-  thePageExposesOnlyReadOnlyDiscoveryTools,
   theDemoIsTheAppOnFilm,
   theCreditSitsInTheFlow,
   theCreditLinksWhatItBorrows,

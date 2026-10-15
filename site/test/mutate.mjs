@@ -27,7 +27,7 @@ const REPLAY = 'theReplayMatchesTheShippingPhysics';
 const SKIP = 'aSkipLeansTheWayItWent';
 const INK = 'theInkFollowsTheShellSlowlyAndLeavesQuickly';
 const POINTER = 'theSwellTrailsTheCursor';
-const FIELD_NOTES = 'theFieldNotesStayInTheSource';
+const FIELD_NOTES = 'theFooterFormulaStaysAQuietMark';
 const OUTLINE = 'theOutlineIsTheShippingOutline';
 const NORMAL = 'theSurfaceNormalTurnsWithTheSurface';
 const HYSTERESIS = 'aPeakHoldsBelowTheFieldThatRaisedIt';
@@ -51,7 +51,6 @@ const PIGMENT = 'theInkIsOneInkAndThePaperOnePaper';
 const FIRSTLAUNCH = 'theFirstLaunchStoryMatchesTheBuild';
 const FILM = 'theDemoIsTheAppOnFilm';
 const SOUNDTRACK = 'theSoundtrackUsesTheAppsBands';
-const WEBMCP = 'thePageExposesOnlyReadOnlyDiscoveryTools';
 const CREDIT = 'theCreditSitsInTheFlow';
 const BORROWED = 'theCreditLinksWhatItBorrows';
 const UNBROKEN = 'theCreditBreaksBetweenNamesOnly';
@@ -100,7 +99,6 @@ const LEVELS_SWIFT = 'Sources/NotchApp/Audio/AudioLevels.swift';
 const VIEW_SWIFT = 'Sources/NotchApp/UI/FerrofluidView.swift';
 const BANDS_JS = 'site/js/bands.js';
 const BANDS_WORKLET = 'site/js/bands-worklet.js';
-const WEBMCP_JS = 'site/js/webmcp.mjs';
 const BAND_PORT = 'thePortAgreesWithTheTap';
 const BAND_SINES = 'eachBandAnswersItsOwnSine';
 const BAND_PARTITION = 'thePartitionCoversWithoutOverlap';
@@ -115,7 +113,7 @@ const MUTANTS = {
   'the-search-title-drops-the-product-category': {
     check: CRAWLABLE,
     file: PAGE,
-    from: '<title>Magnetite — A ferrofluid music player for the MacBook notch</title>',
+    from: '<title>Magnetite: a ferrofluid music player for the MacBook notch</title>',
     to: '<title>Magnetite — Music, magnetized.</title>',
   },
   'the-structured-app-drops-the-local-audio-promise': {
@@ -688,9 +686,9 @@ const MUTANTS = {
     check: FLOOR,
     survives: true,
     file: PAGE,
-    from: "       is the download: the print is drawn to the link's own box. -->",
-    to: "       is the download: the print is drawn to the link's own box, and the\n"
-      + '       attribute that marks it is data-download. -->',
+    from: '<!-- Download: the notch in the menu-bar print is the download link. -->',
+    to: '<!-- Download: the notch in the menu-bar print is the download link,\n'
+      + '     marked with the attribute data-download. -->',
   },
   // The same shape, on the other side of the same check. Unanchored, the
   // requirement-line match could start inside a comment and run forward to the
@@ -701,9 +699,9 @@ const MUTANTS = {
     check: FLOOR,
     survives: true,
     file: PAGE,
-    from: "       is the download: the print is drawn to the link's own box. -->",
-    to: "       is the download, and data-requires prints the rest: the print is drawn\n"
-      + "       to the link's own box. -->",
+    from: '<!-- Download: the notch in the menu-bar print is the download link. -->',
+    to: '<!-- Download: the notch in the menu-bar print is the download link,\n'
+      + '     and data-requires prints the requirements. -->',
   },
   // The whole point of the check: the page's primary call to action 404s. Every
   // link still agrees with every other, so only the does-it-exist assertion can
@@ -753,12 +751,6 @@ const MUTANTS = {
     file: PAGE,
     from: '"author": { "@type": "Person", "name": "scryst" }',
     to: '"author": { "@type": "Person", "name": "somebody else" }',
-  },
-  'field-notes-call-the-film-the-liquid': {
-    check: FIELD_NOTES,
-    file: PAGE,
-    from: "02 / The liquid is rendered from the app's own audio capture.",
-    to: '02 / The liquid is a pre-rendered video.',
   },
   'formula-pretends-to-be-the-easter-egg': {
     check: FIELD_NOTES,
@@ -2811,35 +2803,6 @@ const MUTANTS = {
     to: "registerProcessor('levels', BandsProcessor);",
   },
 
-  // WebMCP is discovery-only and progressive. The page must load it, every
-  // tool must carry the current read-only annotation, its story must include
-  // the real native footage, and repeated initialisation must not register a
-  // second copy of every tool.
-  'the-webmcp-module-is-not-loaded': {
-    check: WEBMCP,
-    file: PAGE,
-    from: '<script type="module" src="js/webmcp.mjs"></script>',
-    to: '<script type="module" src="js/missing-webmcp.mjs"></script>',
-  },
-  'the-webmcp-tools-claim-they-can-write': {
-    check: WEBMCP,
-    file: WEBMCP_JS,
-    from: '  readOnlyHint: true,',
-    to: '  readOnlyHint: false,',
-  },
-  'the-webmcp-story-drops-the-native-film': {
-    check: WEBMCP,
-    file: WEBMCP_JS,
-    from: "{ state: 'native-film', element: '#demo-film'",
-    to: "{ state: 'native-film', element: '#demo-missing'",
-  },
-  'the-webmcp-tools-register-twice': {
-    check: WEBMCP,
-    file: WEBMCP_JS,
-    from: '    if (registered.has(tool.name)) continue;',
-    to: '    if (false) continue;',
-  },
-
   // The browser analyser's own four checks join this harness. Full mode also
   // runs portcheck; solo mode dispatches straight to bandscheck so each one
   // has to kill its own mutation rather than shelter behind parity.
@@ -2869,7 +2832,7 @@ const MUTANTS = {
   },
 };
 
-const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, WEBMCP, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, HAND, ...BAND_CHECKS];
+const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, HAND, ...BAND_CHECKS];
 
 /**
  * Every check portcheck runs is a check this harness has watched fail.

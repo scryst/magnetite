@@ -10,7 +10,7 @@ assignees: ''
 
 What are you trying to do, and where does the current experience get in the way?
 
-## Suggested behavior
+## Suggested behaviour
 
 What should happen? Include a small example or sketch if useful.
 

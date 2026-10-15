@@ -30,12 +30,12 @@ preference services, Apple Events and network access are blocked. Toolchain and
 system reads remain available; external-volume reads are not restricted by this
 boundary. Repository inputs are read-only; temporary copies hold mutations and
 preference fallbacks. Provider tokens and interpreter options are not inherited.
-Setup failure stops the gate. Catchable cancellation stops its process group;
+If setup fails, the run stops. Catchable cancellation stops its process group;
 an uncatchable kill or host crash can leave private temporary files behind.
 
 Launching compiled suites directly bypasses that boundary. This requires macOS
-`sandbox-exec`, Command Line Tools' Python 3 and Node.js. The sandbox complements
-inert test doubles; it does not prove live player behavior.
+`sandbox-exec`, Command Line Tools' Python 3 and Node.js. The sandbox sits
+alongside inert test doubles; neither exercises a live player.
 
 | Suite | What it checks |
 | --- | --- |
@@ -60,8 +60,8 @@ node site/test/mutate.mjs
 python3 site/serve.py 4173
 ```
 
-Review actual browser output at desktop and phone widths. Headless checks cannot
-prove readability, footage quality, audio timing or physical notch alignment.
+Look at the site in a real browser at desktop and phone widths too; the tests
+can't judge readability, footage, audio timing or notch alignment.
 
 ## Release mechanics
 
@@ -104,31 +104,30 @@ real run. Use the wrapper rather than pointing a host at the working tree: it
 excludes tests, the local server and verification ZIP. An interrupt exits with
 130 and cleans up through a separate `EXIT` trap.
 
-Normal builds do not touch the tracked release copy or `install.sh`. GitHub
-Releases is the binary download authority. Source, tests, rendered proof and
-deployment are separate.
+Normal builds do not touch the tracked release copy or `install.sh`. Binaries
+are downloaded from GitHub Releases.
 
-`magnetite://toggle`, `magnetite://expand` and `magnetite://collapse` control the
-native UI for verification. Use them only when the user's playback/UI state can
-be preserved and restored.
+`magnetite://toggle`, `magnetite://expand` and `magnetite://collapse` open and
+close the panel without touching playback, which is handy when testing.
 
-## Lessons from measurement
+## Design notes
 
-- Absolute audio levels pinned 16 of 17 peaks. The visualiser now measures
-  per-band change against a 2.5-second baseline.
-- A half-filled FFT block leaked bass into every band. A ring buffer supplies
-  a full Hann window.
-- Observation invalidates on assignment, not only on change. Rewriting settled
-  state 60 times a second defeated paused rendering.
-- Artwork could outshine its own text; a monochrome cover inherited the previous
-  track's colour. Contrast and fallback-palette checks cover both cases.
+- The visualiser measures each band's change against a 2.5-second baseline.
+  Absolute levels sit high for the whole of a loud track and freeze the
+  surface.
+- The FFT reads from a ring buffer so every block gets a full Hann window; a
+  half-filled block leaks bass into every band.
+- `@Observable` invalidates on every assignment, not only on change, so settled
+  state is written only when it differs.
+- Palettes are checked for text contrast, and a monochrome cover gets its own
+  fallback palette rather than the previous track's.
 
 ## Naming and migrations
 
-Magnetite is the mineral in ferrofluid. The SwiftPM module remains `NotchApp`
-and the `Notch*` types name the surface; renaming them would churn check paths
-without changing the product. `build.sh` names the bundle executable Magnetite.
-`Ferrofluid*` names the physical phenomenon, not an old product brand.
+Magnetite is the mineral in ferrofluid. The SwiftPM module is still `NotchApp`
+and the `Notch*` types name the surface; renaming them would only churn paths.
+`build.sh` names the bundle executable Magnetite. `Ferrofluid*` refers to the
+physics.
 
 Keep both migrations: preferences moved `com.laks.NotchApp` → `com.laks.ferro`
 → `com.laks.magnetite`; the Application Support directory moved `NotchApp` →
