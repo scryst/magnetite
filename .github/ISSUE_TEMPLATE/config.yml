@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Question or idea
+    url: https://github.com/scryst/magnetite/discussions
+    about: Ask how something works, share a setup, or suggest a direction.
   - name: Security report
     url: mailto:scrystyt@gmail.com
     about: Report vulnerabilities privately. Do not include credentials.
