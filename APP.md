@@ -45,15 +45,16 @@ from.
   title bar while it stayed obvious against the light desktop below. An edge
   that exists only where the backdrop is brighter is the backdrop's edge.
 - **The cover itself is the tile.** Rounded corners, with no bevel, ring, black
-  line or matte around the print, including the 19pt closed-strip thumbnail.
+  line or matte around the print, including the mini player's 19pt thumbnail.
   The large cover keeps its lift shadow; dark covers keep a small brightness lift.
 - **The window never resizes.** It is created once at full size; every morph is
   SwiftUI interpolating the shape inside it. Resizing an `NSWindow` per frame is
   the main source of jank in notch apps.
-- **Retracted, it still reads as a player**: artwork in the left flank, the
-  elapsed clock in the right, camera between them, colour flowing around both —
-  all inside the cutout's own height.
-- **Un-hovered, it never leaves the menu bar.** Peeks and HUDs widen *within* the
+- **Closed, the mini player still reads as a player** ("Mini Player When
+  Closed", on by default): artwork in the left flank, the elapsed clock in the
+  right, camera between them, colour flowing around both — all inside the
+  cutout's own height. Off, the closed notch is the bare cutout.
+- **Un-hovered, it never leaves the menu bar.** The mini player and HUDs widen *within* the
   cutout's own height, using the flanks either side of the camera. Anything
   hanging below the band sits on browser tabs and window chrome — exactly where
   people's hands are.
@@ -170,7 +171,7 @@ isolation check and platform limits.
   the pointer was, a hidden notch cannot be opened, hiding closes what is open,
   the expansion callback fires only on real transitions, the menu toggle stays
   open until toggled back, a HUD never lands behind the open panel or reports
-  more than full, the peek turns on and off, every stored setting survives the
+  more than full, the mini player turns on and off, every stored setting survives the
   rename, and the URL scheme the app answers is the one it registered.
 
 - `portcheck` — the marketing site's port of the simulation, geometry, camera and
@@ -273,7 +274,7 @@ Plus a menu-bar item for feature toggles and music-source selection.
 | Library | favourite through Music scripting or a connected Spotify Web API account; shuffle, repeat, and open the track in its player |
 | Swipe gestures | two-finger skip and play/pause from an `NSEvent` scroll monitor, with haptics |
 | Multi-display | one controller + panel per screen, keyed by display UUID |
-| Hover / peek / HUD | generation-guarded cancellable transitions |
+| Hover / mini player / HUD | generation-guarded cancellable transitions |
 
 Spotify library state is unavailable through local ScriptingBridge. A connected
 Spotify Web API account supplies library membership and save/remove operations

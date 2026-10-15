@@ -23,7 +23,7 @@ final class MediaManager {
     /// user was actually looking at.
     enum PollingSource: Hashable {
         case notchExpanded(String)
-        case liveActivity
+        case miniPlayer
     }
 
     // Presented state

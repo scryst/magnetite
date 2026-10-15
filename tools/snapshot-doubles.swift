@@ -46,17 +46,13 @@ final class NotchController {
         case none, didChangeVolume, didChangeBrightness
         var isSome: Bool { self != .none }
     }
-    enum LiveActivity: Equatable {
-        case none, isPlaying
-        var isSome: Bool { self != .none }
-    }
     var isVisible = true
     var isMouseInside = false
     var hoverWillOpen: Bool { isMouseInside }
     var isExpanded = false
     var hasMedia = true
     var notification: Notification = .none
-    var liveActivity: LiveActivity = .isPlaying
+    var isMiniPlayerShown = true
     var hudProgress: Double = 0
     var hudIsMuted = false
     var swipeLean: SwipeRecogniser.Lean?
@@ -68,7 +64,7 @@ final class NotchController {
         isExpanded ? CGSize(width: ChromeRules.panelWidth,
                             height: notchSize.height + ChromeRules.expandedBody)
         : ChromeRules.retractedSize(collapsed: notchSize, band: menuBarHeight,
-                                    hasContent: liveActivity.isSome || notification.isSome)
+                                    hasContent: isMiniPlayerShown || notification.isSome)
     }
     var topCornerRadius: CGFloat { isExpanded ? 0 : 9 }
     var bottomCornerRadius: CGFloat { isExpanded ? 24 : cutoutCornerRadius }

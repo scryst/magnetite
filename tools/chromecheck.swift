@@ -117,8 +117,8 @@ enum ChromeCheck {
         // A peek still widens, and only widens.
         let peek = ChromeRules.retractedSize(collapsed: cutout, band: 33, hasContent: true)
         // A property, not a restatement. Asserting
-        // `width == cutout.width + peekWidening` is the implementation written
-        // twice and passes for any value of `peekWidening`, including zero.
+        // `width == cutout.width + miniPlayerWidening` is the implementation written
+        // twice and passes for any value of `miniPlayerWidening`, including zero.
         require(peek.width > cutout.width + 40,
                 "the peek is only \(peek.width - cutout.width)pt wider than the cutout, "
                 + "which is not room for artwork and a clock either side of the camera")

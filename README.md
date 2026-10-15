@@ -50,9 +50,9 @@ Drag the player's bottom outline to move through a track.
 
 ### Back into the menu bar
 
-Move away and the player retracts; hover to open it again.
+Move away and the player folds into a mini player: the cover and elapsed time either side of the camera. Hover to open it again, or turn off **Mini Player When Closed** in the **M** menu for a bare notch.
 
-[![Retracted player with artwork and elapsed time beside the camera notch](docs/media/retracted.webp)](https://magnetite.app/media/film.mp4#t=21,31)
+[![Mini player with artwork and elapsed time beside the camera notch](docs/media/retracted.webp)](https://magnetite.app/media/film.mp4#t=21,31)
 
 Film: [Punch Deck](https://punchdeck.bandcamp.com)'s “Chrome Funk,” “Cyberpunk Renaissance” and “Neon Underworld,” [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Frames are cropped from that recording; see [media provenance](docs/media/README.md).
 

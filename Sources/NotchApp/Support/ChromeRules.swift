@@ -28,7 +28,7 @@ enum ChromeRules {
             // is 32 and the band is 33, and the trace rides this edge — a point
             // short leaves the shell and the progress line hovering above the
             // menu bar's own bottom line, with a hairline of desktop under them.
-            ? CGSize(width: collapsed.width + peekWidening, height: band)
+            ? CGSize(width: collapsed.width + miniPlayerWidening, height: band)
             // Idle it is the cutout, clamped so a fallback pill taller than the
             // band cannot hang onto the window chrome below.
             : CGSize(width: collapsed.width, height: min(collapsed.height, band))
@@ -48,7 +48,7 @@ enum ChromeRules {
     /// past the artwork — and `hasContent` is "any live activity", not the
     /// peek moment, so the band held that width for as long as a track was
     /// loaded and sat on menu-bar items that a derived width leaves clear.
-    static let peekWidening: CGFloat = 100
+    static let miniPlayerWidening: CGFloat = 100
 
     /// How much vertical room the retracted shell is allowed, from what the
     /// display can actually tell us.

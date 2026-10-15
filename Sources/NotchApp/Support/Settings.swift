@@ -121,10 +121,11 @@ final class Settings {
     // Behaviour
     @ObservationIgnored @Stored("expandNotchOnHover", true) private var _expandNotchOnHover: Bool
     @ObservationIgnored @Stored("hoverDuration", 0.18) private var _hoverDuration: Double
-    @ObservationIgnored @Stored("peekDuration", 2.2) private var _peekDuration: Double
+    // Stored keys keep their original names so existing preferences carry over.
+    @ObservationIgnored @Stored("peekDuration", 2.2) private var _hudDuration: Double
 
     // Features
-    @ObservationIgnored @Stored("enableNowPlaying", true) private var _enableNowPlaying: Bool
+    @ObservationIgnored @Stored("enableNowPlaying", true) private var _showsMiniPlayer: Bool
     @ObservationIgnored @Stored("enableGestures", true) private var _enableGestures: Bool
     @ObservationIgnored @Stored("enableVolume", true) private var _enableVolume: Bool
     @ObservationIgnored @Stored("enableBrightness", true) private var _enableBrightness: Bool
@@ -173,26 +174,29 @@ final class Settings {
         get { access(keyPath: \.hoverDuration); return Self.sane(_hoverDuration, or: 0.18) }
         set { withMutation(keyPath: \.hoverDuration) { _hoverDuration = newValue } }
     }
-    var peekDuration: Double {
-        get { access(keyPath: \.peekDuration); return Self.sane(_peekDuration, or: 2.2) }
-        set { withMutation(keyPath: \.peekDuration) { _peekDuration = newValue } }
+    /// How long a volume or brightness HUD stays up.
+    var hudDuration: Double {
+        get { access(keyPath: \.hudDuration); return Self.sane(_hudDuration, or: 2.2) }
+        set { withMutation(keyPath: \.hudDuration) { _hudDuration = newValue } }
     }
     private static func sane(_ seconds: Double, or fallback: Double) -> Double {
         seconds.isFinite ? min(max(seconds, 0), 10) : fallback
     }
     /// Two-finger swipes over the notch: horizontal skips, vertical play/pause.
     ///
-    /// This property wore `enableNowPlaying`'s entire doc comment — about the
-    /// retracted strip and about being independent of `expandNotchOnHover` —
-    /// which described neither this setting nor anything it does.
+    /// This property once wore the mini player's doc comment, which described
+    /// neither this setting nor anything it does.
     var enableGestures: Bool {
         get { access(keyPath: \.enableGestures); return _enableGestures }
         set { withMutation(keyPath: \.enableGestures) { _enableGestures = newValue } }
     }
 
-    var enableNowPlaying: Bool {
-        get { access(keyPath: \.enableNowPlaying); return _enableNowPlaying }
-        set { withMutation(keyPath: \.enableNowPlaying) { _enableNowPlaying = newValue } }
+    /// The mini player: while closed, the notch widens just enough to show the
+    /// cover, the elapsed time and the progress line. Independent of Open on
+    /// Hover. Menu: "Mini Player When Closed".
+    var showsMiniPlayer: Bool {
+        get { access(keyPath: \.showsMiniPlayer); return _showsMiniPlayer }
+        set { withMutation(keyPath: \.showsMiniPlayer) { _showsMiniPlayer = newValue } }
     }
     var enableVolume: Bool {
         get { access(keyPath: \.enableVolume); return _enableVolume }

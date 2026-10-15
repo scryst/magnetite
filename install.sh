@@ -44,7 +44,13 @@ OS_VERSION="$(sw_vers -productVersion)"
 [ "${OS_VERSION%%.*}" -ge 26 ] || die "Magnetite needs macOS 26 or later; this Mac runs $OS_VERSION."
 
 WORK="$(mktemp -d -t magnetite-install)"
-trap 'rm -rf "$WORK"' EXIT INT TERM
+# Cleanup on exit; a signal must END the run, not clean up and carry on into
+# an install from a deleted folder.
+trap 'rm -rf "$WORK"' EXIT
+trap 'exit 130' INT TERM
+
+# HTTPS only, and bounded: a stalled connection fails instead of hanging.
+fetch() { curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 15 --max-time 600 --retry 2 "$@"; }
 
 if [ "$FROM_SOURCE" -eq 1 ]; then
   cd "$(dirname "$0")"
@@ -59,18 +65,20 @@ else
   else
     # The /latest page redirects to the newest tag. Reading the redirect needs
     # no API token and has no rate limit to trip over.
-    LATEST="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest")" \
+    LATEST="$(fetch -I -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest")" \
       || die "could not reach GitHub to find the latest release."
     TAG="${LATEST##*/}"
   fi
-  case "$TAG" in v[0-9]*) ;; *) die "could not work out the release version (got '$TAG')." ;; esac
   VERSION="${TAG#v}"
+  # Exactly x.y.z: the version lands in URLs and file names below.
+  printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    || die "could not work out the release version (got '$TAG')."
   BASE="https://github.com/$REPO/releases/download/$TAG"
   ZIP="Magnetite-$VERSION.zip"
 
   say "downloading Magnetite $VERSION"
-  curl -fsSL --retry 2 -o "$WORK/$ZIP" "$BASE/$ZIP" || die "download failed: $BASE/$ZIP"
-  curl -fsSL --retry 2 -o "$WORK/$ZIP.sha256" "$BASE/Magnetite-$VERSION.sha256" \
+  fetch -o "$WORK/$ZIP" "$BASE/$ZIP" || die "download failed: $BASE/$ZIP"
+  fetch -o "$WORK/$ZIP.sha256" "$BASE/Magnetite-$VERSION.sha256" \
     || die "checksum download failed: $BASE/Magnetite-$VERSION.sha256"
 
   EXPECTED="$(awk 'NR==1 {print $1}' "$WORK/$ZIP.sha256")"
@@ -108,12 +116,17 @@ if [ "$(osascript -e "application id \"$BUNDLE_ID\" is running" 2>/dev/null)" = 
 fi
 
 # Copy beside the old app first, then swap, so a failed copy leaves the
-# installed version untouched.
+# installed version untouched. The old app is moved aside, not deleted, until
+# the new one is in place: a failure between the two leaves it restorable.
 say "installing to $DEST/$APP"
-rm -rf "$DEST/.$APP.new"
+rm -rf "$DEST/.$APP.new" "$DEST/.$APP.old"
 ditto "$SOURCE_APP" "$DEST/.$APP.new"
-rm -rf "$DEST/$APP"
-mv "$DEST/.$APP.new" "$DEST/$APP"
+[ -e "$DEST/$APP" ] && mv "$DEST/$APP" "$DEST/.$APP.old"
+if ! mv "$DEST/.$APP.new" "$DEST/$APP"; then
+  [ -e "$DEST/.$APP.old" ] && mv "$DEST/.$APP.old" "$DEST/$APP"
+  die "could not move the new app into $DEST. The previous version was kept."
+fi
+rm -rf "$DEST/.$APP.old"
 
 open "$DEST/$APP"
 cat <<EOF

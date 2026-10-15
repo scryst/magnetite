@@ -4,16 +4,14 @@ import Observation
 
 /// Per-display notch state machine.
 ///
-/// Content lives in two independent channels — a transient `notification` and a
-/// `liveActivity` that persists while a track is loaded — so a HUD and the
-/// now-playing peek cannot overwrite each other.
+/// Content lives in two independent channels — a transient `notification` (the
+/// volume or brightness HUD) and the mini player, which stays while a track is
+/// loaded — so a HUD and the mini player cannot overwrite each other.
 ///
 /// Only the notification carries the value/intent split it was built for: events
 /// write the intent and a generation-guarded transition settles it into the
 /// value, which is what lets a closing animation finish instead of being stomped
-/// by the next event. `liveActivity` is written directly; its swap transition was
-/// only ever cancelled, never scheduled, and went with this comment's third
-/// channel.
+/// by the next event. `isMiniPlayerShown` is written directly.
 @MainActor
 @Observable
 final class NotchController {
@@ -24,13 +22,6 @@ final class NotchController {
         case none
         case didChangeVolume
         case didChangeBrightness
-
-        var isSome: Bool { self != .none }
-    }
-
-    enum LiveActivity: Equatable {
-        case none
-        case isPlaying
 
         var isSome: Bool { self != .none }
     }
@@ -57,7 +48,9 @@ final class NotchController {
     private(set) var notification: Notification = .none
     private var notificationIntent: Notification = .none
 
-    private(set) var liveActivity: LiveActivity = .none
+    /// The closed notch widened to show the cover, the time and the progress
+    /// line ("Mini Player When Closed").
+    private(set) var isMiniPlayerShown = false
 
 
     /// Progress of the most recent HUD event, 0...1.
@@ -81,7 +74,7 @@ final class NotchController {
     /// `SwipeLeanFrame` reads it — a leaf, for the same reason `MeshField` is
     /// one: a value mutated at trackpad rate must not sit in a body the whole
     /// panel re-evaluates from. `Lean` is Equatable, so the repeated nil
-    /// writes between swipes notify nobody (see `showNowPlaying`).
+    /// writes between swipes notify nobody (see `showMiniPlayer`).
     var swipeLean: SwipeRecogniser.Lean?
 
     /// Widest the panel ever gets. The window is sized from this once and then
@@ -129,7 +122,7 @@ final class NotchController {
     private var collapsedSizeForContent: CGSize {
         ChromeRules.retractedSize(collapsed: collapsedSize,
                                   band: menuBarHeight,
-                                  hasContent: liveActivity.isSome || notification.isSome)
+                                  hasContent: isMiniPlayerShown || notification.isSome)
     }
 
     /// Goes to zero expanded, so the shoulders unroll into the bezel rather than
@@ -295,7 +288,7 @@ final class NotchController {
             }
         }
 
-        notificationClose.schedule(after: .seconds(settings.peekDuration)) { [weak self] in
+        notificationClose.schedule(after: .seconds(settings.hudDuration)) { [weak self] in
             self?.clearNotification()
         }
     }
@@ -310,20 +303,20 @@ final class NotchController {
 
     // MARK: Live activity
 
-    /// Show now-playing in the flanks and *keep* it there while a track is
+    /// Show the mini player in the flanks and *keep* it there while a track is
     /// loaded. It lives entirely inside the cutout's height, so it never covers
-    /// anything below the menu bar — and it's what makes the retracted player
+    /// anything below the menu bar — and it's what makes the closed player
     /// readable at all instead of a bare outline.
-    func showNowPlaying() {
-        // On transition, because `syncLiveActivity` calls this on every poll.
+    func showMiniPlayer() {
+        // On transition, because `syncMiniPlayerAndCapture` calls this on every
+        // poll.
         //
         // This comment used to read "Observation fires on ASSIGNMENT", and on
         // Swift 6.4 that is only true of a property whose type is NOT
         // `Equatable`: the generated setter compares first, and a same-value
-        // write to an Equatable one notifies nobody. `LiveActivity` is
-        // Equatable, so the guard below is belt-and-braces today — measured, by
-        // a mutant that removed it and could not be told apart from the
-        // original.
+        // write to an Equatable one notifies nobody. `Bool` is Equatable, so
+        // the guard below is belt-and-braces today — measured, by a mutant that
+        // removed it and could not be told apart from the original.
         //
         // It stays, and the rule is worth keeping straight rather than
         // deleting, because the half of it that still bites is the half that is
@@ -331,12 +324,11 @@ final class NotchController {
         // observable property of a type that never had one, and an
         // every-poll write goes back to invalidating the whole panel once a
         // second to say that nothing has changed.
-        if liveActivity != .isPlaying { liveActivity = .isPlaying }
+        if !isMiniPlayerShown { isMiniPlayerShown = true }
     }
 
-
-    func clearLiveActivity() {
-        if liveActivity != .none { liveActivity = .none }
+    func hideMiniPlayer() {
+        if isMiniPlayerShown { isMiniPlayerShown = false }
     }
 
     // MARK: Visibility

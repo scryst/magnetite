@@ -170,7 +170,7 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(expanded ? Motion.expand : Motion.collapse, value: expanded)
-        .animation(Motion.swap, value: controller.liveActivity)
+        .animation(Motion.swap, value: controller.isMiniPlayerShown)
         .animation(Motion.swap, value: controller.notification)
         .animation(Motion.track, value: media.trackToken)
         // Losing the last track was a hard cut: nothing watched hasTrack, so the
@@ -192,7 +192,7 @@ struct NotchRootView: View {
 
     /// Is the shell wider than the bare cutout right now?
     private var hasShellForTrace: Bool {
-        expanded || controller.liveActivity.isSome || controller.notification.isSome
+        expanded || controller.isMiniPlayerShown || controller.notification.isSome
     }
 
     private var shape: NotchShape {
@@ -651,7 +651,7 @@ struct NotchRootView: View {
                 // extrudes sideways out of the cutout's edges the way the shell
                 // itself does.
                 .transition(.opacity.animation(Motion.swap))
-        } else if controller.liveActivity == .isPlaying, media.hasTrack {
+        } else if controller.isMiniPlayerShown, media.hasTrack {
             CollapsedActivity(media: media,
                               notchWidth: controller.notchSize.width,
                               glass: glass)
