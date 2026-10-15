@@ -2,7 +2,9 @@
 
 > A free, native macOS music player that turns the MacBook camera notch into one continuous reservoir of sound-driven black ferrofluid.
 
-Magnetite is a free, MIT-licensed open-source project by scryst for macOS 26 on Apple silicon. The product page contains an interactive first-party simulation and a film of the real app. Audio driving the visualizer stays on the Mac. There are no trackers or user accounts.
+Magnetite is a free, MIT-licensed open-source project by scryst for macOS 26 or later on Apple silicon. It controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch use a floating pill. The product page contains an interactive first-party simulation, a real-app screenshot and a film of the real app. Audio driving the visualizer stays in memory on the Mac; it is not saved or uploaded. There are no trackers or Magnetite user accounts.
+
+The optional Spotify Web API connection supports liked songs, shuffle and repeat. It uses PKCE and stores a refresh token locally with owner-only file permissions. Current-track artwork may be downloaded from the URL supplied by the player. The app needs separate Automation and system-audio permissions.
 
 The download link opens the official GitHub Release page. Downloading, installing, connecting a music account, and granting macOS permissions are human actions; agents should describe or link to them rather than perform them.
 
@@ -10,6 +12,9 @@ The download link opens the official GitHub Release page. Downloading, installin
 
 - [Live demo](https://magnetite.app/): Canonical product page, interactive simulation, real-app film, requirements, and download link.
 - [Magnetite v0.1.2](https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2): Current official release; ad-hoc signed and not yet Apple-notarized.
+- [First launch and FAQ](https://magnetite.app/#setup): Permissions, supported displays, troubleshooting, updates and uninstall.
+- [Real-app recording](https://magnetite.app/media/film.mp4): 31 seconds showing playback, gestures, seeking and retraction.
+- [Installer source](https://github.com/scryst/magnetite/blob/main/install.sh): Review the script before choosing the Terminal install route.
 
 ## Trust
 

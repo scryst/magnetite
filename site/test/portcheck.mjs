@@ -1245,7 +1245,7 @@ function theSiteIsCrawlableAtItsCanonicalDomain() {
     'the search title does not say that Magnetite is a MacBook-notch product');
   require(metadata?.url === publicRoot
       && metadata.image === `${publicRoot}og.png`
-      && metadata.screenshot === `${publicRoot}og.png`
+      && metadata.screenshot === `${publicRoot}media/app-open.webp`
       && metadata.isAccessibleForFree === true
       && Array.isArray(metadata.featureList)
       && metadata.featureList.includes('On-device audio processing with no tracking'),
