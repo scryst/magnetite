@@ -816,8 +816,10 @@ enum ChromeCheck {
     static func theBandClocksDoNotStepAtThePollRate() {
         let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
         guard !code.isEmpty else { return }
-        guard let player = topLevelSection(code, from: "struct ExpandedPlayer") else {
-            require(false, "cannot find ExpandedPlayer in NotchView.swift — "
+        // The band clocks are their own always-present layer, so they can ride
+        // the shell's edges on close instead of keeping the panel's last layout.
+        guard let player = topLevelSection(code, from: "struct PanelClocks") else {
+            require(false, "cannot find PanelClocks in NotchView.swift — "
                     + "this check reads a slice and just became a no-op")
             return
         }
