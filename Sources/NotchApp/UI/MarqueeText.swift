@@ -2,18 +2,13 @@ import SwiftUI
 
 /// Single-line text that scrolls only when it actually overflows.
 ///
-/// Design constraints, each of which cost a debugging round:
+/// The visible element is a plain `Text` with `maxWidth: .infinity`, so it lays out
+/// like an ordinary label. A `GeometryReader` has no ideal width and collapses to
+/// zero inside an `HStack`. The base `Text` is always present and truncating and
+/// the scroll is an overlay, so a failed measurement degrades to a truncated title
+/// rather than a blank row.
 ///
-///  * **It must lay out like ordinary text.** An earlier version was a
-///    `GeometryReader`, which has no ideal width — inside an `HStack` the stack
-///    handed it zero and the title vanished while the same view worked fine alone
-///    in a `VStack`. The visible element here is a plain `Text` with
-///    `maxWidth: .infinity`, so it claims space exactly as a label would.
-///  * **It must never render blank.** The base `Text` is always present and
-///    truncating; scrolling is an *overlay* on top, so any measurement failure
-///    degrades to a truncated title rather than an empty row.
-///  * **It must not be baseline-aligned by its container.** Put it in
-///    `HStack(alignment: .center)`, never `.firstTextBaseline`.
+/// Place it in `HStack(alignment: .center)`; baseline alignment misplaces it.
 struct MarqueeText: View {
     let text: String
     var font: Font = .system(size: 13, weight: .semibold)
@@ -26,23 +21,16 @@ struct MarqueeText: View {
     @ViewState private var textWidth: CGFloat = 0
     @ViewState private var boxWidth: CGFloat = 0
     @ViewState private var shifted = false
-    /// The environment value, not `Motion.reduceMotion`: the static is invisible
-    /// to SwiftUI invalidation, so flipping Reduce Motion mid-session never
-    /// re-evaluated an on-screen marquee — a scrolling title kept scrolling (and
-    /// a truncated one stayed truncated) until the next track replaced the view.
-    /// The environment is what makes the setting reach a marquee that is already
-    /// on screen.
+    /// The environment value rather than `Motion.reduceMotion`: a static is invisible to
+    /// SwiftUI invalidation, so toggling Reduce Motion would not reach a marquee that
+    /// is already on screen.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var overflow: CGFloat { max(0, textWidth - boxWidth) }
-    /// The two gates, taken from `ChromeRules` so `chromecheck` asserts the same
-    /// predicate the view applies.
-    ///
-    /// They used to be keyed on different things — the label on `scrolls` alone,
-    /// the scroller on `scrolls && !reduceMotion` — so with Reduce Motion on, any
-    /// title wider than its column rendered as NOTHING: the static text faded out
-    /// for an overlay that was never drawn. "Never replace the interface with an
-    /// inert or ambiguous state"; a blank row where the song title goes is both.
+    /// Both gates come from `ChromeRules`, so `chromecheck` asserts the predicate the
+    /// view applies. They must agree: if the label hid on `scrolls` alone while the
+    /// scroller also required `!reduceMotion`, an overflowing title would render as
+    /// nothing under Reduce Motion.
     private var hidesLabel: Bool {
         ChromeRules.marqueeHidesStaticLabel(textWidth: textWidth, boxWidth: boxWidth,
                                             reduceMotion: reduceMotion)
@@ -59,7 +47,7 @@ struct MarqueeText: View {
             .font(font)
             .lineLimit(1)
             .truncationMode(.tail)
-            // Hidden while the scrolling overlay is up, but still driving layout.
+            // Hidden while the scrolling overlay is up, but still drives layout.
             .opacity(hidesLabel ? 0 : 1)
             .allowsHitTesting(attributedText == nil || !hidesLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -71,12 +59,12 @@ struct MarqueeText: View {
             }
             .onChange(of: showsScroller) { _, now in shifted = now }
             .onAppear { shifted = showsScroller }
-            // With Reduce Motion an overflowing line only truncates; the
-            // tooltip is then the one way to read all of it.
+            // Under Reduce Motion an overflowing line only truncates; the tooltip is the way
+            // to read all of it.
             .help(overflow > 0 ? text : "")
     }
 
-    /// Two zero-cost probes: the container's width, and the text's intrinsic width.
+    /// Probes for the container's width and the text's intrinsic width.
     private var measurement: some View {
         ZStack(alignment: .leading) {
             Color.clear
@@ -113,7 +101,7 @@ struct MarqueeText: View {
                         startPoint: .leading, endPoint: .trailing)
                 }
                 .allowsHitTesting(attributedText != nil)
-                // The base label already speaks this line; twice is noise.
+                // The base label already speaks this line.
                 .accessibilityHidden(true)
         }
     }

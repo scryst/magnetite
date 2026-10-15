@@ -1,10 +1,7 @@
 import Foundation
 import Observation
 
-/// UserDefaults-backed preferences.
-///
-/// The real app uses the `Defaults` package for this; a small property wrapper
-/// keeps the dependency count at zero without changing the shape of the code.
+/// `UserDefaults`-backed preference, stored under a fixed key with a fallback.
 @propertyWrapper
 struct Stored<Value> {
     let key: String
@@ -58,8 +55,8 @@ final class Settings {
 
     private init() { Self.adoptPreferencesFromPreviousBundleID() }
 
-    /// Every key this app stores. Listed so the migration below can move them
-    /// without dragging along the keys the frameworks write into the domain.
+    /// Every key this app stores, so the migration moves only these and not the keys
+    /// frameworks write into the same domain.
     private static let keys = [
         "forceSimulatedNotch", "notchAdjustedWidth", "notchAdjustedHeight",
         "notchAdjustedRadius", "hideFromScreenCapture", "expandNotchOnHover",
@@ -69,36 +66,27 @@ final class Settings {
 
     /// Every bundle identifier this app has shipped under, newest first.
     ///
-    /// Spelled the old way on purpose: a migration has to name the old thing.
-    /// There are two now — `com.laks.NotchApp`, then `com.laks.ferro` — and a
-    /// user can be arriving from either, so neither may be dropped. Newest
-    /// first because the order decides the winner: someone who ran both has
-    /// their later values in the ferro domain, and the older domain is only a
-    /// fallback for keys that never moved.
+    /// A user may be arriving from either old identifier, so neither can be dropped.
+    /// Order matters: someone who ran both has their later values in the newer domain,
+    /// and the older one is only a fallback for keys that never moved.
     private static let legacyDomains = ["com.laks.ferro", "com.laks.NotchApp"]
 
-    /// Carries the preferences over from the bundle identifiers this app used
-    /// before it was called Magnetite.
+    /// Copies preferences over from the bundle identifiers used before the rename.
     ///
-    /// `UserDefaults.standard` is keyed by `CFBundleIdentifier`, so renaming
-    /// the bundle abandons the whole domain. Most of what is lost is a toggle
-    /// worth one click — but `spotifyClientID` is not. The refresh token moves
-    /// itself (see `TokenStore`), and a token without the client ID that issued
-    /// it cannot be refreshed: the app reports itself connected and every
-    /// request fails with `invalid_client`. Moving one and not the other is
-    /// worse than moving neither, because it fails silently instead of visibly.
+    /// `UserDefaults.standard` is keyed by `CFBundleIdentifier`, so renaming the bundle
+    /// abandons the whole domain. `spotifyClientID` must move with the refresh token
+    /// (see `TokenStore`): a token without the client ID that issued it cannot be
+    /// refreshed, and the app would report itself connected while every request fails
+    /// with `invalid_client`.
     ///
-    /// Runs once, keyed on its own marker rather than on emptiness — a user who
-    /// deliberately turned everything off must not have the old values pushed
-    /// back at them on the next launch.
+    /// Runs once, guarded by its own marker rather than by emptiness, so a user who
+    /// turned everything off is not given the old values back.
     private static func adoptPreferencesFromPreviousBundleID() {
         let now = UserDefaults.standard
         guard !now.bool(forKey: "didAdoptLegacyPreferences") else { return }
 
-        // `where now.object(forKey:) == nil` is re-evaluated per domain, so the
-        // first domain that answers for a key wins and the older one cannot
-        // overwrite it — which is what makes the newest-first order above mean
-        // what it says.
+        // The `where` clause is re-evaluated per domain, so the first domain that answers
+        // for a key wins and an older one cannot overwrite it.
         for domain in legacyDomains {
             guard let old = UserDefaults(suiteName: domain) else { continue }
             for key in keys where now.object(forKey: key) == nil {
@@ -106,8 +94,7 @@ final class Settings {
                 now.set(value, forKey: key)
             }
         }
-        // Marked last. A crash mid-copy should cost a repeat, not the settings,
-        // and repeating is free: the loop only fills keys that are still unset.
+        // Marked last: a crash mid-copy repeats the copy, which only fills unset keys.
         now.set(true, forKey: "didAdoptLegacyPreferences")
     }
 
@@ -121,7 +108,7 @@ final class Settings {
     // Behaviour
     @ObservationIgnored @Stored("expandNotchOnHover", true) private var _expandNotchOnHover: Bool
     @ObservationIgnored @Stored("hoverDuration", 0.18) private var _hoverDuration: Double
-    // Stored keys keep their original names so existing preferences carry over.
+    // Key names are kept from earlier releases so existing preferences carry over.
     @ObservationIgnored @Stored("peekDuration", 2.2) private var _hudDuration: Double
 
     // Features
@@ -130,14 +117,12 @@ final class Settings {
     @ObservationIgnored @Stored("enableVolume", true) private var _enableVolume: Bool
     @ObservationIgnored @Stored("enableBrightness", true) private var _enableBrightness: Bool
     @ObservationIgnored @Stored("musicApp", "automatic") private var _musicApp: String
-    /// Spotify Web API client ID, from a personal app in development mode. Not a
-    /// secret — PKCE exists so there is no secret to keep — and the refresh token
-    /// it earns lives in TokenStore's 0600 file under Application
-    /// Support/Magnetite, not here. TokenStore documents why it is not the
-    /// Keychain.
+    /// Spotify Web API client ID from a personal development-mode app. Not a secret
+    /// (PKCE has none). The refresh token it earns lives in `TokenStore`'s 0600 file,
+    /// which documents why it is not in the Keychain.
     @ObservationIgnored @Stored("spotifyClientID", "") private var _spotifyClientID: String
 
-    // Observable façades — writing bumps the registrar so views refresh.
+    // Observable facades: a write goes through `withMutation` so views refresh.
     var forceSimulatedNotch: Bool {
         get { access(keyPath: \.forceSimulatedNotch); return _forceSimulatedNotch }
         set { withMutation(keyPath: \.forceSimulatedNotch) { _forceSimulatedNotch = newValue } }
@@ -150,11 +135,8 @@ final class Settings {
         get { access(keyPath: \.notchAdjustedHeight); return _notchAdjustedHeight }
         set { withMutation(keyPath: \.notchAdjustedHeight) { _notchAdjustedHeight = newValue } }
     }
-    /// Nudge for the retracted shell's bottom corners.
-    ///
-    /// `safeAreaInsets` and the auxiliary areas describe a rectangle; the real
-    /// cutout's corners are rounded and the radius is not reported anywhere, so
-    /// it is a guess that has to be adjustable like the other two.
+    /// Nudge for the collapsed shell's bottom corners. The cutout's corner radius is not
+    /// reported anywhere, so it is an estimate that has to be adjustable.
     var notchAdjustedRadius: Double {
         get { access(keyPath: \.notchAdjustedRadius); return _notchAdjustedRadius }
         set { withMutation(keyPath: \.notchAdjustedRadius) { _notchAdjustedRadius = newValue } }
@@ -167,9 +149,8 @@ final class Settings {
         get { access(keyPath: \.expandNotchOnHover); return _expandNotchOnHover }
         set { withMutation(keyPath: \.expandNotchOnHover) { _expandNotchOnHover = newValue } }
     }
-    /// Both feed `Duration.seconds`, which traps on a value it cannot hold — so
-    /// a stray `defaults write` of 1e300 or nan crashed the app on first hover.
-    /// Read back clamped to something a person could mean.
+    /// Both feed `Duration.seconds`, which traps on values it cannot hold (a stray
+    /// `defaults write` of 1e300 or nan), so reads are clamped by `sane`.
     var hoverDuration: Double {
         get { access(keyPath: \.hoverDuration); return Self.sane(_hoverDuration, or: 0.18) }
         set { withMutation(keyPath: \.hoverDuration) { _hoverDuration = newValue } }
@@ -183,17 +164,13 @@ final class Settings {
         seconds.isFinite ? min(max(seconds, 0), 10) : fallback
     }
     /// Two-finger swipes over the notch: horizontal skips, vertical play/pause.
-    ///
-    /// This property once wore the mini player's doc comment, which described
-    /// neither this setting nor anything it does.
     var enableGestures: Bool {
         get { access(keyPath: \.enableGestures); return _enableGestures }
         set { withMutation(keyPath: \.enableGestures) { _enableGestures = newValue } }
     }
 
-    /// The mini player: while closed, the notch widens just enough to show the
-    /// cover, the elapsed time and the progress line. Independent of Open on
-    /// Hover. Menu: "Mini Player When Closed".
+    /// Mini player: while closed, the notch widens to show the cover, elapsed time and
+    /// progress line. Independent of Open on Hover.
     var showsMiniPlayer: Bool {
         get { access(keyPath: \.showsMiniPlayer); return _showsMiniPlayer }
         set { withMutation(keyPath: \.showsMiniPlayer) { _showsMiniPlayer = newValue } }

@@ -1,27 +1,25 @@
 import Foundation
 import Observation
 
-/// Frequency-band levels from the real system-audio mixdown.
+/// Frequency-band levels from the system-audio mixdown.
 ///
-/// If capture is unavailable, the levels decay to silence. Inventing a clock-
-/// driven substitute makes the fluid look periodic and can keep it moving after
-/// the music stops, which is worse than an honestly quiet visualiser.
+/// If capture is unavailable the levels decay to silence. A clock-driven
+/// substitute would look periodic and keep moving after the music stops.
 @MainActor
 @Observable
 final class AudioLevels {
-    /// Read once, not 30 times a second on the main actor.
+    /// Read once rather than 30 times a second on the main actor.
     nonisolated static let debugLogging =
         ProcessInfo.processInfo.environment["NOTCH_AUDIO_DEBUG"] != nil
 
 
     static let bandCount = AudioTap.bandCount
 
-    /// Below this in every band there is no sound — roughly -69 dBFS.
+    /// Below this in every band there is no sound (about -69 dBFS).
     ///
-    /// Shared with `FerrofluidSim`, which needs the same definition of silence to
-    /// tell a pause from a rest. Two thresholds that disagree would leave a
-    /// window where this class publishes silence and the fluid still calls it
-    /// music.
+    /// `FerrofluidSim` uses the same value to tell a pause from a rest; two
+    /// thresholds that disagreed would leave a window where this class publishes
+    /// silence and the fluid still treats it as music.
     nonisolated static let silenceLevel: Float = 0.02
 
     private(set) var bands = [Float](repeating: 0, count: AudioTap.bandCount)
@@ -32,13 +30,11 @@ final class AudioLevels {
     private let tap = AudioTap()
     private var pump: Task<Void, Never>?
     private var consumers = 0
-    /// Reused across ticks: `levels(into:)` exists so the tap never has to
-    /// share its buffer with the real-time thread, and reusing the destination
-    /// keeps this side from allocating 30 times a second in exchange.
+    /// Reused across ticks so that `levels(into:)`, which keeps the tap's buffer away
+    /// from the real-time thread, does not allocate 30 times a second.
     private var liveScratch = [Float](repeating: 0, count: AudioTap.bandCount)
-    /// One rebuild per stall episode. Reset when delivery resumes, so a tap
-    /// that stalls again later gets one more attempt — but a tap that stays
-    /// wedged is reported, not hammered.
+    /// One rebuild per stall episode. Reset when delivery resumes, so a later stall
+    /// gets another attempt but a tap that stays wedged is reported, not retried.
     private var stallRebuildAttempted = false
 
     /// Refcounted like the media poller: nothing runs when nothing is on screen.
@@ -52,12 +48,8 @@ final class AudioLevels {
         if consumers == 0 { end() }
     }
 
-    /// Try the tap again after the user has been to Privacy settings.
-    ///
-    /// Without this the one remediation the app advertises went nowhere: you
-    /// granted the permission and the visualiser stayed flat until playback
-    /// stopped entirely or the app was relaunched. `startSync` already guards on
-    /// `_isRunning`, so calling it while healthy is a no-op.
+    /// Tries the tap again after the user has been to Privacy settings. `start()` is a
+    /// no-op while the tap is running.
     func retryCapture() {
         guard consumers > 0, !tap.isRunning else { return }
         tap.start()
@@ -86,12 +78,10 @@ final class AudioLevels {
 
     private func tick() {
         if tap.isRunning {
-            // A tap can stop delivering while every status it exposes still
-            // reads live — the tap's own teardown comment records exactly that
-            // wedge. A stalled delivery stamp on a "running" tap means the
-            // honest report is silence, not a freeze-frame of the last bands:
-            // ask for one rebuild, and only if that fails to restore delivery
-            // say so where the permission note is shown.
+            // A tap can stop delivering while every status it exposes still reads live. A
+            // stale delivery stamp on a "running" tap means the honest report is silence:
+            // ask for one rebuild, and if that does not restore delivery, say so in the
+            // permission note.
             if tap.deliveryIsStale() {
                 if !stallRebuildAttempted {
                     stallRebuildAttempted = true
@@ -106,9 +96,8 @@ final class AudioLevels {
             }
             stallRebuildAttempted = false
             tap.levels(into: &liveScratch)
-            // A running tap that reads silence means there *is* no sound. Report
-            // that honestly — falling back to synthesised motion here is what made
-            // the visualiser churn away with the music switched off.
+            // A running tap that reads silence means there is no sound; no synthesised
+            // motion in its place.
             if !liveScratch.contains(where: { $0 > Self.silenceLevel }) {
                 if !isLive { isLive = true }
                 decayToSilence()
@@ -120,16 +109,13 @@ final class AudioLevels {
                     ("[levels] " + liveScratch.map { String(format: "%.2f", $0) }.joined(separator: " ") + "\n")
                         .data(using: .utf8)!)
             }
-            // Only on transition. These are observed, and Observation fires on
-            // ASSIGNMENT — writing them every tick invalidated every view that
-            // reads them 30 times a second to say nothing had changed.
+            // Observation fires on assignment, so only write these on a transition.
             if !isLive { isLive = true }
             if permissionNote != nil { permissionNote = nil }
             return
         } else {
-            // One `lastError` read per tick: the property takes the tap's state
-            // lock each time, and two reads could straddle a mid-tick
-            // transition and disagree.
+            // One `lastError` read per tick: it takes the tap's state lock, and two reads
+            // could straddle a transition.
             if isLive { isLive = false }
             let failure = tap.lastError
             if permissionNote != failure { permissionNote = failure }
@@ -138,7 +124,7 @@ final class AudioLevels {
     }
 
     private func decayToSilence() {
-        // Already silent — don't rewrite an observed array of zeroes at 30Hz.
+        // Already silent: do not rewrite an observed array of zeroes at 30 Hz.
         guard bands.contains(where: { $0 > 0 }) else { return }
         for i in bands.indices {
             bands[i] *= 0.82

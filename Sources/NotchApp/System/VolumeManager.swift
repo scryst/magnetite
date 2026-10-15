@@ -3,24 +3,21 @@ import Foundation
 
 /// System output volume, observed rather than intercepted.
 ///
-/// The obvious way to know the volume changed is to tap the media keys, which
-/// needs Accessibility. A CoreAudio property listener on the default output
-/// device gives the same signal with **no permission at all**, and it also
-/// catches changes made from Control Center, a Bluetooth remote, or another app
-/// — which a key tap misses entirely. Strictly better, and it is why there is
-/// no event tap here.
+/// A CoreAudio property listener on the default output device needs no
+/// permission, unlike a media-key tap (Accessibility), and also sees changes made
+/// from Control Center, a Bluetooth remote or another app.
 @MainActor
 final class VolumeManager {
 
     private(set) var volume: Float = 0
     private(set) var isMuted = false
 
-    /// Fires on a genuine user-visible change, not on our own initial read.
+    /// Fires on a user-visible change, not on the initial read.
     var onChange: ((Float, Bool) -> Void)?
 
     private var deviceID = AudioObjectID(kAudioObjectUnknown)
-    /// The block has to be kept: Core Audio matches registrations on
-    /// (object, address, block), so without it there is no way to unregister.
+    /// Core Audio matches registrations on (object, address, block), so the block is
+    /// kept in order to unregister it.
     private var listeners: [(AudioObjectID,
                              AudioObjectPropertyAddress,
                              AudioObjectPropertyListenerBlock)] = []
@@ -94,12 +91,8 @@ final class VolumeManager {
         }
     }
 
-    /// Actually unregister.
-    ///
-    /// This used to drop the array on the floor, which does nothing to Core
-    /// Audio: every listener stayed live and each output-device change stacked
-    /// another set on top, so an afternoon of switching between speakers and
-    /// headphones left dozens of callbacks all firing for one volume change.
+    /// Unregisters the listeners with Core Audio. Dropping the array alone leaves them
+    /// live, and each output-device change would stack another set.
     private func removeListeners() {
         for (id, address, block) in listeners {
             var addr = address
@@ -149,12 +142,9 @@ final class VolumeManager {
            AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value) == noErr {
             return value != 0
         }
-        // The same per-channel fallback the listener registration and
-        // `readScalar` already make — without it those devices fire the mute
-        // listener, this read pins `isMuted` false, and `handleChange` eats the
-        // event as a no-op: no HUD for the press, and the next volume HUD
-        // renders unmuted while the device is muted. Muted if ANY channel is,
-        // which is how a stereo pair's mute switch behaves.
+        // Same per-channel fallback as the listener registration and `readScalar`.
+        // Without it those devices fire the mute listener while this read pins
+        // `isMuted` false. Muted if any channel is, as with a stereo pair's switch.
         for channel in UInt32(1)...UInt32(2) {
             address.mElement = channel
             var v: UInt32 = 0
@@ -178,7 +168,7 @@ final class VolumeManager {
         let previousMute = isMuted
         readCurrent()
         guard primed else { return }
-        // Ignore sub-perceptual jitter so we don't flash the HUD on noise.
+        // Ignore sub-perceptual jitter.
         guard abs(volume - previousVolume) > 0.0005 || isMuted != previousMute else { return }
         onChange?(volume, isMuted)
     }

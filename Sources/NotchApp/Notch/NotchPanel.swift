@@ -1,13 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// SwiftUI insets content away from the notch automatically. When your content
-/// *is* the notch that is exactly backwards, so we flatten the insets.
-///
-/// It also hit-tests against the notch region rather than its own bounds. The
-/// panel is deliberately much larger than the collapsed notch — that's what lets
-/// the shape morph without ever resizing the window — so without this the empty
-/// area would swallow clicks meant for the desktop.
+/// SwiftUI insets content away from the notch; here the content is the notch, so the
+/// insets are flattened. Hit-testing uses the notch region rather than the view's
+/// bounds: the panel stays much larger than the collapsed notch so the shape can
+/// morph without resizing the window, and its empty area must not swallow clicks.
 final class NotchHostingView<Content: View>: NSHostingView<Content> {
 
     /// Notch region in this view's (unflipped, AppKit) coordinates.
@@ -24,14 +21,11 @@ final class NotchHostingView<Content: View>: NSHostingView<Content> {
 
 /// The notch window.
 ///
-/// Borderless, non-activating, above the menu bar, present on every Space, and
-/// excluded from screen capture — a fake notch showing up in a recording looks
-/// broken, which is why the real app makes that a setting.
+/// Borderless, non-activating, above the menu bar, on every Space, and excluded from
+/// screen capture (see `applyScreenCapturePolicy`).
 ///
-/// The frame is fixed at the expanded size for the lifetime of the window. All
-/// motion happens inside, in SwiftUI. Resizing an `NSWindow` every frame is the
-/// single biggest source of jank in notch apps; not doing it is why this morph
-/// stays smooth.
+/// The frame stays at the expanded size for the window's lifetime; all motion
+/// happens inside SwiftUI, because resizing an `NSWindow` every frame janks.
 final class NotchPanel: NSPanel {
 
     init(contentRect: NSRect) {
@@ -50,8 +44,8 @@ final class NotchPanel: NSPanel {
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
         animationBehavior = .none
-        // Collapsed, the window is entirely click-through; hover is detected with
-        // a global monitor instead. Expanding turns interaction back on.
+        // Click-through while collapsed (hover comes from a global monitor); expanding
+        // turns interaction back on.
         ignoresMouseEvents = true
     }
 

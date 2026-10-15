@@ -3,8 +3,8 @@ import AppKit
 /// Physical notch measurement.
 ///
 /// `safeAreaInsets.top` and the two `auxiliaryTop*Area` rects are the only public
-/// description of the cutout, and they disagree across hardware and OS versions —
-/// which is exactly why the real app ships user-adjustable offsets. We do too.
+/// description of the cutout. They disagree across hardware and OS versions, hence
+/// the user-adjustable offsets.
 @MainActor
 enum ScreenMetrics {
 
@@ -25,10 +25,8 @@ enum ScreenMetrics {
                       height: screen.safeAreaInsets.top)
     }
 
-    /// Collapsed size we should draw at, honouring the user's nudge.
-    ///
-    /// Displays with no physical notch get a pill sized to look deliberate rather
-    /// than a fake cutout pretending to be hardware.
+    /// Collapsed size to draw at, including the user's width and height adjustments.
+    /// Displays without a notch get a pill sized to look deliberate.
     static func collapsedSize(for screen: NSScreen, settings: Settings) -> CGSize {
         let base: CGSize
         if let notch = notchRect(for: screen) {
