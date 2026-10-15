@@ -242,7 +242,11 @@ final class MediaManager {
         timer = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 // 1s is plenty: position is interpolated locally between polls.
-                try? await Task.sleep(for: .seconds(1))
+                // Paused behind the closed mini player nothing moves, and Music
+                // and Spotify announce play, pause and track changes themselves,
+                // so the poll is only a backstop there.
+                let idle = self.map { !$0.isPlaying && $0.pollingSources == [.miniPlayer] } ?? false
+                try? await Task.sleep(for: .seconds(idle ? 5 : 1))
                 guard let self, !Task.isCancelled else { return }
                 await self.refresh()
             }

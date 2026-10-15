@@ -184,7 +184,7 @@ final class FerrofluidSim {
 
     private var pointerTarget: Double = 0
 
-    /// Called from the coordinator on every mouse move.
+    /// Called on every mouse move (the coordinator) and every scrub step (the panel).
     func setPointer(rim: Double?, strength: Double = 1) {
         if let rim {
             // Only the TARGET moves with the cursor. The swell itself chases it

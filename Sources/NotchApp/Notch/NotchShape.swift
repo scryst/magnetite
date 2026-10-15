@@ -93,8 +93,7 @@ struct NotchShape: Shape, Animatable {
         case .notch:
             // One continuous shell that wraps *around* the cutout. The camera
             // housing disappears into it because the menu-bar band is kept pure
-            // black — see `NotchRootView.ambientGlow`, which is masked off above
-            // the notch line. Growing only downward instead would waste the space
+            // black. Growing only downward instead would waste the space
             // either side of the cutout, which is the whole point of the format.
             return simplePath(in: frame, topRadius: topCornerRadius,
                               bottomRadius: bottomCornerRadius)

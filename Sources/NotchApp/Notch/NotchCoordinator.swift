@@ -402,9 +402,29 @@ final class NotchCoordinator {
         // not somewhere anyone thinks to look for "close this".
         clickAway = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.dismissPinnedIfOutside() }
+        ) { [weak self] event in
+            MainActor.assumeIsolated {
+                self?.dismissPinnedIfOutside()
+                if event.type == .leftMouseDown { self?.openOnClickIfHoverOff() }
+            }
         }
+    }
+
+    /// With Open on Hover off, the menu was the only way in. A click on the
+    /// notch opens and pins instead. The notch is dead menu-bar space, so the
+    /// click a global monitor cannot consume lands on nothing.
+    private func openOnClickIfHoverOff() {
+        guard !settings.expandNotchOnHover else { return }
+        let mouse = NSEvent.mouseLocation
+        var opened = false
+        for (_, host) in hosts where !host.controller.isExpanded
+            && isOverNotch(mouse, controller: host.controller, forGesture: true) {
+            host.controller.expand(byHover: false, pinned: true)
+            opened = true
+        }
+        guard opened else { return }
+        syncInteractivity()
+        syncExpandedPolling()
     }
 
     private func dismissPinnedIfOutside() {
