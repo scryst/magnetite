@@ -10,9 +10,9 @@
 // forces a layout of its own.
 
 const CORNER_WORDS = '.masthead a, .hero__copy > *, .film__title, .film__foot, .get__title, '
-  + '.get__sheet > :not(.get__title, .band), .finale__still, .foot > *';
+  + '.get__sheet > :not(.get__title, .band), .setup h2, .setup h3, .setup summary, .setup p, .finale__still, .foot > *';
 /** What a visitor presses, or copies, measured by its whole box. */
-const CONTROLS = 'a, button, code';
+const CONTROLS = 'a, button, code, summary';
 /** How near, in CSS pixels, counts as under the circles. */
 const CORNER_MARGIN = 8;
 /** How long the corner stays clear before the circles come back, in ms. */
@@ -91,6 +91,8 @@ export function startCorner(soundtrack, { journey, notch }) {
   };
   addEventListener('scroll', ask, { passive: true });
   addEventListener('resize', ask, { passive: true });
+  // Opening an answer can put words under the player without any scroll.
+  document.addEventListener('toggle', ask, true);
   if (document.readyState === 'complete') ask();
   else addEventListener('load', ask);
 }

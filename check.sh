@@ -90,6 +90,7 @@ set -e
 echo "==> site"
 node site/test/portcheck.mjs
 node site/test/bandscheck.mjs
+node site/test/setupcheck.mjs
 
 # Prove the site's checks still reject their named regressions. The harness
 # changes temporary copies only; stale mutation targets must fail this gate too.
