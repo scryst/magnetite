@@ -3,7 +3,7 @@
 For the integrator after review. Nothing here has been applied to GitHub.
 Destinations verified read-only on 14 October 2026: `scryst/magnetite` is the
 public source repository; `scryst/magnetite-releases` holds binaries and Pages.
-The latest published release is v0.1.2. No new native release is proposed here.
+The latest published release is v0.1.3.
 
 ## About
 
@@ -76,4 +76,4 @@ gh pr create --repo scryst/magnetite-releases --base main --head docs/readme-101
 After the merged site candidate passes its gates, the integrator uses the
 existing `./deploy.sh` workflow. Do not publish this worktree or run a bare Pages
 upload. The native-app lane may change version/permissions: reconcile those facts
-with its accepted commit before integrating this site's v0.1.2 claims.
+with its accepted commit before integrating this site's v0.1.3 claims.
