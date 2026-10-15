@@ -140,6 +140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sourceItem.submenu = sourceMenu
         menu.addItem(sourceItem)
         menu.addItem(spotifyItem())
+        // A mistyped or deleted Spotify app left the saved ID with no way out:
+        // Connect only asks while the ID is empty.
+        if let web = coordinator?.media.spotify, !web.isConnected, !web.clientID.isEmpty {
+            menu.addItem(CallbackMenuItem(title: "Change Spotify Client ID…", keyEquivalent: "") { [weak self] in
+                self?.connectSpotify(web, askForID: true)
+            })
+        }
 
         // Named for what the user sees, not for the setting's key: hover-to-open
         // and the cover-and-clock strip are two independent states, because one
@@ -166,9 +173,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(.sectionHeader(title: "General"))
-        menu.addItem(toggle("Launch at Login", value: launchAtLoginEnabled) { [weak self] on in
-            self?.setLaunchAtLogin(on)
-        })
+        // Registered but blocked in Login Items reads as plain "off", and a
+        // second click registers again to no effect. Say so and send them there.
+        if SMAppService.mainApp.status == .requiresApproval {
+            menu.addItem(CallbackMenuItem(title: "Launch at Login: Allow in System Settings…", keyEquivalent: "") {
+                SMAppService.openSystemSettingsLoginItems()
+            })
+        } else {
+            menu.addItem(toggle("Launch at Login", value: launchAtLoginEnabled) { [weak self] on in
+                self?.setLaunchAtLogin(on)
+            })
+        }
         menu.addItem(toggle("Hide from Screen Recordings", value: settings.hideFromScreenCapture) { [weak self] on in
             Settings.shared.hideFromScreenCapture = on
             self?.coordinator?.applySettingsChange()
@@ -239,8 +254,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // raised while connected was written and never rendered anywhere. That
         // is the state where the user most needs it: the heart and the mode
         // toggles go quiet together and nothing explains it.
-        if let web = coordinator?.media.spotify, web.isConnected, let text = web.lastError {
-            note("Spotify: \(text)", "The library connection is set up but the last request failed.")
+        if let web = coordinator?.media.spotify, web.isConnected, let text = web.lastErrorTitle {
+            note(text,"The library connection is set up but the last request failed.")
         }
         return items
     }
@@ -280,6 +295,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             if on {
                 try SMAppService.mainApp.register()
+                if SMAppService.mainApp.status == .requiresApproval {
+                    SMAppService.openSystemSettingsLoginItems()
+                }
             } else {
                 try SMAppService.mainApp.unregister()
             }
@@ -310,7 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 web.disconnect()
             }
         }
-        let title = web.lastError.map { "Spotify: \($0)" } ?? "Connect Spotify Library…"
+        let title = web.lastErrorTitle ?? "Connect Spotify Library…"
         return CallbackMenuItem(title: title, keyEquivalent: "") { [weak self] in
             self?.connectSpotify(web)
         }
@@ -321,8 +339,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The ID is not a secret — PKCE exists precisely so a public client has none
     /// — but it is per-user, because it identifies an app registered on their own
     /// developer account.
-    private func connectSpotify(_ web: SpotifyWeb) {
-        if web.clientID.isEmpty {
+    private func connectSpotify(_ web: SpotifyWeb, askForID: Bool = false) {
+        if askForID || web.clientID.isEmpty {
             let alert = NSAlert()
             alert.messageText = "Spotify client ID"
             alert.informativeText = """
@@ -332,6 +350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 """
             let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
             field.placeholderString = "32 hex characters"
+            field.stringValue = web.clientID
             alert.accessoryView = field
             alert.addButton(withTitle: "Connect")
             alert.addButton(withTitle: "Cancel")
