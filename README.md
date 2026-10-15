@@ -30,7 +30,7 @@ These are frames from the [31-second recording of the real app](https://magnetit
 
 One black surface responds to system audio around familiar playback controls.
 
-[![Expanded player with ferrofluid responding around the notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4#t=0,6)
+<a href="https://magnetite.app/media/film.mp4#t=0,6"><img src="site/media/app-open.webp" width="520" alt="Expanded player with ferrofluid responding around the notch"></a>
 
 ### Skip with a swipe
 
