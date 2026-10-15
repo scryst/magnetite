@@ -39,6 +39,9 @@ final class NotchController {
 
     private(set) var isVisible = true
     private(set) var isMouseInside = false
+    /// The rim's hover light. With Open on Hover off, a lit rim promised an
+    /// open that never came.
+    var hoverWillOpen: Bool { isMouseInside && settings.expandNotchOnHover }
     private(set) var isExpanded = false
     /// Held open on purpose, rather than because the pointer happens to be here.
     ///

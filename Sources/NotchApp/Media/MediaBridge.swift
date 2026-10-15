@@ -17,13 +17,24 @@ struct ArtistCredit: Equatable, Sendable {
         // has no credit list: interpret only separators in its artist field.
         let names: [String]
         if source == .music {
-            let unwrapped = raw.replacingOccurrences(
-                of: #"(?i)\s+[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\)\]]+)[\)\]]"#,
-                with: ", $1", options: .regularExpression)
-            let joined = unwrapped.replacingOccurrences(
-                of: #"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+"#,
-                with: ", ", options: .regularExpression)
-            names = joined.components(separatedBy: ",").flatMap { $0.components(separatedBy: " & ") }
+            // "feat." always separates credits. Each side is then split on its
+            // own commas only when it also has an "&": Music writes a pair as
+            // "A & B" and a list as "A, B & C", so a lone comma is part of one
+            // name. "Tyler, The Creator" was split and redisplayed as
+            // "Tyler & The Creator".
+            let feat = "\u{1F}"
+            let marked = raw
+                .replacingOccurrences(
+                    of: #"(?i)\s+[\(\[](?:feat\.?|ft\.?|featuring)\s+([^\)\]]+)[\)\]]"#,
+                    with: "\(feat)$1", options: .regularExpression)
+                .replacingOccurrences(
+                    of: #"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+"#,
+                    with: feat, options: .regularExpression)
+            names = marked.components(separatedBy: feat).flatMap { part in
+                part.contains(" & ")
+                    ? part.components(separatedBy: ",").flatMap { $0.components(separatedBy: " & ") }
+                    : [part]
+            }
         } else { names = [raw] }
         var seen = Set<String>()
         return names.compactMap { part in
@@ -832,10 +843,15 @@ final class MediaBridge: @unchecked Sendable {
         let key = LaneKey.command(source)
         guard let lane = admit(key) else { return }
         let gate = Gate()
+        let expiry = DispatchTime.now() + key.deadline
 
         lane.queue.async { [weak self] in
             guard let self else { return }
-            if Self.isRunning(source), let app = self.app(source, on: lane) { body(app) }
+            // A press that waited out its deadline behind a wedged player is
+            // dropped, not delivered: run minutes later, it was a skip or a
+            // pause nobody asked for any more.
+            if DispatchTime.now() < expiry, Self.isRunning(source),
+               let app = self.app(source, on: lane) { body(app) }
             self.finished(lane, key: key, late: !gate.close())
         }
 

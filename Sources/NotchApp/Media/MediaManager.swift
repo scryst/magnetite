@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import SwiftUI
 import Observation
 
@@ -109,6 +110,8 @@ final class MediaManager {
     let spotify = SpotifyWeb()
     /// Guards against a stale library answer landing on a newer track.
     private var likeQuery = 0
+    /// Same guard for Spotify's shuffle and repeat answers.
+    private var playbackQuery = 0
     @ObservationIgnored private(set) var libraryTask: Task<Void, Never>?
     @ObservationIgnored private(set) var artistTask: Task<Void, Never>?
     private var artistGeneration = 0
@@ -122,8 +125,11 @@ final class MediaManager {
     private var positionAnchor = Date()
     private var artworkTask: Task<Void, Never>?
     private var artworkGeneration = 0
-    /// Hash of the last artwork's bytes, so the same cover is not re-processed.
-    private var artworkDigest: Int?
+    /// SHA-256 of the last artwork's bytes, so the same cover is not
+    /// re-processed. Not `Data.hashValue`: that covers the length and the first
+    /// 80 bytes only, so two same-sized covers with a matching top edge (a black
+    /// or white border) passed as identical and the old cover stayed up.
+    private var artworkDigest: SHA256.Digest?
     // Touched in init and deinit only; deinit runs outside the actor.
     @ObservationIgnored private nonisolated(unsafe) var observers: [NSObjectProtocol] = []
 
@@ -612,9 +618,22 @@ final class MediaManager {
         let generation = artistGeneration
         artistLookupTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let resolved: URL?
-            if let cached = self.musicArtistURLs[credit.name] { resolved = cached }
-            else { resolved = await credit.resolveMusicURL() }
+            // A split field may be one band ("Earth, Wind & Fire"): if the whole
+            // field is a unique catalog artist, every fragment opens that band
+            // rather than an unrelated artist that happens to share a fragment.
+            let whole = ArtistCredit(name: self.artist)
+            var resolved: URL?
+            if self.artists.count > 1 {
+                if let cached = self.musicArtistURLs[whole.name] { resolved = cached }
+                else if let band = await whole.resolveMusicURL() {
+                    self.musicArtistURLs[whole.name] = band
+                    resolved = band
+                }
+            }
+            if resolved == nil {
+                if let cached = self.musicArtistURLs[credit.name] { resolved = cached }
+                else { resolved = await credit.resolveMusicURL() }
+            }
             guard !Task.isCancelled, generation == self.artistGeneration,
                   self.source == source, self.artists.contains(credit) else { return }
             if let resolved { self.musicArtistURLs[credit.name] = resolved }
@@ -698,9 +717,13 @@ final class MediaManager {
     /// capabilities are restricted while playback is paused.
     private func askPlayback() {
         guard spotify.isConnected, spotify.canControlPlayback else { return }
+        playbackQuery &+= 1
+        let query = playbackQuery
         Task { @MainActor in
             let fresh = await spotify.playbackModes()
-            guard self.source == .spotify else { return }
+            // Only the newest ask may answer: an older reply landing after the
+            // post-toggle one flipped the shuffle glyph back.
+            guard query == self.playbackQuery, self.source == .spotify else { return }
             // A pause answers 204, not "shuffle is off" — keep the last answer
             // rather than letting the toggles vanish with the music.
             let modes = SpotifyWeb.modes(from: fresh, keeping: self.webModes)
@@ -812,8 +835,8 @@ final class MediaManager {
         let priorDigest = artworkDigest
         let hasArtwork = artwork != nil
         let work = Task.detached(priority: .userInitiated) {
-            () -> (digest: Int?, palette: ArtworkPalette?, identical: Bool) in
-            let digest = image?.tiffRepresentation?.hashValue
+            () -> (digest: SHA256.Digest?, palette: ArtworkPalette?, identical: Bool) in
+            let digest = image?.tiffRepresentation.map { SHA256.hash(data: $0) }
             if let digest, digest == priorDigest, hasArtwork {
                 return (digest, nil, true)
             }

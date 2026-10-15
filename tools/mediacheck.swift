@@ -41,6 +41,18 @@ enum MediaCheck {
             require(ArtistCredit.fallback(field, source: .music).map(\.name) == ["A", "B"],
                     "Music featured credit was lost: \(field)")
         }
+        // A lone comma is part of one name; it splits only beside an "&".
+        for (field, expected) in [
+            ("Tyler, The Creator", ["Tyler, The Creator"]),
+            ("Tyler, The Creator feat. Kali Uchis", ["Tyler, The Creator", "Kali Uchis"]),
+            ("A & B feat. C", ["A", "B", "C"]),
+            ("A, B & C (feat. D)", ["A", "B", "C", "D"]),
+        ] {
+            let got = ArtistCredit.fallback(field, source: .music)
+            require(got.map(\.name) == expected, "Music credit split wrong: \(field) -> \(got.map(\.name))")
+        }
+        require(ArtistCredit.line(ArtistCredit.fallback("Tyler, The Creator", source: .music))
+                == "Tyler, The Creator", "a comma in one name was redisplayed as an &")
         for source in MusicSource.allCases {
             require(ArtistCredit.fallback("Artist (US)", source: source).map(\.name) == ["Artist (US)"],
                     "artist punctuation was stripped without a featuring wrapper")
