@@ -15,9 +15,10 @@ import Foundation
         print("\(ok ? "PASS" : "FAIL") \(name)")
         if !ok { failures += 1 }
     }
-    static func ready() async -> MediaManager {
+    static func ready(holdArtists: Bool = false) async -> MediaManager {
         let m = MediaManager(bridge: MediaBridge(inert: true), observePlayers: false)
         m.spotify.isConnected = true
+        m.spotify.holdArtists = holdArtists
         m.apply(snapshot(.spotify))
         await waitForRequest(m, 0)
         return m
@@ -34,7 +35,53 @@ import Foundation
         m.spotify.resolve(index, saved: saved)
         await task.value // Includes the real caller's guard and its accepted or rejected write.
     }
+    static func artistAnswersStayWithTheirTrack() async {
+        let credits = [ArtistCredit(name: "Primary", spotifyID: "0123456789012345678901"),
+                       ArtistCredit(name: "Guest", spotifyID: "abcdefghijklmnopqrstuv")]
+        for departure in ["current", "music", "blank", "newer", "renamed", "disconnect"] {
+            let m = await ready(holdArtists: true)
+            let task = m.artistTask!
+            let deadline = ContinuousClock.now + .seconds(2)
+            while m.spotify.pendingArtists.isEmpty, ContinuousClock.now < deadline { await Task.yield() }
+            precondition(!m.spotify.pendingArtists.isEmpty, "artist request not admitted")
+            // Resolve the independent library read so no fixture continuation leaks.
+            await answer(m, 0, saved: false, task: m.libraryTask!)
+            switch departure {
+            case "music": m.apply(snapshot(.music)) // deliberately the same identity
+            case "blank": m.apply(nil)
+            case "newer": m.apply(snapshot(.spotify, id: "fixture-b"))
+            case "renamed":
+                var changed = snapshot(.spotify); changed.artist = "Corrected"
+                m.apply(changed)
+            case "disconnect": m.spotify.isConnected = false
+            default: break
+            }
+            m.spotify.resolveArtists(0, credits: credits)
+            await task.value
+            expect((m.artists == credits) == (departure == "current"),
+                   "artist response ownership: \(departure)")
+            if departure == "current" {
+                m.apply(snapshot(.spotify))
+                expect(m.artists == credits, "bridge polling keeps catalog credits")
+            }
+            // Drain any newer tasks, then invalidate the fixture.
+            await Task.yield()
+            if m.spotify.pending.count > 1 { m.spotify.resolve(1, saved: nil); await m.libraryTask?.value }
+            if m.spotify.pendingArtists.count > 1 { m.spotify.resolveArtists(1, credits: nil); await m.artistTask?.value }
+            m.apply(nil)
+        }
+        let disconnected = MediaManager(bridge: MediaBridge(inert: true), observePlayers: false)
+        disconnected.apply(snapshot(.spotify))
+        expect(disconnected.artists.map(\.name) == ["Synthetic"], "disconnected Spotify keeps bridge primary")
+        disconnected.spotify.isConnected = true
+        disconnected.spotify.onConnect?()
+        await Task.yield()
+        if let task = disconnected.libraryTask { await answer(disconnected, 0, saved: nil, task: task) }
+        await disconnected.artistTask?.value
+        expect(disconnected.artists.map(\.name) == ["Synthetic"], "failed catalog lookup keeps bridge primary")
+    }
     static func main() async {
+        await artistAnswersStayWithTheirTrack()
         let inert = MediaBridge(inert: true)
         for source in MusicSource.allCases {
             let read = await inert.read(for: source)

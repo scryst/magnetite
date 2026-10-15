@@ -222,6 +222,26 @@ final class SpotifyWeb {
     private static let libraryContains = "https://api.spotify.com/v1/me/library/contains"
     private static let library = "https://api.spotify.com/v1/me/library"
 
+    /// Track credits, not the album's artists. Uses the existing account grant.
+    func trackArtists(trackID: String) async -> [ArtistCredit]? {
+        guard let id = Self.bareID(trackID), ArtistCredit.validSpotifyID(id),
+              let (data, status) = await send("GET", "https://api.spotify.com/v1/tracks/\(id)"),
+              status == 200 else { return nil }
+        return Self.artists(from: data)
+    }
+
+    static func artists(from data: Data) -> [ArtistCredit]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rows = json["artists"] as? [[String: Any]], !rows.isEmpty else { return nil }
+        let credits = rows.compactMap { row -> ArtistCredit? in
+            guard let name = row["name"] as? String,
+                  !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            let id = row["id"] as? String
+            return ArtistCredit(name: name, spotifyID: id.flatMap { ArtistCredit.validSpotifyID($0) ? $0 : nil })
+        }
+        return credits.isEmpty ? nil : credits
+    }
+
     /// Whether the track is in Saved Songs, or nil if we cannot say.
     func isSaved(trackID: String) async -> Bool? {
         guard let uri = Self.trackURI(trackID) else { return nil }
