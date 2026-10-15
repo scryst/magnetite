@@ -280,19 +280,6 @@ struct NotchRootView: View {
             .overlay { coverWash }
             .compositingGroup()
             .mask(shape)
-            .mask {
-                // Closed, the black core covers the camera's full rectangle.
-                // Open, compress its falloff into the band so it does not
-                // swallow the title row; the crisp fluid core covers the camera.
-                let verticalScale: CGFloat = expanded ? 0.35 : 1
-                RadialGradient(colors: [.clear, .black],
-                               center: .top,
-                               startRadius: ChromeRules.cameraFadeStart(notch: controller.notchSize),
-                               endRadius: ChromeRules.cameraFadeStart(notch: controller.notchSize) + 35)
-                    .frame(width: size.width, height: size.height / verticalScale)
-                    .scaleEffect(x: 1, y: verticalScale, anchor: .top)
-                    .frame(width: size.width, height: size.height, alignment: .top)
-            }
     }
 
     /// Four palette colours arranged over the mesh's nine cells.
@@ -1245,48 +1232,70 @@ private struct IdleCard: View {
 
 private struct ArtistLine: View {
     var media: MediaManager
-    @ViewState private var hovering = false
+    /// The one name under the pointer. Hover belongs to a name, not the line.
+    @ViewState private var hovered: Int?
+    private let font = Font.system(size: 12.5, weight: .medium)
 
+    private var credits: [(offset: Int, element: ArtistCredit)] { Array(media.artists.enumerated()) }
+
+    /// Only the overflowing case scrolls; its names stay individually clickable
+    /// links, with no hover styling because the marquee is moving under the pointer.
     private var linkedText: AttributedString {
         var line = AttributedString()
-        for (index, credit) in media.artists.enumerated() {
+        for (index, credit) in credits {
             line += AttributedString(ArtistCredit.separator(before: index, count: media.artists.count))
             var name = AttributedString(credit.name)
             if let source = media.source { name.link = credit.url(in: source) }
-            // Mac convention: a name reads as a link once the pointer is on the line,
-            // not as permanent web-style underlines across the player.
-            if hovering { name.underlineStyle = .single }
             line += name
         }
         return line
     }
 
-    var body: some View {
-        MarqueeText(text: media.artistLine, font: .system(size: 12.5, weight: .medium),
-                    attributedText: linkedText)
-            .tint(.white.opacity(0.76))
-            .brightness(hovering ? 0.12 : 0)
-            .onHover { inside in
-                hovering = inside
-                if inside { NSCursor.pointingHand.set() }
-                else { NSCursor.arrow.set() }
+    /// Every name is its own view, so hovering one brightens that name alone.
+    /// No underline: a brighter name and the pointing hand are the Mac cue.
+    private var fittedLine: some View {
+        HStack(spacing: 0) {
+            ForEach(credits, id: \.offset) { index, credit in
+                Text(ArtistCredit.separator(before: index, count: media.artists.count))
+                Text(credit.name)
+                    .foregroundStyle(.white.opacity(hovered == index ? 1 : 0.76))
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { hovered = index; NSCursor.pointingHand.set() }
+                        else if hovered == index { hovered = nil; NSCursor.arrow.set() }
+                    }
+                    .onTapGesture { media.openArtist(credit) }
             }
-            .environment(\.openURL, OpenURLAction { url in
-                if let source = media.source,
-                   let credit = media.artists.first(where: { $0.url(in: source) == url }) {
-                    media.openArtist(credit)
-                }
-                return .handled
-            })
-            .accessibilityRepresentation {
-                HStack {
-                    ForEach(Array(media.artists.enumerated()), id: \.offset) { _, credit in
-                        Button("Open \(credit.name) in \(media.source?.displayName ?? "player")") {
-                            media.openArtist(credit)
-                        }
+        }
+        .font(font)
+        .lineLimit(1)
+        .fixedSize()
+        .animation(.easeOut(duration: 0.12), value: hovered)
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            fittedLine
+            MarqueeText(text: media.artistLine, font: font, attributedText: linkedText)
+                .tint(.white.opacity(0.76))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.openURL, OpenURLAction { url in
+            if let source = media.source,
+               let credit = media.artists.first(where: { $0.url(in: source) == url }) {
+                media.openArtist(credit)
+            }
+            return .handled
+        })
+        .accessibilityRepresentation {
+            HStack {
+                ForEach(credits, id: \.offset) { _, credit in
+                    Button("Open \(credit.name) in \(media.source?.displayName ?? "player")") {
+                        media.openArtist(credit)
                     }
                 }
             }
+        }
     }
 }
 

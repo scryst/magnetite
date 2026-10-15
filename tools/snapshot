@@ -57,6 +57,6 @@ for line in result.stdout.splitlines():
 if count != 10:
     sys.exit(f"expected ten snapshots, got {count}: {result.stderr}")
 expected = len(sys.argv) == 2
-if len(checks) != 3 or any(passed != expected for passed in checks):
+if len(checks) != 2 or any(passed != expected for passed in checks):
     sys.exit("render regression: expected current source to pass, baseline source to fail")
 print(f"Saved {count} fixture PNGs to {destination}")

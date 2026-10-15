@@ -61,7 +61,7 @@ struct MarqueeText: View {
             .truncationMode(.tail)
             // Hidden while the scrolling overlay is up, but still driving layout.
             .opacity(hidesLabel ? 0 : 1)
-            .allowsHitTesting(!hidesLabel)
+            .allowsHitTesting(attributedText == nil || !hidesLabel)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { measurement }
             .overlay(alignment: .leading) { scroller }

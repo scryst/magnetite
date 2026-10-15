@@ -520,8 +520,8 @@ final class NotchCoordinator {
         // follow every surface that can show ink, not just the strip.
         let stripActive = settings.enableNowPlaying && media.hasTrack
         if stripActive {
-            // Keep the cover and clock in the flanks while a track is loaded.
-            // The controller clamps the strip to the measured menu-bar height.
+            // Peek on a track change; otherwise stay exactly notch-sized so the
+            // menu bar underneath is never covered.
             broadcast { $0.showNowPlaying() }
             media.beginPolling(.liveActivity)
         } else {

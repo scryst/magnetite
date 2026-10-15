@@ -29,7 +29,7 @@ enum ChromeCheck {
         theBandClocksDoNotStepAtThePollRate()
         thePanelHasAnEdgeOnAnyBackdrop()
         noRingOrMatteSurroundsThePrint()
-        theClosedCameraHasABlackRadialCore()
+        aTraceWithNoRoomIsNotDrawn()
         everyCurveAsksAboutReduceMotion()
         theSheetLeanStaysInsideTheMargins()
         theSheetTakesItsShiftFromTheRule()
@@ -945,18 +945,8 @@ enum ChromeCheck {
                 "the rim's schedule is written in the view, where nothing can fail it")
     }
 
-    static func theClosedCameraHasABlackRadialCore() {
-        let notch = CGSize(width: 185, height: 32)
-        let radius = ChromeRules.cameraFadeStart(notch: notch)
-        require(radius >= hypot(notch.width / 2, notch.height),
-                "theClosedCameraHasABlackRadialCore: colour reaches a camera corner")
-        require(radius < (notch.width + ChromeRules.peekWidening) / 2,
-                "the radial core swallows the whole closed strip")
+    static func aTraceWithNoRoomIsNotDrawn() {
         let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
-        let glass = section(code, from: "private var glassLayer: some View") ?? ""
-        require(glass.contains("RadialGradient") && glass.contains("ChromeRules.cameraFadeStart("),
-                "theClosedCameraHasABlackRadialCore: the glass/wash has no radial cutout mask")
-        require(glass.contains(".compositingGroup()"), "mask the combined glass and wash")
         require(!ChromeRules.drawsTrace(hasTrack: true, hasShell: true, width: 0),
                 "a zero-width trace still reaches the rasterizer")
         require(ChromeRules.drawsTrace(hasTrack: true, hasShell: true, width: 1),
