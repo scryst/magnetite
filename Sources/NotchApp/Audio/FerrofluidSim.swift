@@ -3,13 +3,13 @@ import Observation
 
 /// Ferrofluid physics, modelled on the Rosensweig (normal-field) instability.
 ///
-/// A ferrofluid surface is flat until the local field crosses a critical value,
-/// then throws a lattice of conical peaks. Hysteresis lets a peak hold briefly
-/// after the hit and viscously drain back into the shared pool without ringing.
+/// The surface is flat until the local field crosses a critical value, then throws
+/// a lattice of conical peaks. Hysteresis lets a peak hold briefly after a hit and
+/// drain back into the shared pool without ringing.
 ///
-/// Every quantity is driven by captured audio. There are no clock oscillators,
-/// no springs, and nothing that detaches or expires: each band's site rises and
-/// falls, and the renderer turns those into mounds in one continuous surface.
+/// Everything is driven by captured audio: no clock oscillators or springs, and
+/// nothing detaches or expires. Each band's site rises and falls and the renderer
+/// turns those into mounds of one continuous surface.
 @MainActor
 @Observable
 final class FerrofluidSim {
@@ -34,96 +34,76 @@ final class FerrofluidSim {
 
 
 
-    /// How hard the music just hit, 0…1. Drives the rim glow.
-    ///
-    /// Taken from the largest per-band transient, so it spikes on an onset and
-    /// decays — it is an *event* measure, never a level.
+    /// How hard the music just hit, 0...1; drives the rim glow. Taken from the largest
+    /// per-band transient, so it is an event measure that spikes and decays, never a
+    /// level.
     @ObservationIgnored private(set) var impact: Double = 0
 
-    /// How open the INK is, which is not how open the shell is.
-    ///
-    /// `openness` is the shell's spring and the ink was driven straight off it,
-    /// so the two arrived together — and opening in silence produced no ink
-    /// motion at all, because with no lobes and no swell `displacement` returns
-    /// exactly 0. A fluid should wash in behind the chrome. This follows the
+    /// How open the ink is, which is not how open the shell is. Driving the ink
+    /// straight from the shell's spring would make opening in silence move nothing,
+    /// since with no lobes and no swell `displacement` is exactly 0. This follows the
     /// shell asymmetrically: slow to fill, quick to drain.
     @ObservationIgnored private(set) var inkOpen: Double = 0
     private var openTarget: Double = 0
 
-    /// Reduce Motion takes the travel out of the open: the ink closes the gap to
-    /// the shell sooner, so there is less of a journey to watch.
+    /// Reduce Motion takes the travel out of the open: the ink closes the gap to the
+    /// shell sooner.
     var reduceMotion = false
 
-    /// True while something is actually driving `advance`.
-    ///
-    /// `isSettled` is what pauses the renderer, so clearing it without a clock
-    /// leaves TimelineView redrawing 144 samples at 60Hz over a picture that
-    /// cannot change. Every writer that clears the gate must also guarantee this.
+    /// True while something is driving `advance`. `isSettled` is what pauses the
+    /// renderer, so clearing it without a clock leaves `TimelineView` redrawing a
+    /// picture that cannot change. Every writer that clears the gate must guarantee
+    /// this.
     var isDriven: Bool { running != nil }
 
-    /// Clear the settled gate and guarantee something will recompute it.
+    /// Clears the settled gate and guarantees something will recompute it.
     private func wake() {
         if isSettled { isSettled = false }
         runClock()
     }
 
-    /// The shell moved. Called with the AGGREGATE across displays, never with one
-    /// controller's state — the sim is shared and the controllers are not.
+    /// The shell moved. Called with the aggregate across displays, never one
+    /// controller's state, since the sim is shared and the controllers are not.
     func setOpen(_ open: Bool) {
-        // Idempotent: the coordinator broadcasts the aggregate, so the same value
-        // arrives once per display.
+        // Idempotent: the same aggregate value arrives once per display.
         let t = open ? 1.0 : 0.0
         guard t != openTarget else { return }
         openTarget = t
         wake()
     }
 
-    /// Below this the halo is not drawn at all — at a 0.01 threshold it was lit
-    /// almost continuously, which is a full extra silhouette paint and a blur on
-    /// every frame.
+    /// Below this the halo is not drawn at all. A lower gate keeps it lit almost
+    /// continuously, costing a silhouette paint and a blur every frame.
     nonisolated static let glowGate = 0.14
-    /// The last stretch of the decay, over which the halo eases out instead of
-    /// being cut off at the gate.
+    /// The last stretch of the decay, over which the halo eases out instead of being
+    /// cut off at the gate.
     nonisolated static let glowFade = 0.10
 
-    /// The halo's alpha, eased to nothing at the gate.
+    /// The halo's alpha, eased to nothing at the gate. A hard threshold made the bloom
+    /// vanish from alpha 0.19 in one frame, the largest per-frame change in the
+    /// effect; a smoothstep over the last 0.10 of the decay cuts the worst step to
+    /// 0.03 and leaves values at or above 0.24 unchanged.
     ///
-    /// The gate is a hard threshold, so the bloom used to appear and disappear at
-    /// alpha 0.1868 in a single frame — the largest per-frame change anywhere in
-    /// the effect was the moment it switched off, which reads as a bug rather
-    /// than as light. A smoothstep across the last 0.10 of the decay takes the
-    /// worst step from 0.1907 to 0.0337, and leaves every tuned value at or above
-    /// 0.24 unchanged to the digit (1.0 -> 0.7200, 0.5 -> 0.4100).
-    ///
-    /// `nonisolated` because it is a pure function of its arguments; the class is
-    /// `@MainActor` and the renderer needs this off the observation path.
+    /// `nonisolated` because it is a pure function and the renderer needs it off the
+    /// observation path.
     nonisolated static func glowAlpha(impact: Double, openness: Double) -> Double {
         let t = min(1, max(0, (impact - glowGate) / glowFade))
         let ease = t * t * (3 - 2 * t)
         return (0.10 + 0.62 * impact) * ease * min(1, max(0, openness))
     }
-    /// Phase for the colour field behind the ink, advanced **only** by audio.
-    ///
-    /// The field used to run off `timeline.date`, which meant it swept and
-    /// breathed on a wall clock whether or not anything was playing — a visible
-    /// ~4.8s cycle sitting behind ink that was working hard not to be periodic.
-    /// Integrating loudness instead means the field moves as far as the music
-    /// moves it and stalls when the music stops. There is no constant term: a
-    /// clock advances the integration, it never creates motion.
+    /// Phase for the colour field behind the ink, advanced only by audio. Integrating
+    /// loudness means the field moves as far as the music moves it and stalls when it
+    /// stops; a wall-clock phase would sweep on a visible cycle with nothing playing.
+    /// There is no constant term.
     @ObservationIgnored private(set) var flowPhase: Double = 0
-    /// Smoothed loudness, 0…1, for intensity. Replaces a `sin(t)` breath.
+    /// Smoothed loudness, 0...1, for intensity.
     @ObservationIgnored private(set) var brightness: Double = 0
 
-    /// Observed, and written ONLY when it flips.
-    ///
-    /// This used to be computed from swell, impact and every site — all of which
-    /// are rewritten sixty times a second. Observation fires on *assignment*, not
-    /// on change, so any view reading it was invalidated 60x/s and the `paused:`
-    /// flag it feeds could never actually stop anything: the still picture was
-    /// re-rendered throughout the settling tail after every quiet passage. The
-    /// Every hot field is untracked now — the display link drives redraws, which
-    /// is what it is for — and these two Bools are the only observable surface.
-    /// The count is deliberately not written down; it has grown twice since.
+    /// Observed, and written only when it flips. Observation fires on assignment, not
+    /// change, and the underlying fields are rewritten every frame, so a view reading
+    /// them would be invalidated at 60 Hz and `paused:` could never stop anything.
+    /// Every hot field is untracked (the display link drives redraws) and these two
+    /// Bools are the observable surface.
     private(set) var isSettled = true
     /// True while there is sound. Gates the colour field's timeline.
     private(set) var hasSound = false
@@ -138,26 +118,19 @@ final class FerrofluidSim {
         if sound != hasSound { hasSound = sound }
     }
 
-    /// Read once. It was `ProcessInfo.processInfo.environment[...]` inside
-    /// `updateSites`, i.e. a dictionary build and lookup 60 times a second on the
-    /// main actor, to decide not to print.
+    /// Read once rather than building an environment dictionary 60 times a second.
     nonisolated static let debugLogging =
         ProcessInfo.processInfo.environment["NOTCH_FLUID_DEBUG"] != nil
 
-    /// Below this a field is treated as zero.
-    ///
-    /// `updateImpact` snapped at 0.002 while `publishGates` called settled at
-    /// 0.004, so impact could sit in the gap: small enough for the gate to
-    /// early-return, too large for the snap to ever run. It froze at 0.00395 and
-    /// stayed there, which is why a check that stepped "until impact == 0" hung.
+    /// Below this a field is treated as zero. It must be the same threshold
+    /// `updateImpact` snaps at and `publishGates` settles at; with two values impact
+    /// can sit in the gap between them, too small for the gate and too large to snap.
     static let settledEpsilon = 0.004
 
     nonisolated static let siteCount = 17
-    /// Raised so fewer sites break at once. Eight middling lobes read as a
-    /// ripple; three decisive ones read as ferrofluid answering the music.
-    ///
-    /// Internal rather than private so fluidcheck can hold its held-loudness
-    /// margin against the real value instead of a copy of the number.
+    /// Raised so fewer sites break at once: eight middling lobes read as a ripple,
+    /// three decisive ones as ferrofluid answering the music. Internal so fluidcheck
+    /// can hold its margins against the real value.
     let criticalField = 0.36
     private let collapseField = 0.16
 
@@ -169,17 +142,14 @@ final class FerrofluidSim {
     /// A surge that arrived before there was anything to apply it to.
     private var pendingSurge: (strength: Double, direction: Double)?
 
-    /// Where the pointer is along the rim, 0…1, or nil when it is away.
-    ///
-    /// The ink is magnetic, and the one magnet it has never responded to is the
-    /// user's own hand. A cursor moving along the notch now drags a swell with
-    /// it — the surface leans toward you. It is the cheapest possible way to make
-    /// the thing feel alive when no music is playing at all.
+    /// Where the pointer is along the rim, 0...1. The ink is magnetic, so a cursor
+    /// moving along the notch drags a swell with it, which makes the surface feel
+    /// alive with no music playing.
     @ObservationIgnored private(set) var pointerRim: Double = 0.5
-    /// Where the cursor actually is. `pointerRim` chases this.
+    /// Where the cursor actually is; `pointerRim` chases this.
     private var pointerRimTarget: Double = 0.5
-    /// How much of that pull is currently applied, eased so the ink does not snap
-    /// to attention the instant the pointer crosses the boundary.
+    /// How much of that pull is applied, eased so the ink does not snap to attention
+    /// when the pointer crosses the boundary.
     @ObservationIgnored private(set) var pointerPull: Double = 0
 
     private var pointerTarget: Double = 0
@@ -187,17 +157,12 @@ final class FerrofluidSim {
     /// Called on every mouse move (the coordinator) and every scrub step (the panel).
     func setPointer(rim: Double?, strength: Double = 1) {
         if let rim {
-            // Only the TARGET moves with the cursor. The swell itself chases it
-            // viscously below — setting the position directly made the bulge
-            // teleport along the rim, tracking the pointer rigidly instead of
-            // being dragged by it, which is the opposite of what a heavy liquid
-            // does.
+            // Only the target moves with the cursor; the swell chases it viscously, so the
+            // bulge is dragged rather than teleported.
             pointerRimTarget = min(1, max(0, rim))
             pointerTarget = min(1.6, max(0, strength))
-            // Wake the renderer. It is gated on isSettled, and the pointer
-            // arriving is precisely the case where nothing else will clear it —
-            // including, since the clock learned to retire, the case where there
-            // is no clock to recompute the gate either.
+            // Wake the renderer: it is gated on `isSettled`, and a pointer arriving is the
+            // case where nothing else will clear it, including when no clock is running.
             wake()
         } else {
             pointerTarget = 0
@@ -208,46 +173,26 @@ final class FerrofluidSim {
     /// The spread `deviation` starts every band at, and returns to on re-entry.
     private static let initialSpread = 0.06
 
-    /// How long every band must sit under `AudioLevels.silenceLevel` before the
-    /// next audio counts as re-entry rather than as a transient.
-    ///
-    /// The levels themselves take about 0.6s to decay under that threshold after
-    /// sound stops, so this is roughly a second of real silence — far longer than
-    /// any rest inside a track, and far shorter than a pause.
+    /// How long every band must sit under `AudioLevels.silenceLevel` before the next
+    /// audio counts as re-entry rather than a transient. The levels take about 0.6 s
+    /// to decay under that threshold, so this is roughly a second of real silence:
+    /// longer than any rest inside a track, shorter than a pause.
     private static let reentryAfter = 0.35
     private var quietFor = 0.0
 
     /// Resuming is not an onset.
     ///
-    /// Both of the sim's inputs measure CHANGE against a remembered past, and a
-    /// pause poisons that memory: `previousLevels` tracks the decay to zero, and
-    /// `baseline`/`spread` freeze near zero once the settled early-return stops
-    /// calling `deviation`. So the first frame of audio after a pause reads as a
-    /// full-scale event twice over — `rise` is the whole level, so `kick` hits
-    /// its ceiling, and `delta / max(0.035, spread * 1.6)` divides a half-scale
-    /// jump by the floor, giving a deviation around 14 where music gives ~1.
+    /// Both inputs measure change against a remembered past, and a pause poisons that
+    /// memory: `previousLevels` tracks the decay to zero and `baseline`/`spread` freeze
+    /// near zero once the settled early-return stops calling `deviation`. The first
+    /// frame after a pause then reads as a full-scale event twice over (`rise` is the
+    /// whole level, and `delta / max(0.035, spread * 1.6)` divides a half-scale jump by
+    /// the floor). Re-seeding the memory to the incoming levels makes that frame a
+    /// non-event without a fade or injected energy.
     ///
-    /// Replaying this repo's own `Resources/real-levels.txt` with four seconds of
-    /// silence cut into the middle, and scoring the twelve frames after audio
-    /// returns against the loudest frame of the steady replay: the resume heaved
-    /// the body to swell 0.973 and peak height 0.997, where the music's own peak
-    /// is 0.879. That is the saturation wall `realMusicDoesNotSaturateIt` exists
-    /// to forbid, reached in the one window that check never enters, by the
-    /// analyser rather than by the music. Afterwards the resume peaks at 0.468.
-    ///
-    /// Re-seeding the memory to the incoming levels makes that frame a non-event:
-    /// no rise, no deviation, and the music's own dynamics take over on the very
-    /// next frame. It is not a fade-in and it injects nothing — it just declines
-    /// to report the analyser's own discontinuity as a drum hit.
-    ///
-    /// `spread` is deliberately NOT reset. It is the only memory of how wide this
-    /// track's swings are, and a pause is no evidence that they changed. Resetting
-    /// it to `initialSpread` was tried and measured: it merely moved the slam one
-    /// frame later, because every following frame then divided its distance from
-    /// the new baseline by a cold 0.06 and swell pinned at 0.97 within five
-    /// frames. Keeping it is also the conservative direction — a stale spread
-    /// under-reacts for the 2.5s it takes to re-adapt, and under-reacting is not
-    /// what anyone notices.
+    /// `spread` is deliberately not reset: it is the only memory of how wide this
+    /// track's swings are, a cold value moves the slam one frame later rather than
+    /// removing it, and a stale spread only under-reacts briefly.
     private func reenter(_ levels: [Float]) {
         previousLevels = levels
         baseline = levels.map(Double.init)
@@ -258,27 +203,17 @@ final class FerrofluidSim {
         runClock()
     }
 
-    /// Lets go of the audio without dropping the picture.
-    ///
-    /// `stop()` zeroes every field at once, which is right when nothing is on
-    /// screen and a visible jump when something is: three seconds after a
-    /// pause, the ink snapped fully open or shut under a pointer that was still
-    /// pulling it, and the glow switched off. Here the clock runs on silence
-    /// until the ink comes to rest and then retires itself, as it does after an
-    /// idle open.
+    /// Lets go of the audio without dropping the picture. `stop()` zeroes every field
+    /// at once, a visible jump when something is on screen. Here the clock runs on
+    /// silence until the ink comes to rest and then retires itself.
     func release() {
         audio = nil
         runClock()
     }
 
-    /// The 16ms tick.
-    ///
-    /// It used to begin and end with the audio consumer, which meant that with no
-    /// track there was no clock — so opening the idle panel did not move the ink at
-    /// all, the one state where the ink has nothing else to do. The tap is the
-    /// expensive part, not this; the loop ends itself as soon as nothing is
-    /// feeding it and the fluid has come to rest, so an idle open costs the
-    /// ~0.5s the ink actually takes to arrive, not a timer held open for the session.
+    /// The 16 ms tick. It runs without an audio consumer, so opening the idle panel
+    /// still moves the ink; the tap is the expensive part, not this. The loop ends
+    /// itself once nothing feeds it and the fluid is at rest.
     private func runClock() {
         guard running == nil else { return }
 
@@ -323,39 +258,32 @@ final class FerrofluidSim {
         inkOpen = openTarget
         baseline = []
         spread = []
-        // LAST, after every field it reads. Publishing before `sites` was cleared
-        // computed isSettled from stale state, pinned it false, and left the
-        // renderer running at 60fps for the rest of the session.
+        // Last, after every field it reads: publishing earlier computes `isSettled` from
+        // stale state and can pin the renderer running.
         publishGates()
     }
 
     private func step(dt: Double) {
-        // Silence rather than a bail-out: with no track there is still a panel to
-        // open, and the open is not made of audio.
+        // Silence rather than a bail-out: with no track there is still a panel to open,
+        // and the open is not made of audio.
         advance(levels: audio?.bands ?? Self.silence, dt: dt)
     }
 
     private static let silence = [Float](repeating: 0, count: AudioTap.bandCount)
 
-    /// The physics, with the audio plumbing removed so it can be driven directly.
-    ///
-    /// Everything the fluid is judged on — that it reacts to change rather than
-    /// loudness, that the surface is not a comb, that silence is genuinely still —
-    /// is a property of this function, and `tools/fluidcheck.swift` asserts each
-    /// one against synthetic spectra.
+    /// The physics with the audio plumbing removed so it can be driven directly.
+    /// Reacting to change rather than loudness, a surface that is not a comb, and
+    /// genuinely still silence are all properties of this function, which
+    /// `tools/fluidcheck.swift` asserts against synthetic spectra.
     func advance(levels: [Float], dt: Double) {
         guard !levels.isEmpty else { return }
 
-        // The pointer pull is independent of audio, so it is integrated BEFORE
-        // the settled early-return below. Viscous, like everything else here: it
-        // arrives and leaves at a fluid's pace rather than tracking rigidly.
-        // The ink follows the shell before the settled early-return, for the
-        // same reason the pointer does: the panel moving is independent of audio.
-        //
-        // Two rate laws, both state-dependent. Filling starts slow and
-        // accelerates, so the ink is visibly behind the chrome early and still
-        // catches it; draining starts fast and eases, so it beats the closing
-        // shell home rather than being caught by the clip.
+        // The pointer pull and the ink's follow of the shell are independent of audio, so
+        // they are integrated before the settled early-return. Both are viscous. The open
+        // has two state-dependent rates: filling starts slow and accelerates, so the ink
+        // is visibly behind the chrome early and still catches it; draining starts fast
+        // and eases, so it beats the closing shell home rather than being caught by the
+        // clip.
         let scale = reduceMotion ? 2.6 : 1.0
         let openRate = (openTarget > inkOpen ? (1.4 + 10.0 * inkOpen)
                                              : (8.0 + 16.0 * (1 - inkOpen))) * scale
@@ -363,25 +291,20 @@ final class FerrofluidSim {
         if openTarget == 1, inkOpen > 0.98 { inkOpen = 1 }
         if openTarget == 0, inkOpen < 0.02 { inkOpen = 0 }
 
-        // NOTE: opening deliberately injects NO energy.
-        //
-        // It used to feed the kick, the swell and the glow, so the panel opening
-        // manufactured a beat — and with nothing playing that is a drum hit with
-        // no drum, which is exactly what PRODUCT.md's second design principle
-        // forbids: audio causes events, a clock only advances the simulation.
-        // The open is not audio. It moves the ink's SHAPE, through `inkOpen`
-        // below — `room`, `seatU` and the lateral terms all key off it, so the
-        // body still washes in from the cutout — and never its energy.
+        // Opening injects no energy. Feeding the kick, swell or glow would make the
+        // panel opening a drum hit with no drum (PRODUCT.md: audio causes events, a clock
+        // only advances the simulation). The open moves the ink's shape through
+        // `inkOpen` (`room`, `seatU` and the lateral terms key off it), never its energy.
 
         let pullRate = pointerTarget > pointerPull ? 7.0 : 3.4
         pointerPull += (pointerTarget - pointerPull) * min(1, pullRate * dt)
         if pointerPull < 0.002 { pointerPull = 0 }
-        // The swell lags the cursor. Slow enough to read as mass being dragged,
-        // fast enough that it arrives while you are still there.
+        // The swell lags the cursor: slow enough to read as mass being dragged, fast
+        // enough to arrive while you are still there.
         pointerRim += (pointerRimTarget - pointerRim) * min(1, 5.0 * dt)
 
-        // Ahead of the early-return, because the silence being timed is exactly
-        // the state that early-returns.
+        // Ahead of the early-return, because the silence being timed is the state that
+        // early-returns.
         if levels.contains(where: { $0 > AudioLevels.silenceLevel }) {
             if quietFor >= Self.reentryAfter { reenter(levels) }
             quietFor = 0
@@ -389,9 +312,9 @@ final class FerrofluidSim {
             quietFor += dt
         }
 
-        // Nothing to advance: silent, and every part of the fluid already home.
-        // Writing observed state 60x a second for a completely static picture
-        // kept SwiftUI re-evaluating the whole panel while the user was idle.
+        // Nothing to advance: silent, and every part of the fluid already home. Writing
+        // observed state at 60 Hz for a static picture keeps SwiftUI re-evaluating the
+        // panel.
         if sites.count == Self.siteCount, isSettled, brightness < 0.002,
            pointerTarget == 0, pointerPull == 0,
            inkOpen == openTarget,
@@ -443,8 +366,8 @@ final class FerrofluidSim {
         previousLevels = levels
     }
 
-    /// Each band is measured against its own recent norm, so quiet and loud
-    /// tracks get comparable dynamic range without a scripted gain envelope.
+    /// Each band is measured against its own recent norm, so quiet and loud tracks get
+    /// comparable dynamic range without a scripted gain envelope.
     private func deviation(_ levels: [Float], dt: Double) -> [Double] {
         if baseline.count != levels.count {
             baseline = levels.map(Double.init)
@@ -463,43 +386,27 @@ final class FerrofluidSim {
         return result
     }
 
-    /// Slam the reservoir.
+    /// Slam the reservoir. A track change is as much an event as a drum hit, so it goes
+    /// in through the same door, weighted toward the low end like a downbeat; the
+    /// ordinary physics takes over from there. Only the trigger is scripted.
     ///
-    /// A real event, not a clock: a track change is exactly as much of an event
-    /// as a drum hit, so it goes in through the same door. The impulse is
-    /// weighted toward the low end like a downbeat, and from there the ordinary
-    /// physics takes over — it surges, breaks, and settles on its own. Nothing
-    /// about the motion is scripted; only the trigger is.
     /// `direction` is +1 for a skip forward, -1 for back, 0 for anything with no
-    /// direction — a press, or a track simply ending.
-    ///
-    /// Forward and back used to produce the identical heave, so the ink said a
-    /// track had changed but never which way you went. The profile is mirrored
-    /// rather than travelling: a moving front was tried and measured, and it
-    /// reads as a pile at the WRONG end for the first ~0.27s, because on a flat
-    /// spectrum `allowed` is 2 and `isUp` hysteresis pins whichever two sites
-    /// rose first — at the front's entry end. The crest never overtakes its own
-    /// wake. The mirror is unambiguous at every frame, carries no persistent
-    /// state, and 0 keeps the existing shape byte for byte.
+    /// direction (a press, a track ending). The profile is mirrored rather than
+    /// travelling: a moving front reads as a pile at the wrong end for the first
+    /// ~0.27 s, because on a flat spectrum `allowed` is 2 and `isUp` hysteresis pins
+    /// whichever two sites rose first. 0 keeps the undirected shape.
     func surge(_ strength: Double = 1, direction: Double = 0) {
-        // Both exits, including the held one — a surge with no clock is a surge
-        // that either never decays or never arrives.
-        //
-        // This is the failure the self-cancelling clock introduced. Before it,
-        // the clock ran exactly start() -> stop() and stop() empties `kick`, so
-        // "no clock but kick still sized" could not happen and surge always took
-        // the pendingSurge branch, which publishes nothing. Now an idle pour
-        // sizes `kick` and then the clock retires, so the next swipe takes the
-        // MAIN path: impact and swell are set, publishGates clears isSettled, and
-        // nothing is left to decay them. Re-entrancy safe — updateKick calls back
-        // in for a held surge while the clock runs, and runClock no-ops.
+        // Both exits, including the held one: a surge with no clock either never decays
+        // or never arrives. An idle pour can size `kick` and then retire the clock, so a
+        // later swipe takes the main path (sets impact and swell, clears `isSettled`)
+        // with nothing left to decay them. Re-entrancy safe: `updateKick` calls back in
+        // for a held surge while the clock runs, and `runClock` no-ops.
         defer { runClock() }
         guard !kick.isEmpty else {
-            // `kick` is sized on the first step tick, not in `start()`, so a
-            // track change arriving in that window has no per-band array to
-            // inject into. Hold it rather than dropping it: the first song of a
-            // session is exactly when the reaction matters most.
-            // The stronger wins, and a real direction beats none.
+            // `kick` is sized on the first step tick, not in `start()`, so a track change in
+            // that window has nothing to inject into. Hold it rather than drop it (the first
+            // song of a session matters most); the stronger wins, and a real direction beats
+            // none.
             pendingSurge = (max(pendingSurge?.strength ?? 0, strength),
                             direction != 0 ? direction : (pendingSurge?.direction ?? 0))
             return
@@ -511,16 +418,15 @@ final class FerrofluidSim {
         }
         impact = max(impact, strength)
         swell = max(swell, strength * 0.7)
-        // Republish immediately. `advance` early-returns while `isSettled` is
-        // true, and isSettled is a stored value — so a surge into a settled fluid
-        // set the state and was then skipped by the very next step, which is
-        // exactly the case a track change during a quiet passage produces.
+        // Republish immediately: `advance` early-returns while `isSettled` is true, and
+        // it is a stored value, so a surge into a settled fluid would be skipped by the
+        // next step.
         publishGates()
     }
 
     private func updateImpact(dt: Double) {
         let hit = kick.max() ?? 0
-        // Fast up, slow down: a hit should read instantly and leave an afterglow.
+        // Fast up, slow down: a hit reads instantly and leaves an afterglow.
         impact = max(hit, impact * pow(0.06, dt))
         if impact < Self.settledEpsilon { impact = 0 }
     }
@@ -571,40 +477,19 @@ final class FerrofluidSim {
             let target: Double
             if sites[index].isUp {
                 let excess = (field - collapseField) / (1 - collapseField)
-                // Power law, not a floor plus a curve. The old form —
-                // min(1, 0.32 + 0.68 * pow(excess, 0.6)) — floored every
-                // standing peak at 0.32 and at onset actually produced 0.6074,
-                // so the whole crown occupied a 1.65:1 range, which on screen is
-                // a row of spikes of nearly equal height whatever the music
-                // does. That is the "same-height spike comb" the contract rules
-                // out. This spans 0.1441...1.0, a 6.94:1 range, so a quiet band
-                // is a ripple and a hit is a spire. Onset is still a finite pop,
-                // so the subcritical hysteresis above is intact.
-                //
-                // BOTH ratios are quoted at the shipping field, because both are
-                // functions of criticalField rather than constants beside it:
-                // onset is pow((criticalField - collapseField) / (1 -
-                // collapseField), 1.35) here, and 0.32 + 0.68 * pow(that same
-                // excess, 0.6) in the old form. They read 0.089/11:1 and 1.8:1
-                // for as long as the field was 0.30, and were left untouched
-                // when 858889f raised it to 0.36 — here, in FerrofluidView's
-                // restatement, and in the JS port, so one constant moving
-                // stranded the same two figures in three places, and the
-                // sentence ended up comparing a 0.30-era ratio against a
-                // 0.36-era one.
-                //
-                // No check could have caught it: theCrownIsNotAComb measures the
-                // span of the peaks one shaped spectrum actually raises, which
-                // is a different quantity from this ratio, and only requires
-                // that it exceed 3:1.
+                // Power law rather than a floor plus a curve: a floor makes every standing peak
+                // start high and the crown a row of near-equal spikes (about 1.8:1). This spans
+                // roughly 0.14 to 1.0 (about 7:1) at the shipping `criticalField`, so a quiet
+                // band is a ripple and a hit is a spire. Onset is still a finite pop, so the
+                // hysteresis above holds. Both ratios depend on `criticalField`, and the same
+                // figures are restated in `FerrofluidView` and the site's JS port.
                 target = min(1, pow(max(0, excess), 1.35))
             } else {
                 target = 0
             }
 
-            // Bass is heavy and drains slowly; treble is light and snaps back.
-            // One drain rate for every band made the whole crown breathe as a
-            // single object regardless of what the music was doing.
+            // Bass is heavy and drains slowly, treble is light and snaps back; one rate
+            // would make the whole crown breathe as a single object.
             let bandT = Double(band) / Double(max(1, levels.count - 1))
             let fall = 4.6 * (0.55 + 1.5 * bandT)
             let heightRate = target > sites[index].height ? 24.0 : fall
@@ -613,8 +498,8 @@ final class FerrofluidSim {
             standing += sites[index].height
         }
 
-        // Surface tension shares ink between neighbouring peaks. This is a
-        // first-order diffusion only: no springs and no overshoot.
+        // Surface tension shares ink between neighbouring peaks: first-order diffusion,
+        // no springs and no overshoot.
         if sites.count > 2 {
             let heights = sites.map(\.height)
             let rate = min(0.5, 3.2 * dt)

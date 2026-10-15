@@ -1,10 +1,8 @@
 import AppKit
 
-// Manual startup rather than @main: an LSUIElement app that owns its own windows
-// has no use for SwiftUI's App scene machinery, and this keeps the launch path
-// obvious.
-// Top-level code already runs on the main thread; assumeIsolated states that to
-// the compiler without a needless hop.
+// Manual startup instead of @main: the app owns its own windows and has no use for
+// SwiftUI's App scene machinery. Top-level code already runs on the main thread;
+// assumeIsolated says so to the compiler.
 MainActor.assumeIsolated {
     let app = NSApplication.shared
     let delegate = AppDelegate()

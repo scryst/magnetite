@@ -2,24 +2,14 @@ import SwiftUI
 
 /// The notch silhouette.
 ///
-/// Two things make this read as hardware rather than a floating black box:
+/// Anchored at the top of the screen with straight sides and rounded bottom
+/// corners, so it drops out of the display edge instead of hovering in the menu
+/// bar. Collapsed it is exactly the cutout; it widens within the menu-bar band
+/// before it grows downward.
 ///
-///  * **It is anchored at the top of the screen, not floating below it.** The
-///    shape is drawn top-centre at its own size with straight sides and rounded
-///    bottom corners, so it drops out of the display edge rather than hovering
-///    in the menu bar.
-///  * **It grows out of the notch, not over it.** Retracted it is exactly the
-///    cutout, and it widens within the menu-bar band before it ever grows down.
-///
-/// The concave top fillet this comment used to describe went with `flaredPath`
-/// in 53ef8d2: on screen it read as the panel splaying at the shoulders rather
-/// than dropping cleanly out of the display edge.
-///
-/// All four animated values interpolate together so the frame and both radii
-/// morph as one continuous animation.
-///
-/// (SwiftUI's `@Animatable` macro would generate that, but its macro plugin ships
-/// with Xcode, not Command Line Tools — so the pairs are spelled out.)
+/// Width, height and both radii interpolate together, so the morph is one
+/// animation. `@Animatable` would generate this, but its macro plugin ships with
+/// Xcode rather than the Command Line Tools, so the pairs are spelled out.
 struct NotchShape: Shape, Animatable {
     enum Style {
         /// Physical cutout: hugs the top edge of the display.
@@ -30,8 +20,8 @@ struct NotchShape: Shape, Animatable {
 
     var topCornerRadius: CGFloat
     var bottomCornerRadius: CGFloat
-    /// Drawn size. The window never resizes — we interpolate the shape inside a
-    /// fixed-size panel, which is what keeps the morph perfectly smooth.
+    /// Drawn size. The window never resizes; the shape interpolates inside a fixed-size
+    /// panel.
     var width: CGFloat
     var height: CGFloat
 
@@ -61,16 +51,11 @@ struct NotchShape: Shape, Animatable {
         self.style = style
     }
 
-    /// The pill's effective corner radius. The floor is what keeps a
-    /// menu-bar-height capsule reading as a capsule when the hardware cutout
-    /// radius (tuned for a notch) comes in lower; the half-height clamp keeps
-    /// the floor legal on a shell too short to carry it. A named rule because
-    /// three consumers draw this corner — the silhouette, the trace, and the
-    /// trim mapping that keeps the playhead on it — and while the floor lived
-    /// only in the silhouette, the trace rounded at 9 − inset against a shell
-    /// rounding at 10 and its ink left the shape at both bottom corners.
-    /// Idempotent, so the silhouette re-applying it to a value the controller
-    /// already passed through it changes nothing.
+    /// The pill's effective corner radius. The floor keeps a menu-bar-height capsule
+    /// reading as a capsule when the notch-tuned radius is lower; the half-height clamp
+    /// keeps the floor legal on a short shell. Shared because the silhouette, the trace
+    /// and the playhead's trim mapping must all draw the same corner. Idempotent, so
+    /// re-applying it to a value the controller already passed through changes nothing.
     static func pillCornerRadius(height: CGFloat, bottomCornerRadius: CGFloat) -> CGFloat {
         min(height / 2, max(bottomCornerRadius, 10))
     }
@@ -82,39 +67,28 @@ struct NotchShape: Shape, Animatable {
 
         switch style {
         case .pill:
-            // The same quad construction as the notch branch, not
-            // `Path(roundedRect:)`: that initializer's corners are a different
-            // curve family from the quadratic quarter-turns `NotchBottomEdge`
-            // draws, so the trace could not sit on this silhouette no matter
-            // what radius both were handed.
+            // The same quad construction as the notch branch, not `Path(roundedRect:)`,
+            // whose corners are a different curve family from the quadratic quarter-turns
+            // `NotchBottomEdge` draws; the trace could not sit on that silhouette.
             let r = Self.pillCornerRadius(height: frame.height,
                                           bottomCornerRadius: bottomCornerRadius)
             return simplePath(in: frame, topRadius: r, bottomRadius: r)
         case .notch:
-            // One continuous shell that wraps *around* the cutout. The camera
-            // housing disappears into it because the menu-bar band is kept pure
-            // black. Growing only downward instead would waste the space
-            // either side of the cutout, which is the whole point of the format.
+            // One shell that wraps around the cutout; the camera housing disappears into it
+            // because the menu-bar band stays pure black. Growing only downward would waste
+            // the space either side of the cutout.
             return simplePath(in: frame, topRadius: topCornerRadius,
                               bottomRadius: bottomCornerRadius)
         }
     }
 
-    /// Straight sides, rounded bottom corners.
-    ///
-    /// The sides run **vertically** from the top edge. An earlier version put a
-    /// concave fillet at the top so the shape flared outward into the bezel; on
-    /// screen that reads as the panel splaying at the shoulders rather than
-    /// dropping cleanly out of the display edge.
+    /// Straight sides from the top edge and rounded bottom corners. A concave top
+    /// fillet would read as the panel splaying at the shoulders.
     private func simplePath(in rect: CGRect, topRadius: CGFloat, bottomRadius: CGFloat) -> Path {
         let br = max(0, min(bottomRadius, min(rect.height / 2, rect.width / 2)))
-        // No gate. The retracted shell rounds its top so it reads as a capsule
-        // in the menu bar and the expanded one squares it so it reads as dropping
-        // out of the display edge — but those are two forms of ONE object only if
-        // the shoulders unroll. A Bool snapped them square on frame one, which
-        // made the shell look like two shapes crossfading behind a size change,
-        // right where the pointer had just entered. As a radius it interpolates
-        // inside the existing animatableData.
+        // The top radius is a value, not a Bool: the collapsed shell rounds its top and
+        // the expanded one squares it, and a snap on the first frame would look like two
+        // shapes crossfading. As a radius it interpolates in `animatableData`.
         let tr = max(0, min(topRadius, min(rect.height / 2, rect.width / 2)))
 
         var p = Path()
@@ -142,28 +116,22 @@ struct NotchShape: Shape, Animatable {
 
 }
 
-/// Motion vocabulary.
-///
-/// One place for every curve in the app, so the whole surface moves as a system
-/// rather than a pile of ad-hoc `.easeInOut`s. Springs also give us interruptible
-/// motion for free — reverse a gesture mid-flight and it settles correctly
-/// instead of snapping.
+/// Motion vocabulary: every curve in the app, so the surface moves as a system.
+/// Springs are interruptible, so reversing a gesture mid-flight settles instead of
+/// snapping.
 enum Motion {
-    /// Mirrors `NSWorkspace.accessibilityDisplayShouldReduceMotion`, kept current
-    /// by `NotchCoordinator`.
+    /// Mirrors `NSWorkspace.accessibilityDisplayShouldReduceMotion`, kept current by
+    /// `NotchCoordinator`.
     ///
-    /// Reduce Motion takes the impulse and travel out of the vocabulary — every
-    /// state change still happens and still reads, it just stops springing and
-    /// bouncing. It must never remove a state change: an inert or ambiguous
-    /// panel is worse than a lively one.
+    /// Reduce Motion removes springing and travel but never a state change.
     static var reduceMotion = false
 
-    /// The notch opening. Enough bounce to feel physical, not cartoonish.
+    /// The notch opening: enough bounce to feel physical.
     static var expand: Animation {
         reduceMotion ? .easeOut(duration: 0.20)
                      : .spring(response: 0.42, dampingFraction: 0.74)
     }
-    /// Closing is slightly faster and fully damped — no overshoot on the way out.
+    /// Closing is faster and fully damped, with no overshoot.
     static var collapse: Animation {
         reduceMotion ? .easeOut(duration: 0.16)
                      : .spring(response: 0.34, dampingFraction: 0.88)
@@ -172,14 +140,14 @@ enum Motion {
     static var content: Animation {
         reduceMotion ? .easeOut(duration: 0.16) : .smooth(duration: 0.28)
     }
-    /// Live activity / HUD swaps.
+    /// Live activity and HUD swaps.
     static var swap: Animation {
         reduceMotion ? .easeOut(duration: 0.16)
                      : .spring(response: 0.34, dampingFraction: 0.82)
     }
-    /// The mini player's clock. Out fast, before the panel's content (delayed
-    /// 0.07s) is visible; in only once the panel's content (0.175s exit) has
-    /// gone. A readout should never be on screen twice.
+    /// The mini player's clock leaves fast, before the panel's content (delayed 0.07 s)
+    /// is visible, and returns only after that content's 0.175 s exit, so a readout is
+    /// never on screen twice.
     static var miniClockOut: Animation { .easeOut(duration: 0.07) }
     static var miniClockIn: Animation {
         .easeOut(duration: reduceMotion ? 0.12 : 0.18).delay(0.16)
@@ -188,10 +156,8 @@ enum Motion {
     static var meter: Animation {
         reduceMotion ? .easeOut(duration: 0.14) : .smooth(duration: 0.22)
     }
-    /// Entrance/exit travel scalar.
-    ///
-    /// Reduce Motion keeps the direction and the timing of every arrival and
-    /// takes most of the distance out — the same rule the ink already uses.
+    /// Entrance and exit travel scalar. Reduce Motion keeps direction and timing and
+    /// takes most of the distance out.
     static var travel: CGFloat { reduceMotion ? 0.4 : 1 }
 
     /// Revealing and grabbing the scrubber.
@@ -199,7 +165,7 @@ enum Motion {
         reduceMotion ? .easeOut(duration: 0.14)
                      : .spring(response: 0.26, dampingFraction: 0.72)
     }
-    /// Track change — the one place a little extra bounce is earned.
+    /// Track change, the one place extra bounce is earned.
     static var track: Animation {
         reduceMotion ? .easeOut(duration: 0.20)
                      : .bouncy(duration: 0.52, extraBounce: 0.12)
@@ -207,42 +173,30 @@ enum Motion {
 
     /// The content sheet following the fingers mid-swipe.
     ///
-    /// Jitter absorption only, deliberately not a spring: the offset re-targets
-    /// on every trackpad delta, and a curve with its own opinion about where
-    /// the sheet should be reads as the sheet resisting the hand. Reduce
-    /// Motion needs no branch — the travel scalar already shrinks the shift,
-    /// and 50ms of linear smoothing is not motion, it is the absence of steps.
+    /// Jitter absorption rather than a spring: the offset re-targets on every
+    /// trackpad delta, and a curve with its own target reads as resistance. No Reduce
+    /// Motion branch is needed, since `travel` already shrinks the shift.
     static var leanFollow: Animation { .linear(duration: 0.05) }
-    /// The sheet easing home after the fingers commit or abort. Fully damped:
-    /// the commit's answer is the ink's surge, and a sheet that bounced back
-    /// would be a second, smaller answer arriving late.
+    /// The sheet easing home after a commit or abort. Fully damped, so it does not add
+    /// a second, smaller answer to the commit's surge.
     static var leanRelease: Animation {
         reduceMotion ? .easeOut(duration: 0.14) : .easeOut(duration: 0.30)
     }
 }
 
-/// Just the bottom edge of `NotchShape`, as an open path.
-///
-/// Trimming this and stroking it draws playback progress along the panel's own
-/// silhouette — the panel becomes its own scrubber, so no vertical space is spent
+/// Just the bottom edge of `NotchShape` as an open path. Trimmed and stroked, it
+/// draws playback progress along the panel's own silhouette.
 /// on a separate track.
 struct NotchBottomEdge: Shape {
     var width: CGFloat
     var height: CGFloat
     var bottomCornerRadius: CGFloat
-    /// Half the stroke's width, so the line's OUTER edge lands on the silhouette
-    /// instead of straddling it.
-    ///
-    /// Centred on the path, half of every stroke fell outside the shell: clipped
-    /// where something clips, and sitting past the menu-bar band where nothing
-    /// does. It also has to animate, because the width swells on hover and again
-    /// on grab — a static inset would make the line jump as it thickened.
+    /// Half the stroke's width, so the line's outer edge lands on the silhouette rather
+    /// than straddling it. Animated, because the width swells on hover and grab.
     var inset: CGFloat = 0
 
-    /// The radius has to interpolate along with the frame. Animating only
-    /// width/height made the corner radius jump to its target on frame one of
-    /// every expand, so the trace peeled away from the silhouette it is supposed
-    /// to be drawn on and snapped back at the end of the morph.
+    /// The radius interpolates with the frame; otherwise it jumps on the first frame of
+    /// an expand and the trace peels away from the silhouette.
     var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>,
                                        AnimatablePair<CGFloat, CGFloat>> {
         get { .init(.init(width, height), .init(bottomCornerRadius, inset)) }
@@ -257,19 +211,10 @@ struct NotchBottomEdge: Shape {
     func path(in rect: CGRect) -> Path {
         let w = max(1, width - inset * 2), h = max(1, height - inset)
         let frame = CGRect(x: rect.midX - w / 2, y: rect.minY, width: w, height: h)
-        // Must mirror NotchShape.simplePath exactly, or the trace sits outside the
-        // silhouette.
-        // Must match NotchShape.simplePath's clamp exactly (height / 2, not
-        // height), or the trace rounds differently from the shell it traces.
-        //
-        // The inset shrinks the corner along with the frame. Clamping the SHELL's
-        // radius against an inset frame TRANSLATES the corner by (inset, -inset)
-        // instead of offsetting it: exact at both tangent points, `inset * sqrt(2)`
-        // along the normal at 45 degrees, so the stroke's outer boundary drifted
-        // `inset * (sqrt(2) - 1)` INSIDE the silhouette — 0.52pt at rest and 0.83pt
-        // while scrubbing, on both corners, in the one gesture that puts the
-        // pointer there. The straight run was right and the arcs were not, which is
-        // why the bottom-edge assert never saw it.
+        // Must match `NotchShape.simplePath`, including the `height / 2` clamp. The inset
+        // shrinks the corner with the frame: clamping the shell's radius against an
+        // inset frame translates the corner instead of offsetting it, leaving the stroke's
+        // outer boundary up to `inset * (sqrt(2) - 1)` inside the silhouette at 45 degrees.
         let br = max(0, min(bottomCornerRadius - inset,
                             min(frame.height / 2, frame.width / 2)))
 

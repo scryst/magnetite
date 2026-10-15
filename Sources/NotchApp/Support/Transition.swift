@@ -2,13 +2,10 @@ import Foundation
 
 /// A cancellable, generation-guarded delayed transition.
 ///
-/// This is the single most load-bearing pattern in the app. Without it,
-/// overlapping events — a volume key repeating while a track changes while a
-/// device connects — leave the notch flickering or stuck in a half-state.
-///
-/// Every scheduled body carries the generation it was created with. Rescheduling
-/// bumps the counter, so a body that wakes up superseded returns without touching
-/// any state rather than clobbering whatever replaced it.
+/// Overlapping events (a repeating volume key, a track change, a device connecting)
+/// must not leave the notch in a half-state. Each scheduled body captures the
+/// generation it was created under; rescheduling bumps the counter, so a body that
+/// wakes up superseded returns without touching state.
 @MainActor
 final class Transition {
     private var generation: UInt64 = 0
@@ -33,8 +30,7 @@ final class Transition {
         }
     }
 
-    /// Run `body` immediately, claiming the generation so any pending schedule is
-    /// invalidated. Use when an event should win outright.
+    /// Run `body` immediately and invalidate anything pending, so this event wins.
     func now(_ body: @escaping @MainActor () -> Void) {
         cancel()
         body()
