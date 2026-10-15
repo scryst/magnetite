@@ -22,6 +22,15 @@ import Foundation
         await withCheckedContinuation { pending.append($0) }
     }
     func resolve(_ index: Int, saved: Bool?) { pending[index].resume(returning: saved) }
+    var pendingArtists: [CheckedContinuation<[ArtistCredit]?, Never>] = []
+    var holdArtists = false
+    func trackArtists(trackID: String) async -> [ArtistCredit]? {
+        guard holdArtists else { return nil }
+        return await withCheckedContinuation { pendingArtists.append($0) }
+    }
+    func resolveArtists(_ index: Int, credits: [ArtistCredit]?) {
+        pendingArtists[index].resume(returning: credits)
+    }
     func refreshAccountIfUnknown() async {}
     func setSaved(_ saved: Bool, trackID: String) async -> Bool { false }
     func playbackModes() async -> Playback? { nil }

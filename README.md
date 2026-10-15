@@ -46,6 +46,9 @@ the intended home; displays without one get a floating pill instead.
   menu bar. Retracted, it still shows the cover and elapsed time either side of
   the camera.
 - **Scrub** along the panel's bottom edge — the edge is the progress bar.
+- **Click an artist** to open them in the source player. Connected Spotify shows
+  all catalog credits; Apple Music uses collaborations named in the artist field.
+  Unresolved artists open a search.
 - **Two-finger swipe** over the notch: sideways skips a track, up or down plays
   or pauses.
 - **The M in the menu bar** holds everything else: music source, volume and

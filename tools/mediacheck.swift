@@ -29,7 +29,44 @@ enum MediaCheck {
         aResumeStartsFromWhereItPaused()
         aPauseKeepsThePlayerOnScreen()
         aShortItemDoesNotFreezeThePanel()
+        artistCreditsKeepNamesAndSafeDestinations()
         print("mediacheck: all checks passed")
+    }
+
+    static func artistCreditsKeepNamesAndSafeDestinations() {
+        let names = ArtistCredit.fallback("A, B & C", source: .music)
+        require(names.map(\.name) == ["A", "B", "C"] && ArtistCredit.line(names) == "A, B & C",
+                "Music collaboration credits or their separators changed")
+        for field in ["A feat. B", "A featuring B", "A (feat. B)", "A [feat. B]"] {
+            require(ArtistCredit.fallback(field, source: .music).map(\.name) == ["A", "B"],
+                    "Music featured credit was lost: \(field)")
+        }
+        for source in MusicSource.allCases {
+            require(ArtistCredit.fallback("Artist (US)", source: source).map(\.name) == ["Artist (US)"],
+                    "artist punctuation was stripped without a featuring wrapper")
+        }
+        require(ArtistCredit.fallback("A & B", source: .spotify).map(\.name) == ["A & B"],
+                "Spotify's primary bridge name was guessed apart")
+        let data = Data(#"{"artists":[{"name":"A","id":"0123456789012345678901"},{"name":"B","id":"abcdefghijklmnopqrstuv"},{"name":"C","id":"../bad"}],"album":{"artists":[{"name":"Wrong"}]}}"#.utf8)
+        let credits = SpotifyWeb.artists(from: data) ?? []
+        require(credits.map(\.name) == ["A", "B", "C"], "track artists[] was not preserved")
+        require(credits.first?.url(in: .spotify).absoluteString == "spotify:artist:0123456789012345678901",
+                "Spotify artist did not use its catalog ID")
+        require(credits.last?.url(in: .spotify).absoluteString == "spotify:search:C",
+                "malformed artist ID did not fall back to search")
+        let punctuation = ArtistCredit(name: "AC/DC & Björk #1")
+        require(punctuation.url(in: .spotify).absoluteString == "spotify:search:AC%2FDC%20%26%20Bj%C3%B6rk%20%231",
+                "artist search name changes URI structure")
+        require(punctuation.url(in: .music).query?.contains("%26") == true,
+                "Music search query is not encoded")
+        let match = #"{"wrapperType":"artist","artistName":"Björk","artistId":123,"artistLinkUrl":"https://music.apple.com/us/artist/bjork/123?uo=4"}"#
+        require(ArtistCredit.musicURL(from: Data("{\"results\":[\(match)]}".utf8), named: "Björk")?.scheme == "music",
+                "a unique exact Apple artist match was not resolved")
+        require(ArtistCredit.musicURL(from: Data("{\"results\":[\(match),\(match)]}".utf8), named: "Björk") == nil,
+                "ambiguous Apple artists opened an arbitrary page")
+        let foreign = match.replacingOccurrences(of: "music.apple.com", with: "example.com")
+        require(ArtistCredit.musicURL(from: Data("{\"results\":[\(foreign)]}".utf8), named: "Björk") == nil,
+                "catalog result opened an untrusted host")
     }
 
     /// Pausing the player on screen does not hand the panel to another one.

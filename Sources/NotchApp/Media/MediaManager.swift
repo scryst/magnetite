@@ -28,6 +28,8 @@ final class MediaManager {
     // Presented state
     private(set) var title = ""
     private(set) var artist = ""
+    private(set) var artists: [ArtistCredit] = []
+    var artistLine: String { ArtistCredit.line(artists) }
     private(set) var isPlaying = false
     private(set) var duration: Double = 0
     private(set) var position: Double = 0
@@ -108,6 +110,11 @@ final class MediaManager {
     /// Guards against a stale library answer landing on a newer track.
     private var likeQuery = 0
     @ObservationIgnored private(set) var libraryTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var artistTask: Task<Void, Never>?
+    private var artistGeneration = 0
+    private var askedArtists = false
+    private var artistLookupTask: Task<Void, Never>?
+    private var musicArtistURLs: [String: URL] = [:]
     private var pollingSources: Set<PollingSource> = []
     private var timer: Task<Void, Never>?
     private var burst: Task<Void, Never>?
@@ -136,6 +143,8 @@ final class MediaManager {
             // already on screen is asked about again.
             self?.askedIdentity = nil
             self?.askLibrary()
+            self?.askedArtists = false
+            self?.askArtists()
         }
         guard observePlayers else { return }
         // Apple Music broadcasts track changes for free — far better than polling.
@@ -201,6 +210,8 @@ final class MediaManager {
         // being offered at all — they are restricted while playback is paused.
         // Opening the panel is the moment that has to be true.
         askPlayback()
+        if artists.allSatisfy({ $0.spotifyID == nil }) { askedArtists = false }
+        askArtists()
     }
 
     func endPolling(_ src: PollingSource) {
@@ -361,6 +372,7 @@ final class MediaManager {
             isPlaying = false
             source = nil
             title = ""; artist = ""
+            resetArtists()
             duration = 0; position = 0
             identity = ""
             artwork = nil
@@ -421,6 +433,7 @@ final class MediaManager {
         // — the recompute is load-bearing for the mode flags, whose inputs move
         // between identical snapshots — only the no-op assignments are skipped.
         let changed = snap.identity != identity
+        let creditsChanged = source != snap.source || changed || artist != snap.artist
         if !hasTrack { hasTrack = true }
         if source != snap.source {
             bridge.prewarm(snap.source)
@@ -555,6 +568,57 @@ final class MediaManager {
             identity = snap.identity
             trackToken &+= 1
             loadArtwork(for: snap)
+        }
+        if creditsChanged || (snap.source == .spotify && !spotify.isConnected && askedArtists) {
+            resetArtists()
+            artists = ArtistCredit.fallback(snap.artist, source: snap.source)
+        }
+        askArtists()
+    }
+
+    private func resetArtists() {
+        artistGeneration &+= 1
+        artistTask?.cancel()
+        artistTask = nil
+        artistLookupTask?.cancel()
+        askedArtists = false
+        if !artists.isEmpty { artists = [] }
+    }
+
+    private func askArtists() {
+        guard source == .spotify, spotify.isConnected, !identity.isEmpty, !askedArtists else { return }
+        askedArtists = true
+        artistTask?.cancel()
+        artistGeneration &+= 1
+        let generation = artistGeneration
+        let id = identity
+        artistTask = Task { @MainActor [weak self, spotify] in
+            let credits = await spotify.trackArtists(trackID: id)
+            guard let self, !Task.isCancelled, self.artistGeneration == generation,
+                  self.source == .spotify, self.identity == id, spotify.isConnected,
+                  let credits, !credits.isEmpty else { return }
+            self.artists = credits
+        }
+    }
+
+    func openArtist(_ credit: ArtistCredit) {
+        guard let source, artists.contains(credit) else { return }
+        artistLookupTask?.cancel()
+        if source == .spotify {
+            let destination = spotify.isConnected ? credit : ArtistCredit(name: credit.name)
+            NSWorkspace.shared.open(destination.url(in: source))
+            return
+        }
+        let generation = artistGeneration
+        artistLookupTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let resolved: URL?
+            if let cached = self.musicArtistURLs[credit.name] { resolved = cached }
+            else { resolved = await credit.resolveMusicURL() }
+            guard !Task.isCancelled, generation == self.artistGeneration,
+                  self.source == source, self.artists.contains(credit) else { return }
+            if let resolved { self.musicArtistURLs[credit.name] = resolved }
+            NSWorkspace.shared.open(resolved ?? credit.url(in: source))
         }
     }
 

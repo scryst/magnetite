@@ -28,7 +28,8 @@ enum ChromeCheck {
         theRetractedClockDoesNotStepAtThePollRate()
         theBandClocksDoNotStepAtThePollRate()
         thePanelHasAnEdgeOnAnyBackdrop()
-        theSleevesEdgeDoesNotDependOnTheAlbum()
+        noRingOrMatteSurroundsThePrint()
+        theClosedCameraHasABlackRadialCore()
         everyCurveAsksAboutReduceMotion()
         theSheetLeanStaysInsideTheMargins()
         theSheetTakesItsShiftFromTheRule()
@@ -542,10 +543,14 @@ enum ChromeCheck {
         // not the file: the panel sets .medium at four other sizes and two of
         // those are a matching pair, so a file-wide version of this passes on
         // the clocks alone while the artist and its mirror disagree.
-        guard let line = section(code, from: "private var trackLine") else {
-            require(false, "cannot find trackLine to check its type against its mirrors")
+        guard let track = section(code, from: "private var trackLine"),
+              let artist = topLevelSection(code, from: "private struct ArtistLine") else {
+            require(false, "cannot find trackLine and ArtistLine to check their type against the mirrors")
             return
         }
+        // The visible artist line moved into ArtistLine when its names became links;
+        // its mirror stayed in trackLine. Both declarations still have to agree.
+        let line = track + artist
         for role in ["semibold", "medium"] {
             let sizes = line.components(separatedBy: "weight: .\(role)")
                 .dropLast()
@@ -940,66 +945,42 @@ enum ChromeCheck {
                 "the rim's schedule is written in the view, where nothing can fail it")
     }
 
-    /// The sleeve's edge looks the same on a white cover and a black one.
-    ///
-    /// It was `strokeBorder(white 0.28 -> 0.04, 0.5pt)` drawn ON the artwork, and
-    /// an alpha stroke over an image composites to `art * (1 - a) + a`: a step of
-    /// 0.04 on a pale cover, which is no edge, and a bright seam on a dark one.
-    /// The edge's presence was a property of the album and no alpha value fixes
-    /// that — only an opaque ring, which cannot take its tone from what is under
-    /// it. Both edges of that rule are asserted here: the ring exists at every
-    /// size, and it never grows into a matte around the print.
-    static func theSleevesEdgeDoesNotDependOnTheAlbum() {
-        let bevel = ChromeRules.sleeveBevel
-        require(bevel.top > bevel.bottom,
-                "the sleeve's bevel is lit from below (\(bevel))")
-        require(bevel.bottom >= bevel.top / 3,
-                "the bevel fades to \(bevel.bottom) against a top of \(bevel.top) — "
-                + "a highlight that dies is the top-lit stroke again, not a thickness")
-        require(bevel.top > 0 && bevel.top < 1 && bevel.bottom > 0,
-                "the sleeve's bevel is not a tone (\(bevel))")
+    static func theClosedCameraHasABlackRadialCore() {
+        let notch = CGSize(width: 185, height: 32)
+        let radius = ChromeRules.cameraFadeStart(notch: notch)
+        require(radius >= hypot(notch.width / 2, notch.height),
+                "theClosedCameraHasABlackRadialCore: colour reaches a camera corner")
+        require(radius < (notch.width + ChromeRules.peekWidening) / 2,
+                "the radial core swallows the whole closed strip")
+        let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
+        let glass = section(code, from: "private var glassLayer: some View") ?? ""
+        require(glass.contains("RadialGradient") && glass.contains("ChromeRules.cameraFadeStart("),
+                "theClosedCameraHasABlackRadialCore: the glass/wash has no radial cutout mask")
+        require(glass.contains(".compositingGroup()"), "mask the combined glass and wash")
+        require(!ChromeRules.drawsTrace(hasTrack: true, hasShell: true, width: 0),
+                "a zero-width trace still reaches the rasterizer")
+        require(ChromeRules.drawsTrace(hasTrack: true, hasShell: true, width: 1),
+                "the valid 1pt progress trace disappeared")
+        let gate = section(code, from: "private var trackDrawn: Bool") ?? ""
+        require(gate.contains("ChromeRules.drawsTrace(") && gate.contains("width: traceWidth"),
+                "the view does not suppress a trace with no room to draw")
+    }
 
-        for s in stride(from: 8.0, through: 140.0, by: 0.5) {
-            let size = CGFloat(s)
-            let mount = ChromeRules.sleeveMount(size: size)
-            let lifted = ChromeRules.sleeveShadow(size: size).opacity > 0
-            require(mount.bevel > 0, "a \(size)pt sleeve has no edge at all")
-            // One predicate, two consumers. Two literal thresholds on the same
-            // question is the "one number in two places waiting to disagree" this
-            // file forbids twice already.
-            require((mount.innerLine > 0) == lifted,
-                    "at \(size)pt the mount and the cast shadow disagree about which "
-                    + "sleeve is the panel's subject")
-            let ring = mount.bevel + mount.innerLine
-            require(ring * 2 < size * 0.2,
-                    "the mount takes \(ring * 2)pt of a \(size)pt tile — that is a matte")
-            if size <= ChromeRules.sleeveFull {
-                require(ring <= 0.5,
-                        "the peek's \(size)pt tile gained a \(ring)pt frame")
-            }
-        }
-        // Wide enough to be opaque where it matters: under 1pt the ring is a
-        // single device pixel at 2x and composites with what is under it, which
-        // is the mechanism this whole check exists to remove.
-        require(ChromeRules.sleeveMount(size: ChromeRules.art).bevel >= 1,
-                "the panel's own sleeve carries a sub-pixel bevel")
-
+    /// The image fills its tile at both 19pt and 88pt; only its corners are cut.
+    static func noRingOrMatteSurroundsThePrint() {
         guard let art = topLevelSection(strippedSource("Sources/NotchApp/UI/NotchView.swift"),
                                         from: "private struct Artwork") else {
             require(false, "cannot find the sleeve to check its edge")
             return
         }
-        require(!art.contains("strokeBorder"),
-                "the sleeve's edge is a stroke over the print again, so its contrast "
-                + "is the album's to decide")
-        for rule in ["ChromeRules.sleeveMount(", "ChromeRules.sleeveBevel",
-                     "ChromeRules.sleeveShadow("] {
-            require(art.contains(rule),
-                    "the sleeve does not ask for \(rule), so nothing here can fail it")
+        for border in ["sleeveMount", "sleeveBevel", "mountInset", "strokeBorder", ".stroke(", ".fill(.black)"] {
+            require(!art.contains(border), "noRingOrMatteSurroundsThePrint: artwork still draws \(border)")
         }
-        // The mount is three layers now, and an unflattened shadow casts from
-        // each of them — blurring the bevel's own dark bottom into the wash,
-        // which is the tone the whole treatment rests on.
+        require(art.contains("face\n            .frame(width: size, height: size)"),
+                "the print does not fill the tile's full footprint")
+        require(ChromeRules.sleeveShadow(size: 19).opacity == 0
+                && ChromeRules.sleeveShadow(size: 88).opacity > 0,
+                "only the large cover should cast a lift shadow")
         guard let flatten = art.range(of: "compositingGroup"),
               let shadow = art.range(of: ".shadow(") else {
             require(false, "the sleeve is not flattened before it casts a shadow")
@@ -1130,7 +1111,7 @@ enum ChromeCheck {
     /// every rule in ChromeRules still perfectly consistent with itself.
     ///
     /// Every sibling rule with a view counterpart — modeSlots, modeStyle,
-    /// heartSlack, rimStops, sleeveMount — has a lint like this one. The rule
+    /// heartSlack, rimStops, sleeveShadow — has a lint like this one. The rule
     /// whose defect actually shipped did not.
     static func theTitleTakesBothGatesFromTheRule() {
         let code = strippedSource("Sources/NotchApp/UI/MarqueeText.swift")
