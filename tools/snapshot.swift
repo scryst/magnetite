@@ -35,7 +35,7 @@
             return true
         }
         media.artwork = cover
-        controller.liveActivity = .isPlaying
+        controller.isMiniPlayerShown = true
         save("closed-on", NotchRootView(controller: controller, media: media, fluid: fluid),
              width: 420, height: 60)
         // Same time and palette, different audio shape: only the old camera
@@ -56,7 +56,7 @@
                  width: 420, height: 60)
         }
         media.position = 115
-        controller.liveActivity = .none
+        controller.isMiniPlayerShown = false
         save("closed-off", NotchRootView(controller: controller, media: media, fluid: fluid),
              width: 420, height: 60)
         controller.isExpanded = true

@@ -98,13 +98,19 @@ else
     --field 'cname=magnetite.app' >/dev/null
 fi
 
-WANT="$(shasum -a 256 "$STAGE/index.html" | cut -d' ' -f1)"
+# The page AND the installer: a deploy that changed only install.sh used to
+# "verify" instantly against the old site, since index.html was all it read.
+served() {
+  local index installer
+  index="$(curl -fsSL --max-time 20 "$PROD_URL/" | shasum -a 256 | cut -d' ' -f1)" || return 1
+  installer="$(curl -fsSL --max-time 20 "$PROD_URL/install.sh" | shasum -a 256 | cut -d' ' -f1)" || return 1
+  echo "$index+$installer"
+}
+WANT="$(shasum -a 256 "$STAGE/index.html" | cut -d' ' -f1)+$(shasum -a 256 "$STAGE/install.sh" | cut -d' ' -f1)"
 GOT=""
 for _ in {1..12}; do
-  if curl -fsSL --max-time 20 "$PROD_URL/" -o "$STAGE/.served-index.html"; then
-    GOT="$(shasum -a 256 "$STAGE/.served-index.html" | cut -d' ' -f1)"
-    [[ "$GOT" == "$WANT" ]] && break
-  fi
+  GOT="$(served || true)"
+  [[ "$GOT" == "$WANT" ]] && break
   sleep 5
 done
 

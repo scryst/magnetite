@@ -137,13 +137,13 @@ final class NotchCoordinator {
                     self.closeHoldDeadline = .now + Self.holdAfterClose
                     Task { @MainActor [weak self] in
                         try? await Task.sleep(for: Self.holdAfterClose)
-                        self?.syncLiveActivity()
+                        self?.syncMiniPlayerAndCapture()
                     }
                 }
                 // Capture is gated on `anyExpanded` when the retracted strip is
                 // off, and this is the only place expansion changes — without
                 // it the panel opens onto a visualiser nothing ever restarted.
-                self.syncLiveActivity()
+                self.syncMiniPlayerAndCapture()
             }
             let hosting = NotchHostingView(rootView: root)
             hosting.frame = NSRect(origin: .zero, size: panelSize)
@@ -193,7 +193,7 @@ final class NotchCoordinator {
         // Unconditional, not just for created hosts: a display unplugged while
         // its panel was expanded can also flip `anyExpanded`, which the capture
         // gate reads, and its own onExpansionChange left with it.
-        syncLiveActivity()
+        syncMiniPlayerAndCapture()
 
         // Correct any host that did not exist when the environment last changed.
         // A display hot-plugged during a hidden period used to come up visible
@@ -347,7 +347,7 @@ final class NotchCoordinator {
         syncInteractivity()
         // Visibility is one of capture's gates: lock and fullscreen must release
         // the tap, and unlocking must bring it back.
-        syncLiveActivity()
+        syncMiniPlayerAndCapture()
     }
 
     private func installScreenObserver() {
@@ -448,10 +448,10 @@ final class NotchCoordinator {
                 // Warm the audio tap during the hover delay. With the closed
                 // strip off, capture used to wait for expansion, so the ink
                 // opened as a dead box and popped into motion mid-transition.
-                syncLiveActivity()
+                syncMiniPlayerAndCapture()
             } else if !inside, controller.isMouseInside {
                 controller.mouseExited()
-                syncLiveActivity()
+                syncMiniPlayerAndCapture()
             }
 
             // Interaction is only enabled while expanded, so a collapsed notch
@@ -486,7 +486,7 @@ final class NotchCoordinator {
         }
 
         observeMedia()
-        syncLiveActivity()
+        syncMiniPlayerAndCapture()
     }
 
     /// Observation tracking is one-shot, so every handler re-arms itself.
@@ -497,7 +497,7 @@ final class NotchCoordinator {
             _ = media.isPlaying
             // Tracked too, so flipping the menu item takes effect at once rather
             // than waiting for the next track or play/pause.
-            _ = settings.enableNowPlaying
+            _ = settings.showsMiniPlayer
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -517,32 +517,30 @@ final class NotchCoordinator {
                     self.fluid.surge(dir == nil ? 0.95 : 0.45, direction: dir ?? 0)
                     self.lastSurgedToken = self.media.trackToken
                 }
-                self.syncLiveActivity()
+                self.syncMiniPlayerAndCapture()
                 self.observeMedia()
             }
         }
     }
 
-    private func syncLiveActivity() {
+    private func syncMiniPlayerAndCapture() {
         // On transition. `hasMedia` is observed and this runs on every poll.
         broadcast { c in if c.hasMedia != media.hasTrack { c.hasMedia = media.hasTrack } }
 
-        // Two gates, not one. The retracted strip and the visualiser used to
-        // share `enableNowPlaying && hasTrack`, so unticking "Show When
-        // Retracted" also detached the audio tap and stopped the sim — the full
-        // player still opened on hover (hasMedia is synced above regardless)
-        // with music audibly playing and the ink sitting motionless in it. The
-        // two menu toggles are documented as independent states; capture has to
-        // follow every surface that can show ink, not just the strip.
-        let stripActive = settings.enableNowPlaying && media.hasTrack
-        if stripActive {
-            // Peek on a track change; otherwise stay exactly notch-sized so the
-            // menu bar underneath is never covered.
-            broadcast { $0.showNowPlaying() }
-            media.beginPolling(.liveActivity)
+        // Two gates, not one. The mini player and the visualiser used to share
+        // one condition, so turning the mini player off also detached the audio
+        // tap and stopped the sim — the full player still opened on hover
+        // (hasMedia is synced above regardless) with music audibly playing and
+        // the ink sitting motionless in it. The two menu toggles are documented
+        // as independent states; capture has to follow every surface that can
+        // show ink, not just the mini player.
+        let miniPlayerShown = settings.showsMiniPlayer && media.hasTrack
+        if miniPlayerShown {
+            broadcast { $0.showMiniPlayer() }
+            media.beginPolling(.miniPlayer)
         } else {
-            broadcast { $0.clearLiveActivity() }
-            media.endPolling(.liveActivity)
+            broadcast { $0.hideMiniPlayer() }
+            media.endPolling(.miniPlayer)
         }
 
         // Capture only while something can show the ink AND there is music to
@@ -552,7 +550,7 @@ final class NotchCoordinator {
             settleDeadline = .now + Self.settleAfterPause
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: Self.settleAfterPause)
-                self?.syncLiveActivity()
+                self?.syncMiniPlayerAndCapture()
             }
         }
         wasPlaying = media.isPlaying
@@ -561,7 +559,7 @@ final class NotchCoordinator {
         let holding = closeHoldDeadline.map { ContinuousClock.now < $0 } ?? false
         let captureActive = media.hasTrack && onScreen
             && (media.isPlaying || settling)
-            && (settings.enableNowPlaying || anyExpanded || anyHovered || holding)
+            && (settings.showsMiniPlayer || anyExpanded || anyHovered || holding)
         if captureActive, !audioAttached {
             audioAttached = true
             audio.addConsumer()

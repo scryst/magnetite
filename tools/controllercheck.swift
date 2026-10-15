@@ -26,7 +26,7 @@ enum ControllerCheck {
         theMenuToggleStaysOpenUntilItIsToggledBack()
         aHudDoesNotLandBehindTheOpenPanel()
         theHudNeverReportsMoreThanFull()
-        thePeekTurnsOnAndOff()
+        theMiniPlayerTurnsOnAndOff()
         everyStoredSettingIsCarriedAcrossTheRename()
         theURLSchemeTheAppAnswersIsTheOneItRegistered()
         everyNameTheAppHasShippedUnderIsStillMigrated()
@@ -160,25 +160,24 @@ enum ControllerCheck {
         require(notch.hudProgress == 0, "a HUD reported \(notch.hudProgress) of a full bar")
     }
 
-    /// The peek is the retracted player's entire content, so both edges of it
-    /// have to actually land.
+    /// The mini player is the closed notch's entire content, so both edges of
+    /// it have to actually land.
     ///
-    /// This began as a check that the guard in `showNowPlaying` suppresses the
-    /// redundant write `syncLiveActivity` makes on every poll. There is no such
-    /// thing to observe: on Swift 6.4 `@Observable` compares before it notifies
-    /// when the property's type is `Equatable`, so a guarded write and an
-    /// unguarded one are indistinguishable to anything downstream — a mutant
-    /// removing the guard survived, which is how that surfaced. See
-    /// `showNowPlaying`, whose comment recorded the old behaviour as current.
+    /// This began as a check that the guard in `showMiniPlayer` suppresses the
+    /// redundant write `syncMiniPlayerAndCapture` makes on every poll. There is
+    /// no such thing to observe: on Swift 6.4 `@Observable` compares before it
+    /// notifies when the property's type is `Equatable`, so a guarded write and
+    /// an unguarded one are indistinguishable to anything downstream — a mutant
+    /// removing the guard survived, which is how that surfaced.
     @MainActor
-    static func thePeekTurnsOnAndOff() {
+    static func theMiniPlayerTurnsOnAndOff() {
         let notch = controller()
 
-        notch.showNowPlaying()
-        require(notch.liveActivity == .isPlaying, "the peek never turned on")
+        notch.showMiniPlayer()
+        require(notch.isMiniPlayerShown, "the mini player never turned on")
 
-        notch.clearLiveActivity()
-        require(notch.liveActivity == .none, "the peek never turned off")
+        notch.hideMiniPlayer()
+        require(!notch.isMiniPlayerShown, "the mini player never turned off")
     }
 
     /// The preference migration's key list matches the preferences that exist.

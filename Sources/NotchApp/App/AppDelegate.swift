@@ -150,8 +150,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(toggle("Open on Hover", value: settings.expandNotchOnHover) { on in
             Settings.shared.expandNotchOnHover = on
         })
-        menu.addItem(toggle("Show Track While Closed", value: settings.enableNowPlaying) { on in
-            Settings.shared.enableNowPlaying = on
+        menu.addItem(toggle("Mini Player When Closed", value: settings.showsMiniPlayer) { on in
+            Settings.shared.showsMiniPlayer = on
         })
         menu.addItem(toggle("Swipe to Skip and Pause", value: settings.enableGestures) { on in
             Settings.shared.enableGestures = on
