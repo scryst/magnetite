@@ -5,6 +5,25 @@ set -e
 cd "$(dirname "$0")"
 mkdir -p .build/checks
 
+# Every command below gets </dev/null. Several suites run inside a script read
+# from check.sh's own stdin (the heredoc further down), and a child that reads
+# stdin would swallow the rest of that script and report success for a gate
+# that never ran.
+
+# The shell scripts that ship and release the app are code too: syntax-check
+# them, lint the plists, and run the installer against a sandbox with a fake
+# release. installcheck.sh touches no real Applications folder, network or app.
+echo "==> scripts"
+sh -n install.sh </dev/null
+sh -n tools/pin-installer.sh </dev/null
+for script in build.sh deploy.sh check.sh tools/installcheck.sh; do
+  bash -n "$script" </dev/null
+done
+plutil -lint Resources/Info.plist Resources/*.entitlements </dev/null
+./tools/installcheck.sh </dev/null
+echo "==> installer mutations (each broken copy of install.sh must fail its case)"
+./tools/installcheck.sh --mutations </dev/null
+
 # Build the module first, because the suites below cannot stand in for it.
 #
 # Each suite compiles an explicit file list, so a source file no suite happens to
@@ -16,24 +35,24 @@ mkdir -p .build/checks
 # by running swift build by hand. Building first means nothing reaches a suite
 # without having compiled.
 echo "==> swift build"
-swift build
+swift build </dev/null
 
 swiftc -O -parse-as-library tools/fluidcheck.swift \
   Sources/NotchApp/Audio/FerrofluidSim.swift \
   Sources/NotchApp/Audio/AudioLevels.swift \
   Sources/NotchApp/Audio/AudioTap.swift \
-  -o .build/checks/fluidcheck
+  -o .build/checks/fluidcheck </dev/null
 swiftc -O -parse-as-library tools/geometrycheck.swift \
   Sources/NotchApp/UI/FerrofluidView.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
   Sources/NotchApp/Audio/FerrofluidSim.swift \
   Sources/NotchApp/Audio/AudioLevels.swift \
   Sources/NotchApp/Audio/AudioTap.swift \
-  -o .build/checks/geometrycheck
+  -o .build/checks/geometrycheck </dev/null
 swiftc -O -parse-as-library tools/gesturecheck.swift \
   Sources/NotchApp/Notch/SwipeRecogniser.swift \
   Sources/NotchApp/Support/ChromeRules.swift \
-  -o .build/checks/gesturecheck
+  -o .build/checks/gesturecheck </dev/null
 swiftc -O -parse-as-library tools/mediacheck.swift \
   Sources/NotchApp/Media/MediaManager.swift \
   Sources/NotchApp/Media/MediaBridge.swift \
@@ -42,17 +61,17 @@ swiftc -O -parse-as-library tools/mediacheck.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
   Sources/NotchApp/Support/Settings.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
-  -o .build/checks/mediacheck
+  -o .build/checks/mediacheck </dev/null
 swiftc -O -parse-as-library tools/librarycheck.swift tools/librarycheck-doubles.swift \
   Sources/NotchApp/Media/MediaManager.swift \
   Sources/NotchApp/Media/MediaBridge.swift \
   Sources/NotchApp/Media/ScriptingBridgeProtocols.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
-  -o .build/checks/librarycheck
+  -o .build/checks/librarycheck </dev/null
 swiftc -O -parse-as-library tools/chromecheck.swift \
   Sources/NotchApp/Support/ChromeRules.swift \
-  -o .build/checks/chromecheck
+  -o .build/checks/chromecheck </dev/null
 swiftc -O -parse-as-library tools/controllercheck.swift \
   Sources/NotchApp/Notch/NotchController.swift \
   Sources/NotchApp/Notch/ScreenMetrics.swift \
@@ -61,26 +80,26 @@ swiftc -O -parse-as-library tools/controllercheck.swift \
   Sources/NotchApp/Support/ChromeRules.swift \
   Sources/NotchApp/Support/Settings.swift \
   Sources/NotchApp/Support/Transition.swift \
-  -o .build/checks/controllercheck
+  -o .build/checks/controllercheck </dev/null
 swiftc -O -parse-as-library tools/palettecheck.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
-  -o .build/checks/palettecheck
+  -o .build/checks/palettecheck </dev/null
 
 # Compilation uses the normal trusted toolchain. Execute every suite inside the
 # same native boundary, including child processes and temporary mutation copies.
 ./tools/check-runtime /bin/bash <<'CHECK_RUNTIME'
 set -e
-/usr/bin/python3 -I tools/runtimecheck.py
+/usr/bin/python3 -I tools/runtimecheck.py </dev/null
 # The one protocol both players answer, held to both players' real dictionaries.
-/usr/bin/python3 -I tools/bridgecheck.py
-.build/checks/gesturecheck
-.build/checks/geometrycheck
-.build/checks/fluidcheck
-.build/checks/mediacheck
-.build/checks/librarycheck
-.build/checks/chromecheck
-.build/checks/controllercheck
-.build/checks/palettecheck
+/usr/bin/python3 -I tools/bridgecheck.py </dev/null
+.build/checks/gesturecheck </dev/null
+.build/checks/geometrycheck </dev/null
+.build/checks/fluidcheck </dev/null
+.build/checks/mediacheck </dev/null
+.build/checks/librarycheck </dev/null
+.build/checks/chromecheck </dev/null
+.build/checks/controllercheck </dev/null
+.build/checks/palettecheck </dev/null
 
 # The site's port of the fluid, against dumps from the Swift above. It belongs
 # in this gate rather than in someone's memory: its whole job is to notice when
@@ -88,12 +107,12 @@ set -e
 # by hand reports nothing on the day the app actually moves. Unconditional on
 # purpose — a missing node must fail here, not quietly skip.
 echo "==> site"
-node site/test/portcheck.mjs
-node site/test/bandscheck.mjs
-node site/test/setupcheck.mjs
+node site/test/portcheck.mjs </dev/null
+node site/test/bandscheck.mjs </dev/null
+node site/test/setupcheck.mjs </dev/null
 
 # Prove the site's checks still reject their named regressions. The harness
 # changes temporary copies only; stale mutation targets must fail this gate too.
 echo "==> site mutations (results print after all runs)"
-node site/test/mutate.mjs
+node site/test/mutate.mjs </dev/null
 CHECK_RUNTIME
