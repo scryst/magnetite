@@ -13,21 +13,31 @@ happens in [scryst/magnetite](https://github.com/scryst/magnetite).
 
 ## Install or update
 
-Download the ZIP, unzip it and drag Magnetite.app to Applications. The current
-build is ad-hoc signed and not Apple-notarised: after trying to open it, approve
-it under System Settings → Privacy & Security → Open Anyway if you trust it.
+Download the ZIP, then open it the first time like this:
 
-Or [inspect the installer](https://github.com/scryst/magnetite/blob/main/install.sh),
-then run:
+1. Open the ZIP, drag Magnetite to Applications, then double-click it.
+2. macOS says it can't verify Magnetite. That's expected for a free app that
+   isn't in Apple's paid programme. Click Done.
+3. Open System Settings → Privacy & Security and scroll down to Security. Click
+   Open Anyway next to Magnetite, then confirm with Touch ID or your password.
+4. Look for the M in the menu bar. Play something in Spotify or Music and hover
+   the notch. Allow the two permission prompts: one to control Spotify or Music,
+   one to record system audio for the visualiser.
+
+You only do this once. The build is ad-hoc signed and not notarised by Apple,
+so only open a download you trust.
+
+Prefer to skip the warning? [Inspect the installer](https://github.com/scryst/magnetite/blob/main/install.sh),
+then paste this into Terminal (Spotlight → Terminal):
 
 ```sh
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
 It downloads the latest official release, checks the published SHA-256 and code
-signature, then installs and opens the app. Those checks verify integrity, not
-Apple notarisation. Rerun it to update. Start Spotify or Music on this Mac and
-hover the notch; the M menu holds settings and Quit.
+signature, then installs and opens the app. Those checks show the file is
+intact, not that Apple has reviewed it. Rerun it to update. The M menu holds
+settings and Quit.
 
 ## Verify a manual download
 
