@@ -10,11 +10,6 @@ import CoreGraphics
 /// these live in chrome layout.
 enum ChromeRules {
 
-    /// A radial black core covering even the camera's far bottom corner.
-    static func cameraFadeStart(notch: CGSize) -> CGFloat {
-        hypot(notch.width / 2, notch.height) + 2
-    }
-
     static func drawsTrace(hasTrack: Bool, hasShell: Bool, width: CGFloat) -> Bool {
         hasTrack && hasShell && width > 0
     }

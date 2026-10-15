@@ -1,7 +1,6 @@
 // Appended to NotchView.swift by tools/snapshot so the real private pieces render.
 // Fixtures only: no windows, player observations, Apple Events or network access.
 @main @MainActor enum Snapshot {
-    static var closedPixels: Data?
     static func save<V: View>(_ name: String, _ view: V, width: CGFloat, height: CGFloat) {
         let renderer = ImageRenderer(content: view
             .frame(width: width, height: height, alignment: .top)
@@ -11,11 +10,6 @@
               let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
         else { fatalError("could not render \(name)") }
         print("SNAPSHOT \(name) \(png.base64EncodedString())")
-        if name == "closed-on" { closedPixels = image.dataProvider?.data as Data? }
-        if name == "closed-on-other-beat" {
-            let pixels = image.dataProvider?.data as Data?
-            print("RENDER_CHECK closedCameraStaysStill \(pixels != nil && pixels == closedPixels)")
-        }
         if name.hasPrefix("artwork-") {
             let bitmap = NSBitmapImageRep(cgImage: image)
             let y = name == "artwork-large" ? 32 : 16

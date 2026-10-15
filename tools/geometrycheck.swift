@@ -20,35 +20,9 @@ enum GeometryCheck {
         jitterNeverCollidesTwoSeats()
         noSeatIsThrownOffTheBody()
         theInkStaysInsideThePanel()
-        theClosedCameraDoesNotWobbleInTheWidenedStrip()
         theTraceOffsetsTheSilhouetteRatherThanTranslatingIt()
         thePillTraceDrawsTheSilhouettesOwnCorner()
         print("geometrycheck: all checks passed")
-    }
-
-    static func theClosedCameraDoesNotWobbleInTheWidenedStrip() {
-        // Old containment coverage made the shell exactly as narrow as the
-        // camera. The setting adds 50pt flanks, where lateral lobes could grow.
-        let g = Geometry(notch: CGSize(width: 185, height: 32),
-                         panel: CGSize(width: 285, height: 33), openness: 0)
-        for height in [0.2, 0.7, 1.0] {
-            let lobes = g.lobes(of: sites(flat(height)))
-            for sample in 0...200 {
-                let u = Double(sample) / 200
-                let point = g.rim(at: u)
-                let raw = g.displacement(at: u, lobes: lobes, swell: 1, raised: 0,
-                                         lateral: g.lateralLift(point.normal),
-                                         headroom: g.headroom(from: point.point, along: point.normal))
-                require(FerrofluidView.visibleDisplacement(raw, openness: 0) == 0,
-                        "theClosedCameraDoesNotWobbleInTheWidenedStrip: closed ink moves")
-                require(FerrofluidView.visibleDisplacement(raw, openness: 1) == raw,
-                        "the open player lost its fluid response")
-            }
-        }
-        let source = try! String(contentsOfFile: "Sources/NotchApp/UI/FerrofluidView.swift", encoding: .utf8)
-        require(source.contains("Self.visibleDisplacement(geometry.displacement(")
-                && source.contains("openness: inkOpen)"),
-                "theClosedCameraDoesNotWobbleInTheWidenedStrip: canvas bypasses closed-state gain")
     }
 
     // MARK: helpers

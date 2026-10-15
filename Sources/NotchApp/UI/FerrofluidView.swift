@@ -55,12 +55,6 @@ struct FerrofluidView: View, Animatable {
     /// back, so ink that stops at the edge still bleeds past it.
     static let blur: CGFloat = 3.4
 
-    /// The closed band is hardware, not an audio surface. Keep the camera's
-    /// crisp guarantee, then introduce deformation continuously as it opens.
-    static func visibleDisplacement(_ amount: CGFloat, openness: CGFloat) -> CGFloat {
-        amount * max(0, min(1, openness))
-    }
-
     var body: some View {
         // Read HERE, not by the parent. `isSettled` is computed from swell,
         // impact and every site, all mutated sixty times a second — so
@@ -96,7 +90,7 @@ struct FerrofluidView: View, Animatable {
             let lobes = geometry.lobes(of: sites)
             let surface = { (position: Double, lateral: CGFloat, headroom: CGFloat,
                              detail: CGFloat) -> CGFloat in
-                Self.visibleDisplacement(geometry.displacement(reduce: reduceMotion,
+                geometry.displacement(reduce: reduceMotion,
                                       at: position,
                                       lobes: lobes,
                                       swell: swell,
@@ -105,7 +99,7 @@ struct FerrofluidView: View, Animatable {
                                       detail: detail,
                                       headroom: headroom,
                                       pointerRim: pointerRim,
-                                      pointerPull: pointerPull), openness: inkOpen)
+                                      pointerPull: pointerPull)
             }
 
             // The silhouette, painted once and reused: the glow behind and the
