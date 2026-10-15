@@ -140,21 +140,46 @@ fi
 codesign --verify --deep --strict --verbose=2 "$PACKAGED_APP"
 ARCHIVE_SHA256="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
 
+# Architecture and deployment target of the shipped binary. The installer
+# refuses anything without arm64, and the app's floor is what Info.plist claims
+# (Liquid Glass needs macOS 26), so a toolchain or Package.swift change that
+# quietly moves either must stop here rather than reach a user.
+PACKAGED_BIN="$PACKAGED_APP/Contents/MacOS/Magnetite"
+ARCHS="$(lipo -archs "$PACKAGED_BIN")"
+case " $ARCHS " in
+  *" arm64 "*) ;;
+  *) echo "error: $PACKAGED_BIN has architectures '$ARCHS', not arm64" >&2; exit 1 ;;
+esac
+WANT_MIN="$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' "$PACKAGED_APP/Contents/Info.plist")"
+GOT_MIN="$(vtool -show-build "$PACKAGED_BIN" | awk '$1 == "minos" { print $2; exit }')"
+if [[ -z "$GOT_MIN" || "${GOT_MIN%%.*}" != "${WANT_MIN%%.*}" ]]; then
+  echo "error: binary targets macOS '${GOT_MIN:-unknown}' but Info.plist LSMinimumSystemVersion is '$WANT_MIN'" >&2
+  exit 1
+fi
+echo "==> binary: $ARCHS, minimum macOS $GOT_MIN"
+
 echo
 echo "==> gatekeeper assessment"
+# Capture the exit code instead of tolerating any failure: `|| echo` also
+# swallowed a crash, a missing tool or a malformed bundle (spctl exits 1 or 2).
+if spctl --assess --type execute --verbose=4 "$PACKAGED_APP"; then SPCTL_RC=0; else SPCTL_RC=$?; fi
 if [[ -n "${MAGNETITE_IDENTITY:-}" && -n "${MAGNETITE_NOTARY_PROFILE:-}" ]]; then
   # The release gate. A build made with credentials is the one meant to be
-  # staged, and one Gatekeeper rejects must never get there — so under `set -e`
-  # a rejection kills the run before anyone can stage what it packaged. The
-  # tolerant branch below is for ad-hoc builds only.
-  spctl --assess --type execute --verbose=4 "$PACKAGED_APP"
+  # staged, and one Gatekeeper rejects must never get there. Only 0 passes.
+  if [[ $SPCTL_RC -ne 0 ]]; then
+    echo "error: Gatekeeper rejected the notarised build (spctl exit $SPCTL_RC)" >&2
+    exit 1
+  fi
   xcrun stapler validate "$PACKAGED_APP"
 else
-  # The honest check. Exit 3 means Gatekeeper rejects the build, which is
-  # expected and correct for an ad-hoc signature — it is reported, never
-  # swallowed.
-  spctl --assess --type execute --verbose=4 "$PACKAGED_APP" || \
-    echo "    (rejected — expected without Developer ID + notarisation)"
+  # Exit 3 means Gatekeeper rejects the build, which is expected and correct
+  # for an ad-hoc signature. Any other non-zero code is a real failure.
+  case $SPCTL_RC in
+    0) ;;
+    3) echo "    (rejected — expected without Developer ID + notarisation)" ;;
+    *) echo "error: spctl failed with exit $SPCTL_RC (only 0, or 3 for an ad-hoc build, is acceptable)" >&2
+       exit 1 ;;
+  esac
 fi
 
 # A normal build is disposable. Staging is explicit and immutable: rebuilding
@@ -174,9 +199,14 @@ if [[ "$STAGE_RELEASE" == "--stage-release" ]]; then
     cp "$ZIP" "$RELEASE_ZIP"
     echo "==> staged release at $RELEASE_ZIP"
   fi
-  # The installer and manual-download instructions read this file; its name
-  # line must match the ZIP's own name for `shasum -c`.
+  # Manual-download instructions read this file; its name line must match the
+  # ZIP's own name for `shasum -c`.
   echo "$ARCHIVE_SHA256  Magnetite-$VERSION.zip" > "site/downloads/Magnetite-$VERSION.sha256"
+  # The installer carries the fingerprint of the release it installs. Commit
+  # install.sh together with site/downloads/ and push before publishing the
+  # release: deploy.sh checks the release digest against this pin.
+  tools/pin-installer.sh install.sh "$VERSION" "$ARCHIVE_SHA256"
+  echo "==> pinned install.sh to $VERSION ($ARCHIVE_SHA256)"
 fi
 
 echo
