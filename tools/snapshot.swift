@@ -67,8 +67,8 @@
         save("expanded-long-credits", NotchRootView(controller: controller, media: media, fluid: fluid),
              width: 420, height: 190)
         save("artwork-large", Artwork(image: cover, palette: .fallback, size: 88, radius: 14)
-            .padding(16), width: 120, height: 120)
+            .frame(width: 88, height: 88).padding(16), width: 120, height: 120)
         save("artwork-small", Artwork(image: cover, palette: .fallback, size: 19, radius: 5.5)
-            .padding(8), width: 35, height: 35)
+            .frame(width: 19, height: 19).padding(8), width: 35, height: 35)
     }
 }

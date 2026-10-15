@@ -644,8 +644,8 @@ const MUTANTS = {
   'floor-stale-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>',
-    to: '>Needs macOS 15 on Apple silicon. Free and open source, 575 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
+    to: '>Needs macOS 15 on Apple silicon. Free and open source, 617 KB.</p>',
   },
   // A download button that carries no floor at all. Only the count assertion
   // can see this one — every line still present is still correct.
@@ -659,8 +659,8 @@ const MUTANTS = {
   'floor-unstated-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>',
-    to: '>Needs Apple silicon. Free and open source, 575 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
+    to: '>Needs Apple silicon. Free and open source, 617 KB.</p>',
   },
   // The machine dropped instead. The floor is still right, so only the rule
   // that the line names hardware at all can see it — without that rule the
@@ -668,8 +668,8 @@ const MUTANTS = {
   'floor-line-names-no-machine': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 575 KB.</p>',
-    to: '>Needs macOS 26. Free and open source, 575 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
+    to: '>Needs macOS 26. Free and open source, 617 KB.</p>',
   },
   // The notch stops being a download button, and every per-button assertion
   // after it would go quiet against a page that still ships one.
@@ -695,7 +695,7 @@ const MUTANTS = {
   // The same shape, on the other side of the same check. Unanchored, the
   // requirement-line match could start inside a comment and run forward to the
   // next paragraph's close — which, being the real requirement line, still
-  // contains "macOS 26" and "575 KB", so the gate read a span of the page
+  // contains "macOS 26" and "617 KB", so the gate read a span of the page
   // nobody wrote as a claim and counted it as one. This one has to SURVIVE.
   'requirements-attribute-named-in-a-comment': {
     check: FLOOR,
@@ -712,7 +712,7 @@ const MUTANTS = {
     check: DOWNLOAD,
     file: PAGE,
     all: true,
-    from: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.2',
+    from: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.3',
     to: 'https://github.com/scryst/magnetite-releases/releases/tag/v9.9.9',
   },
   'release-link-loses-its-external-destination': {
@@ -724,8 +724,8 @@ const MUTANTS = {
   'download-copy-reverts-to-release': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Download<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span>',
-    to: 'Release<span class="visually-hidden">, Magnetite v0.1.2 on GitHub</span>',
+    from: 'Download<span class="visually-hidden">, Magnetite v0.1.3 on GitHub</span>',
+    to: 'Release<span class="visually-hidden">, Magnetite v0.1.3 on GitHub</span>',
   },
   'structured-release-names-someone-else': {
     check: DOWNLOAD,
@@ -762,7 +762,7 @@ const MUTANTS = {
   'download-version-drift': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.2</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.3</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>0.2.0</string>',
   },
   // The same drift, in the one direction the check used to be blind to. The
@@ -773,14 +773,14 @@ const MUTANTS = {
   'download-version-bumped-into-a-substring': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.2</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.3</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>1.1</string>',
   },
   // The size under the button is left over from an older, smaller build.
   'download-size-stale': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Free and open source, 575 KB.',
+    from: 'Free and open source, 617 KB.',
     to: 'Free and open source, 210 KB.',
   },
   // Consistent, and false: a notch is not a requirement while ScreenMetrics

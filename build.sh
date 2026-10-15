@@ -94,7 +94,7 @@ if [[ -n "${MAGNETITE_IDENTITY:-}" ]]; then
   codesign --verify --deep --strict --verbose=2 "$APP"
 else
   echo "==> codesign (ad-hoc — Gatekeeper will reject this build)"
-  codesign --force --deep --sign - "$APP" 2>/dev/null
+  codesign --force --deep --sign - "$APP"
 fi
 
 # Packaging. ditto rather than `zip`, because zip drops the symlinks and
@@ -174,6 +174,9 @@ if [[ "$STAGE_RELEASE" == "--stage-release" ]]; then
     cp "$ZIP" "$RELEASE_ZIP"
     echo "==> staged release at $RELEASE_ZIP"
   fi
+  # The installer and manual-download instructions read this file; its name
+  # line must match the ZIP's own name for `shasum -c`.
+  echo "$ARCHIVE_SHA256  Magnetite-$VERSION.zip" > "site/downloads/Magnetite-$VERSION.sha256"
 fi
 
 echo

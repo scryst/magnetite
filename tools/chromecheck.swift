@@ -966,8 +966,18 @@ enum ChromeCheck {
         for border in ["sleeveMount", "sleeveBevel", "mountInset", "strokeBorder", ".stroke(", ".fill(.black)"] {
             require(!art.contains(border), "noRingOrMatteSurroundsThePrint: artwork still draws \(border)")
         }
-        require(art.contains("face\n            .frame(width: size, height: size)"),
+        require(art.contains("face\n            .frame(maxWidth: .infinity, maxHeight: .infinity)"),
                 "the print does not fill the tile's full footprint")
+        // Sized outside the matched geometry, or the effect can move the
+        // sleeve between mini player and panel but never resize it: two
+        // covers, the 19pt one sitting in the 88pt one's corner.
+        let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
+        let matched = code.components(separatedBy: ".matchedGeometryEffect(id: \"artwork\", in: glass)")
+        require(matched.count == 3, "expected the sleeve matched in exactly two places")
+        for after in matched.dropFirst() {
+            require(after.drop(while: \.isWhitespace).hasPrefix(".frame(width:"),
+                    "a sleeve is sized inside its matched geometry, so it cannot morph")
+        }
         require(ChromeRules.sleeveShadow(size: 19).opacity == 0
                 && ChromeRules.sleeveShadow(size: 88).opacity > 0,
                 "only the large cover should cast a lift shadow")

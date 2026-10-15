@@ -1065,8 +1065,8 @@ private struct ExpandedPlayer: View {
             HStack(alignment: .top, spacing: Grid.gutter) {
                 Artwork(image: media.artwork, palette: media.palette,
                         size: Grid.artwork, radius: 12)
-                    .frame(height: Grid.art)
                     .matchedGeometryEffect(id: "artwork", in: glass)
+                    .frame(width: Grid.artwork, height: Grid.art)
                     .id(media.trackToken)
                     // The sleeve is the track, so pressing it opens the track.
                     // Spotify takes its own URI and lands on the song; Music
@@ -1166,6 +1166,7 @@ private struct CollapsedActivity: View {
         HStack(spacing: 0) {
             Artwork(image: media.artwork, palette: media.palette, size: 19, radius: 5.5)
                 .matchedGeometryEffect(id: "artwork", in: glass)
+                .frame(width: 19, height: 19)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // The camera's span, reserved and left empty.
@@ -1323,9 +1324,13 @@ private struct Artwork: View {
         ChromeRules.sleeveShadow(size: size)
     }
 
+    /// Fills whatever frame it is given; callers size it AFTER the matched
+    /// geometry effect. A fixed frame in here let the effect move the sleeve
+    /// between the mini player and the panel but never resize it, so the 19pt
+    /// cover sat in the 88pt one's corner while both faded: two covers, not one.
     var body: some View {
         face
-            .frame(width: size, height: size)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(.rect(cornerRadius: radius, style: .continuous))
         // Flatten the print and fallback before casting the large tile's shadow.
         .compositingGroup()
