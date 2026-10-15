@@ -14,7 +14,7 @@
 <body>
 <main class="legal">
   <h1>Privacy</h1>
-  <p class="legal__date">Effective September 1, 2026</p>
+  <p class="legal__date">Updated October 14, 2026</p>
 
   <h2>The short version</h2>
   <p>
@@ -30,10 +30,20 @@
     Magnetite does not upload or save the audio.
   </p>
   <p>
-    Apple Music control uses macOS Apple Events. If you connect Spotify,
-    Magnetite communicates directly with Spotify's authorization and Web API
-    services for playback state, controls, and saved-song status. Spotify's own
-    terms and privacy policy govern what Spotify receives.
+    Basic Spotify and Apple Music control uses local macOS Apple Events through
+    ScriptingBridge, with the Automation permission also used by AppleScript.
+    This reads now-playing information and sends playback commands to the
+    selected desktop app. A Spotify Web API connection is optional.
+  </p>
+  <p>
+    If you connect Spotify, Magnetite communicates directly with Spotify's
+    authorization and Web API services. The scopes <code>user-library-read</code>
+    and <code>user-library-modify</code> read, save and remove liked tracks;
+    <code>user-read-playback-state</code> and <code>user-modify-playback-state</code>
+    support shuffle and repeat; <code>user-read-private</code> checks account
+    capability before offering those controls. Spotify's own terms and privacy
+    policy govern what Spotify receives. Authorization uses PKCE without a
+    client secret.
   </p>
   <p>
     Magnetite may also download the current track's artwork from the URL the
@@ -57,6 +67,12 @@
     developer may view the aggregate traffic, referral, star, and download
     counts GitHub provides; Magnetite receives no visitor profiles or in-app
     events.
+  </p>
+  <p>
+    The page uses local storage to remember a soundtrack pause and this tab's
+    session storage to restore scroll position. Neither is used to identify
+    you across sites or sent to the
+    developer. The optional soundtrack is separate from the app's system-audio tap.
   </p>
 
   <h2>Contact</h2>

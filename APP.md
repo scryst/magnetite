@@ -131,7 +131,8 @@ Compilation uses the normal toolchain. Test execution uses `tools/check-runtime`
 to restrict home-directory reads, block preference/credential services, Apple
 Events and all network access, and use private temporary writes. Run compiled suites
 through that launcher too; a direct binary launch bypasses the boundary. See
-the README's Checks section for the focused isolation check and platform limits.
+[engineering notes](docs/ENGINEERING.md#build-and-verification) for the focused
+isolation check and platform limits.
 
 - `fluidcheck` — the drive measures change not loudness, the surface is not a comb,
   silence is genuinely still, bands drain at different rates, a skip leans the way
