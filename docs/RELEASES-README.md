@@ -3,6 +3,8 @@
 Free, open-source Spotify and Apple Music controls in your MacBook notch,
 with ferrofluid that moves to your music.
 
+[![Magnetite turns the MacBook camera notch into sound-driven black ferrofluid.](https://magnetite.app/og.png)](https://magnetite.app/)
+
 **[Download the latest release](https://github.com/scryst/magnetite-releases/releases/latest)**
 · [See the app](https://magnetite.app/)
 · [Source, features and FAQ](https://github.com/scryst/magnetite)

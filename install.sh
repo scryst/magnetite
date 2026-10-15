@@ -23,8 +23,8 @@
 #                      fingerprint, so it is checked against the checksum file
 #                      published beside it, which catches a damaged download but
 #                      not a tampered release.
-PIN_VERSION="0.1.3"
-PIN_SHA256="5988140ae3eb75e79c41ec7e9aa2dc76839c0e5b166bee845d886dc7787bf4cf"
+PIN_VERSION="0.1.4"
+PIN_SHA256="ff9068b8d77c4bbb17b16e4e078218a113f709cc54ca59e50ab5670c3100c6a2"
 set -eu
 
 REPO="scryst/magnetite-releases"
