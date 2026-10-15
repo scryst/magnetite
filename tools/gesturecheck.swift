@@ -3,23 +3,19 @@ import CoreGraphics
 
 /// Headless checks on swipe recognition.
 ///
-/// NSEvents cannot reasonably be synthesised, so the alternative to this file is
-/// swiping and looking — and "verified by eye" has been wrong more than once in
-/// this project. These drive the recogniser directly with the deltas a trackpad
-/// would produce.
+/// NSEvents cannot reasonably be synthesised, so these drive the recogniser
+/// directly with the deltas a trackpad would produce instead of swiping and
+/// looking.
 ///
-/// The ratchet is checked here for a sharper version of the same reason: a
-/// haptic cannot be verified by eye at all, and nothing else in this project can
-/// be verified only by hand. What a check can still hold is every decision
-/// behind the sensation — where the clicks land, that they are evenly spaced and
-/// the commit lands on the same beat, that a flick produces clicks rather than a
-/// buzz, and that a gesture on its way to being refused stays silent. What it
-/// cannot reach is whether the result feels good, which is why the recogniser
-/// says *when* and `NotchGestures` says *what*.
+/// The haptic ratchet cannot be verified by eye either. What a check can hold is
+/// every decision behind the sensation: where the clicks land, that they are
+/// evenly spaced and the commit lands on the same beat, that a flick produces
+/// clicks rather than a buzz, and that a gesture about to be refused stays
+/// silent. Whether it feels good is out of reach; the recogniser says when and
+/// `NotchGestures` says what.
 ///
-/// The clock is an argument rather than something the recogniser reads, so the
-/// rate limit — the one part of this that only exists because of hardware
-/// timing — is as drivable as the geometry.
+/// The clock is an argument to the recogniser, so the rate limit, which exists
+/// only because of hardware timing, is as drivable as the geometry.
 @main
 enum GestureCheck {
     static func main() {
@@ -54,7 +50,7 @@ enum GestureCheck {
         print("gesturecheck: all checks passed")
     }
 
-    /// Deltas reach the recogniser in FINGER direction: right goes forward.
+    /// Deltas reach the recogniser in finger direction: right goes forward.
     private static func aDeliberateHorizontalSwipeSkips() {
         var forward = Hand()
         require(forward.move(dx: 14, dy: 0.4, steps: 6).action == .skipForward,
@@ -100,24 +96,19 @@ enum GestureCheck {
                 "a second swipe after lifting the fingers did not fire")
     }
 
-    /// One physical movement, both ways macOS reports it, one gesture.
+    /// One physical movement, reported both ways macOS can report it, is one
+    /// gesture. The "natural scrolling" setting flips the sign of the delta
+    /// without changing what the hand did, and the app normalises to finger
+    /// direction.
     ///
-    /// The user's "natural scrolling" setting flips the sign of the delta
-    /// without changing what the hand did, so the app normalises to finger
-    /// direction — and got the normalisation backwards, inverting the one case
-    /// that was already correct. Swiping right went back a track, for everyone
-    /// with the default setting.
-    ///
-    /// The scenario, not the ternary: the same movement is pushed in under both
-    /// settings and has to come out as the same gesture. What it necessarily
-    /// takes on trust is which sign macOS reports for which setting, since no
-    /// headless check can ask the trackpad — so it pins the app's own model of
-    /// the platform, stated in `fingerSign`, and would catch that model being
-    /// flipped rather than being wrong in the first place.
+    /// The same movement is pushed in under both settings and must come out as
+    /// the same gesture. The check necessarily trusts which sign macOS reports
+    /// for which setting, so it pins the app's own model of the platform
+    /// (`fingerSign`) and catches it being flipped, not being wrong.
     private static func naturalScrollingDoesNotFlipTheGesture() {
-        // Fingers moving RIGHT. With natural scrolling on the delta already
+        // Fingers moving right. With natural scrolling on, the delta already
         // follows the fingers and is positive; with it off the device reports
-        // the content's direction instead, which is the negative of it.
+        // the content's direction, the negative of it.
         for (inverted, rightwards) in [(true, CGFloat(14)), (false, CGFloat(-14))] {
             var hand = Hand()
             let sign = SwipeRecogniser.fingerSign(invertedFromDevice: inverted)
@@ -139,17 +130,12 @@ enum GestureCheck {
 
     // MARK: The ratchet
 
-    /// The spacing is the whole design, so the spacing is the claim.
-    ///
-    /// Evenness is not a tidiness preference here. These gaps are in *distance*,
-    /// and a finger arrives at the end of a swipe slower than it left — so gaps
-    /// that shrink toward the commit, which is what this used to assert, produce
-    /// a rhythm under a real hand that is neither steady nor accelerating. Even
-    /// gaps let the rhythm report finger speed honestly, the way a physical
-    /// detent does.
-    ///
-    /// The commit counts as the last gap. Landing it on the same beat is what
-    /// makes the payoff arrive *on* the ratchet rather than just after it.
+    /// The detents are evenly spaced, and the commit counts as the last gap.
+    /// The gaps are in distance and a finger slows toward the end of a swipe, so
+    /// shrinking gaps would give a rhythm that is neither steady nor
+    /// accelerating. Even gaps let the rhythm report finger speed honestly, like
+    /// a physical detent, and landing the commit on the same beat puts the
+    /// payoff on the ratchet rather than just after it.
     private static func theRatchetIsEvenlySpaced() {
         let at = SwipeRecogniser.detents
         require(at.count >= 3, "a ratchet needs enough clicks to build")
@@ -171,7 +157,7 @@ enum GestureCheck {
         }
     }
 
-    /// Taken slowly, every click is there — once, and in order.
+    /// Taken slowly, every click is there, once and in order.
     private static func aSlowSwipeFeelsEveryDetent() {
         var hand = Hand()
         let run = hand.move(dx: 0.75, dy: 0.03, steps: 70)
@@ -180,11 +166,9 @@ enum GestureCheck {
                 "a slow swipe did not feel each detent once in order: \(run.detents)")
     }
 
-    /// The floor must not eat clicks out of an ordinary swipe.
-    ///
-    /// A rate limit that a normal hand can trip is not a rate limit, it is a
-    /// dropped click. This is 52pt in about 200ms — brisk, and the fastest a
-    /// swipe gets while still being aimed rather than flicked.
+    /// The rate floor must not eat clicks from an ordinary swipe. This is 52 pt
+    /// in about 200 ms, the fastest a swipe gets while still being aimed rather
+    /// than flicked.
     private static func aBriskSwipeStillFeelsEveryClick() {
         var hand = Hand()
         let run = hand.move(dx: 2.08, dy: 0.08, steps: 26)
@@ -198,12 +182,9 @@ enum GestureCheck {
         }
     }
 
-    /// A flick that clears three detents at once ticks once, not three times.
-    ///
-    /// Three taps inside one 8ms frame is a buzz, and a buzz is what this would
-    /// be if every crossed detent reported. The click you feel is the highest
-    /// one crossed, so the ladder that plays follows how deliberately you swiped
-    /// rather than how many boundaries the delta happened to jump.
+    /// A flick that clears three detents at once ticks once, not three times:
+    /// three taps in one 8 ms frame would be a buzz. The click felt is the
+    /// highest one crossed.
     private static func aFlickClicksRatherThanBuzzes() {
         var hand = Hand()
         let step = hand.tap(dx: 40, dy: 0)
@@ -213,13 +194,10 @@ enum GestureCheck {
                 + "alone: \(String(describing: step.detent))")
     }
 
-    /// Crossing detents on consecutive frames is still one click, not a burst.
-    ///
-    /// One delta per detent slips past the highest-crossed rule — each frame
-    /// honestly reports one new detent — and lands three taps inside 24ms, which
-    /// the trackpad's engine merges into mush at exactly the moment the gesture
-    /// is trying to feel decisive. The floor is what turns that back into a
-    /// click.
+    /// Crossing one detent per frame on consecutive frames is still one click.
+    /// Each frame honestly reports one new detent, so the highest-crossed rule
+    /// alone lets through three taps in 24 ms, which the trackpad's engine
+    /// merges into mush; the floor turns that back into a click.
     private static func aFlickDoesNotOutrunTheFloor() {
         var hand = Hand()
         let run = hand.move(dx: 14, dy: 0.3, steps: 4)
@@ -229,28 +207,22 @@ enum GestureCheck {
         require(run.action == .skipForward, "the flick did not skip")
     }
 
-    /// However fast the swipe, the click that confirms it always plays.
-    ///
-    /// The commit rides the gesture, not the ratchet, so no rate limit can reach
-    /// it. This is the load-bearing half of the floor: suppressing a detent
-    /// costs a little texture, and suppressing the commit would mean a swipe
-    /// that worked and said nothing.
+    /// However fast the swipe, the click that confirms it always plays. The
+    /// commit rides the gesture, not the ratchet, so the rate limit cannot reach
+    /// it; suppressing a detent costs a little texture, but suppressing the
+    /// commit would leave a swipe that worked and said nothing.
     private static func theCommitOutrunsTheFloor() {
         var hand = Hand()
-        // Every frame crosses a detent *and* the last one commits, all inside a
+        // Every frame crosses a detent and the last one commits, all inside a
         // single floor interval.
         let run = hand.move(dx: 18, dy: 0.3, steps: 3, dt: 0.004)
         require(run.action == .skipForward,
                 "the floor suppressed the commit of a fast swipe")
     }
 
-    /// A click the floor swallowed is spent, not owed.
-    ///
-    /// The mark advances on every crossing, played or not. If it only advanced
-    /// on the ones that played, a suppressed detent would sit there waiting and
-    /// fire on some later frame — landing a click on a stretch of swipe where
-    /// nothing was crossed, which is precisely the arrhythmia the floor exists
-    /// to prevent.
+    /// A click the floor swallowed is spent, not owed. The mark advances on every
+    /// crossing, played or not; otherwise the suppressed detent would fire on a
+    /// later frame where nothing was crossed, the arrhythmia the floor prevents.
     private static func aSwallowedClickDoesNotComeBackLater() {
         var hand = Hand()
         let burst = hand.move(dx: 14, dy: 0.3, steps: 2)
@@ -264,12 +236,9 @@ enum GestureCheck {
                 + "\(after.detents)")
     }
 
-    /// A gesture already refused must not promise anything on the way down.
-    ///
-    /// The diagonal is going to be rejected at the threshold, so ticking it
-    /// would have the ratchet building toward a commit the recogniser has
-    /// already decided against — worse than silence, because it is a lie you can
-    /// feel.
+    /// A gesture already refused must not promise anything on the way down. The
+    /// diagonal will be rejected at the threshold, so ticking it would build
+    /// toward a commit the recogniser has already decided against.
     private static func aDiagonalDragTicksNothing() {
         var hand = Hand()
         let run = hand.move(dx: 12, dy: 12, steps: 10)
@@ -279,11 +248,9 @@ enum GestureCheck {
                 + "\(run.detents)")
     }
 
-    /// Drifting back across a detent must not re-arm it.
-    ///
-    /// Hesitate mid-swipe — pull back, push again — and a position-based ratchet
-    /// would click every time you re-crossed the same boundary. The mark is a
-    /// high-water mark, so the swipe only ever climbs.
+    /// Drifting back across a detent must not re-arm it. The mark is a
+    /// high-water mark, so a hesitant swipe that pulls back and pushes again
+    /// does not click on every re-crossing.
     private static func pullingBackDoesNotReRatchet() {
         var hand = Hand()
         let up = hand.move(dx: 0.75, dy: 0.03, steps: 40)
@@ -297,14 +264,11 @@ enum GestureCheck {
                 "re-crossing detents already felt ticked them again: \(again.detents)")
     }
 
-    /// Once the gesture has gone, the rest of the swipe is silent.
-    ///
-    /// Two mechanisms hold this and either would do: the recogniser stops
-    /// reading deltas once it has fired, and the mark is exhausted anyway,
-    /// because committing means having crossed every detent below the commit.
-    /// Breaking one alone leaves the ratchet quiet, so this is the one check
-    /// here that no single-point defect can fail — it is a net under a future
-    /// change that removes both, not proof that today's code is right.
+    /// Once the gesture has fired, the rest of the swipe is silent. Two
+    /// mechanisms each ensure this (the recogniser stops reading deltas after
+    /// firing, and the mark is already exhausted because committing means
+    /// crossing every detent), so no single-point defect fails this check; it is
+    /// a net for a change that removes both.
     private static func theRatchetStopsOnceTheGestureHasFired() {
         var hand = Hand()
         require(hand.move(dx: 14, dy: 0, steps: 6).action == .skipForward, "setup did not skip")
@@ -314,13 +278,10 @@ enum GestureCheck {
         require(after.action == .none, "one continuous swipe fired more than once")
     }
 
-    /// Lifting the fingers clears the mark *and* the floor.
-    ///
-    /// Both halves matter on the very next frame: a mark that survives leaves
-    /// the new swipe starting halfway up its own ratchet, and a floor that
-    /// survives silences the first click of a swipe that has earned it — the
-    /// second one is invisible to any check that gives the new swipe room to
-    /// breathe, so this one deliberately does not.
+    /// Lifting the fingers clears the mark and the floor, both visible on the
+    /// very next frame: a surviving mark starts the new swipe halfway up its own
+    /// ratchet, and a surviving floor silences its first click. The new swipe
+    /// is therefore given no room to breathe.
     private static func liftingTheFingersRearmsTheRatchet() {
         var hand = Hand()
         let first = hand.move(dx: 14, dy: 0.3, steps: 1)
@@ -335,8 +296,8 @@ enum GestureCheck {
 
     // MARK: The indicator
 
-    /// The lean is the swipe made visible: direction, growing travel, no banks
-    /// before the first detent.
+    /// The lean is the swipe made visible: direction, growing travel, and no
+    /// banked detents before the first one.
     private static func theLeanFollowsTheFingers() {
         var hand = Hand()
         var previous: CGFloat = 0
@@ -359,9 +320,8 @@ enum GestureCheck {
         require(left.lean?.direction == -1, "fingers moving left did not lean left")
     }
 
-    /// A gesture the threshold is going to refuse never leans — the visual
-    /// twin of `aDiagonalDragTicksNothing`: an indicator for a refused gesture
-    /// is a promise the recogniser has already declined to make.
+    /// A gesture the threshold will refuse never leans: the visual twin of
+    /// `aDiagonalDragTicksNothing`.
     private static func aRefusedAxisNeverLeans() {
         var vertical = Hand()
         for _ in 0..<10 {
@@ -375,9 +335,9 @@ enum GestureCheck {
         }
     }
 
-    /// Every click the hand has felt is banked in the lean the eye gets — the
-    /// two run on the same mark, so the stairs the sheet climbs are the stairs
-    /// the ratchet plays.
+    /// Every click the hand has felt is banked in the lean the eye gets. Both
+    /// run on the same mark, so the stairs the sheet climbs are the stairs the
+    /// ratchet plays.
     private static func theLeanBanksEachDetent() {
         var hand = Hand()
         var felt = 0
@@ -395,8 +355,8 @@ enum GestureCheck {
                 "the drive never climbed the whole ratchet: \(felt) clicks")
     }
 
-    /// A banked detent is a visible step in the pull, not just more travel —
-    /// the magnet's version of the click being a sensation rather than a slope.
+    /// A banked detent is a visible step in the magnet's pull, not just more
+    /// travel, matching the click being a sensation rather than a slope.
     private static func theMagnetClimbsTheRatchet() {
         for progress in stride(from: CGFloat(0.3), through: 1.0, by: 0.1) {
             let unbanked = SwipeRecogniser.magnet(
@@ -409,9 +369,9 @@ enum GestureCheck {
         }
     }
 
-    /// Once the gesture has fired, the indicator is done: the surge is the
-    /// commit's voice, and a lean that survived it would promise a second
-    /// gesture the recogniser has already refused for this touch.
+    /// Once the gesture has fired the indicator is done. The surge is the
+    /// commit's voice, and a surviving lean would promise a second gesture the
+    /// recogniser has already refused for this touch.
     private static func aFiredGestureStopsLeaning() {
         var hand = Hand()
         require(hand.move(dx: 14, dy: 0, steps: 6).action == .skipForward,
@@ -432,7 +392,7 @@ enum GestureCheck {
     }
 
     /// The magnet stays on the visible rim and under the scrub's pull at every
-    /// reachable state — the scrub is the one gesture allowed to out-pull it,
+    /// reachable state. The scrub is the one gesture allowed to out-pull it,
     /// because there the hand is on the surface itself.
     private static func theMagnetStaysOnTheRim() {
         for direction in [CGFloat(-1), 1] {
@@ -450,17 +410,16 @@ enum GestureCheck {
         }
     }
 
-    /// A stray two-finger drift is sub-visible on both surfaces. Every scroll
-    /// that merely passes over the notch produces a few points of horizontal
-    /// travel, and an indicator that answers it makes the notch flinch at
-    /// traffic.
+    /// A stray two-finger drift must be near-invisible on both surfaces: a
+    /// scroll that merely passes over the notch produces a few points of
+    /// horizontal travel, and an indicator that answers it would make the notch
+    /// flinch at traffic.
     ///
-    /// Two claims, because the first cannot hold the gate alone: the slopes
-    /// are small enough that 3pt stays sub-half-point even ungated. The gate's
-    /// own signature is the CONTRAST — the ramp opens over the first tenth of
-    /// the threshold, so the indicator more than quadruples between 2pt and
-    /// 6pt of travel, where a bare linear slope only triples. Dropping the
-    /// gate from either surface flattens that ratio to 3 and fails here.
+    /// Two claims, since the small slopes alone keep 3 pt sub-half-point even
+    /// without a gate. The gate's signature is the contrast: the ramp opens over
+    /// the first tenth of the threshold, so the indicator more than quadruples
+    /// between 2 pt and 6 pt, where a bare linear slope only triples. Dropping
+    /// the gate from either surface flattens the ratio to 3 and fails here.
     private static func theOnsetGateSwallowsAStray() {
         var stray = Hand()
         _ = stray.move(dx: 1.5, dy: 0.05, steps: 2)
@@ -498,9 +457,9 @@ enum GestureCheck {
         }
     }
 
-    /// End to end: real deltas, through the recogniser, out the chrome rule.
-    /// The sheet goes the way the fingers go, further the further they travel,
-    /// and visibly by the time the swipe is near its commit.
+    /// End to end: real deltas through the recogniser and out the chrome rule.
+    /// The sheet goes the way the fingers go, further as they travel, and
+    /// visibly by the time the swipe is near its commit.
     private static func theSheetLeansTheWayTheFingersGo() {
         for (dx, sign) in [(CGFloat(2), CGFloat(1)), (-2, -1)] {
             var hand = Hand()
@@ -524,7 +483,8 @@ enum GestureCheck {
     }
 
     /// The HUD never leans, whatever the swipe is doing: its meter fills its
-    /// flank to the padding, so any shift slides ink under the camera housing.
+    /// flank to the padding, so any shift would slide ink under the camera
+    /// housing.
     private static func theHudDoesNotLean() {
         for progress in stride(from: CGFloat(0.2), through: 1, by: 0.2) {
             for expanded in [false, true] {
@@ -540,10 +500,9 @@ enum GestureCheck {
 
     /// A hand on the trackpad: the recogniser plus the clock its deltas arrive on.
     ///
-    /// The clock is real time, not a step count, because the floor is the one
-    /// decision here that depends on it. Deltas advance it at the interval a
-    /// trackpad actually reports at, so "steps" and "milliseconds" stay in the
-    /// same relationship they have under a real finger.
+    /// The clock is real time rather than a step count because the rate floor
+    /// depends on it. Deltas advance it at the interval a trackpad reports at, so
+    /// steps and milliseconds keep the relationship they have under a finger.
     private struct Hand {
         /// A trackpad reports at about 120Hz.
         static let frame: TimeInterval = 0.008
