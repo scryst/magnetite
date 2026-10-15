@@ -257,7 +257,7 @@ struct NotchRootView: View {
                 LinearGradient(
                     stops: ChromeRules.rimStops(
                         expanded: expanded,
-                        hovering: controller.isMouseInside,
+                        hovering: controller.hoverWillOpen,
                         // The RESTING stroke, not the live `traceWidth`: the
                         // handoff is where the trace's cap can reach, and the
                         // rim must not slide up and down the silhouette every
@@ -1281,6 +1281,10 @@ private struct ArtistLine: View {
         .lineLimit(1)
         .fixedSize()
         .animation(.easeOut(duration: 0.12), value: hovered)
+        // Swapped for the marquee, or re-credited under the pointer, the
+        // highlight would otherwise stay on a name nobody is pointing at.
+        .onDisappear { hovered = nil }
+        .onChange(of: media.artistLine) { _, _ in hovered = nil }
     }
 
     var body: some View {

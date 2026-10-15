@@ -71,6 +71,9 @@ struct MarqueeText: View {
             }
             .onChange(of: showsScroller) { _, now in shifted = now }
             .onAppear { shifted = showsScroller }
+            // With Reduce Motion an overflowing line only truncates; the
+            // tooltip is then the one way to read all of it.
+            .help(overflow > 0 ? text : "")
     }
 
     /// Two zero-cost probes: the container's width, and the text's intrinsic width.
@@ -110,6 +113,8 @@ struct MarqueeText: View {
                         startPoint: .leading, endPoint: .trailing)
                 }
                 .allowsHitTesting(attributedText != nil)
+                // The base label already speaks this line; twice is noise.
+                .accessibilityHidden(true)
         }
     }
 }

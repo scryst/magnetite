@@ -30,6 +30,7 @@ final class SpotifyWeb {
         "user-read-playback-state", "user-modify-playback-state",
     ].joined(separator: " ")
     private static let tokenAccount = "spotify-refresh-token"
+    private static let requestTimeout: TimeInterval = 10
 
     /// A FIXED port, because the dashboard rejects the portless form.
     ///
@@ -457,6 +458,9 @@ final class SpotifyWeb {
         if !query.isEmpty { c.queryItems = query.map { .init(name: $0.key, value: $0.value) } }
         var request = URLRequest(url: c.url!)
         request.httpMethod = method
+        // The default is 60s, which left a heart press or a mode toggle
+        // hanging for a minute on a stalled network.
+        request.timeoutInterval = Self.requestTimeout
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         guard let (data, response) = try? await URLSession.shared.data(for: request) else {
             log("\(method) \(url): request failed")
@@ -481,7 +485,9 @@ final class SpotifyWeb {
         if status == 429 {
             let after = (response as? HTTPURLResponse)?
                 .value(forHTTPHeaderField: "Retry-After").flatMap(Double.init) ?? 5
-            notBefore = Date().addingTimeInterval(after)
+            // Capped: one huge value would switch Spotify features off until
+            // the next launch.
+            notBefore = Date().addingTimeInterval(min(max(after, 1), 120))
             log("\(method) \(url): 429, backing off \(Int(after))s")
         }
         // A request that worked is proof the complaint in the menu is over. It
@@ -612,6 +618,7 @@ final class SpotifyWeb {
     private func post(_ fields: [String: String]) async throws {
         var request = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = Self.requestTimeout
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = fields
             .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")" }
@@ -1042,11 +1049,22 @@ enum TokenStore {
         do {
             try fm.createDirectory(at: directory, withIntermediateDirectories: true,
                                    attributes: [.posixPermissions: 0o700])
+            // An existing directory keeps whatever mode it was made with.
+            try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
             let url = file(account)
-            try Data(value.utf8).write(to: url, options: [.atomic])
-            // Set after the write: an atomic write replaces the file, and with it
-            // any permissions the previous one carried.
-            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            // Born 0600, then swapped in: writing first and chmodding after left
+            // the new token world-readable for the moment in between.
+            let staging = directory.appendingPathComponent(".\(account).\(UUID().uuidString)")
+            guard fm.createFile(atPath: staging.path, contents: Data(value.utf8),
+                                attributes: [.posixPermissions: 0o600]) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            if fm.fileExists(atPath: url.path) {
+                _ = try fm.replaceItemAt(url, withItemAt: staging,
+                                         options: .usingNewMetadataOnly)
+            } else {
+                try fm.moveItem(at: staging, to: url)
+            }
         } catch {
             FileHandle.standardError.write(Data(
                 "[spotify] could not store the token: \(error.localizedDescription)\n".utf8))

@@ -52,6 +52,7 @@ final class NotchController {
     }
     var isVisible = true
     var isMouseInside = false
+    var hoverWillOpen: Bool { isMouseInside }
     var isExpanded = false
     var hasMedia = true
     var notification: Notification = .none

@@ -37,6 +37,11 @@ final class NotchCoordinator {
     /// MacBook awake for hours.
     private static let settleAfterPause: Duration = .seconds(3)
     private var settleDeadline: ContinuousClock.Instant?
+    /// With the mini player off, capture outlives a close by this long, so the
+    /// ink drains with sound under it and a quick re-hover finds it live. A tap
+    /// torn down on every close also flickered the system's capture indicator.
+    private static let holdAfterClose: Duration = .seconds(3)
+    private var closeHoldDeadline: ContinuousClock.Instant?
     private var wasPlaying = false
     private var lastSurgedToken = -1
     private var systemHidden = false
@@ -128,6 +133,13 @@ final class NotchCoordinator {
             controller.onExpansionChange = { [weak self] open in
                 guard let self else { return }
                 self.fluid.setOpen(open || self.anyExpanded)
+                if !open, !self.anyExpanded {
+                    self.closeHoldDeadline = .now + Self.holdAfterClose
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: Self.holdAfterClose)
+                        self?.syncLiveActivity()
+                    }
+                }
                 // Capture is gated on `anyExpanded` when the retracted strip is
                 // off, and this is the only place expansion changes — without
                 // it the panel opens onto a visualiser nothing ever restarted.
@@ -140,15 +152,14 @@ final class NotchCoordinator {
             hosting.hitRegion = { [weak controller] in
                 guard let controller else { return .zero }
                 let s = controller.currentSize
-                // Pad below the silhouette: the seek strip hangs past the shell's
-                // bottom edge, and without this the hit test rejected the very
-                // pixels you have to aim at to grab the progress line.
-                let below: CGFloat = controller.isExpanded ? 22 : 0
-                let side: CGFloat = controller.isExpanded ? 20 : 2
-                return CGRect(x: (panelSize.width - s.width) / 2 - side,
-                              y: panelSize.height - s.height - below,
-                              width: s.width + side * 2,
-                              height: s.height + below)
+                // Exactly the drawn shell. The seek strip now sits inside it
+                // (`ChromeRules.seekStripHeight`), so the old 22pt below and 20pt
+                // per side only swallowed clicks meant for the window beneath.
+                // Keeping the panel open is the hover zone's job, not this one.
+                return CGRect(x: (panelSize.width - s.width) / 2,
+                              y: panelSize.height - s.height,
+                              width: s.width,
+                              height: s.height)
             }
 
             panel.contentView = hosting
@@ -547,9 +558,10 @@ final class NotchCoordinator {
         wasPlaying = media.isPlaying
         let settling = settleDeadline.map { ContinuousClock.now < $0 } ?? false
         let onScreen = !systemHidden && hosts.values.contains { $0.controller.isVisible }
+        let holding = closeHoldDeadline.map { ContinuousClock.now < $0 } ?? false
         let captureActive = media.hasTrack && onScreen
             && (media.isPlaying || settling)
-            && (settings.enableNowPlaying || anyExpanded || anyHovered)
+            && (settings.enableNowPlaying || anyExpanded || anyHovered || holding)
         if captureActive, !audioAttached {
             audioAttached = true
             audio.addConsumer()
