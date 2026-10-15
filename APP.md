@@ -44,11 +44,9 @@ from.
   across the sides — which left the right edge unlocatable against a dark window
   title bar while it stayed obvious against the light desktop below. An edge
   that exists only where the backdrop is brighter is the backdrop's edge.
-- **The sleeve's edge is the tile's own thickness.** An opaque bevel and the
-  line it shadows onto the print, both inside the artwork's footprint. It was a
-  white hairline drawn ON the cover, and a stroke with alpha over an image takes
-  its contrast from the image: invisible on a pale sleeve, a hard bright seam on
-  a black one. The tile's edge is not the album's to decide.
+- **The cover itself is the tile.** Rounded corners, with no bevel, ring, black
+  line or matte around the print, including the 19pt closed-strip thumbnail.
+  The large cover keeps its lift shadow; dark covers keep a small brightness lift.
 - **The window never resizes.** It is created once at full size; every morph is
   SwiftUI interpolating the shape inside it. Resizing an `NSWindow` per frame is
   the main source of jank in notch apps.
@@ -220,10 +218,11 @@ that chain**: inside it the blur erodes convex corners before the threshold
 restores them, which at zero margin let panel colour through the cutout's bottom
 corners.
 
-Zero margin is deliberate. The resting ink *is* the cutout, so colour begins on
-the line the housing ends on. Retracted, the ink layer is clipped to the menu-bar
-band and only the sideways component of the warp is allowed, because that space
-belongs to browser tabs and window chrome.
+Zero margin is deliberate. The resting ink *is* the cutout. Retracted, its outline
+stays still even when the 50pt flanks are visible; deformation grows continuously
+with openness. The combined glass and cover wash has a radial black core around
+the camera, fading into colour outside it. The clip keeps every state inside the
+menu-bar band while closed, clear of browser tabs and window chrome.
 
 The drive is a **per-band z-score** against a 2.5s baseline, not the raw level.
 Music sits at 0.5–0.8 forever, so keying off absolute loudness pinned every site
@@ -243,10 +242,9 @@ Built from the cover's palette as two counter-rotating `MeshGradient` layers at
   identical colours, and a gradient built from those has nothing to animate
   *between* — the field moves but you can't see it. `ArtworkPalette.spread`
   fans hue and brightness apart where the source doesn't supply enough variation.
-- **Black across the cutout band only.** The notch is a hole in the display;
-  nothing can be drawn there, so the only way to hide it is for its band to be
-  black — which also matches the menu bar either side. A radial halo *around*
-  the housing (tried, discarded) makes it more obvious, not less.
+- **Black at the cutout, colour outside it.** A radial transparency mask on the
+  combined glass and wash reveals the shell's pure black core around the camera.
+  This is a colour falloff, not a luminous halo outlining the housing.
 
 Measured frame-to-frame delta went from ~1.0/255 (invisible) to 2.1–5.1 per
 0.35s after the spread fix.
@@ -279,6 +277,24 @@ Spotify Web API account supplies library membership and save/remove operations
 through `SpotifyWeb`. `MediaManager` checks delayed membership reads against the
 current query generation, player and track before displaying the result. Spotify
 library features require that Web API connection.
+
+Artist names are individual links inside the existing artist marquee. A connected
+Spotify account supplies the track endpoint's full `artists[]` and artist IDs;
+without an answer, the local player's primary name remains and opens a search.
+Apple Music credits come only from comma, spaced `&`, and `feat.`/`featuring`
+conventions in its artist field. This is a heuristic: a group name containing
+those separators cannot be distinguished from a collaboration by that field alone.
+On click, a unique exact Apple catalog artist match opens its page; failed or
+ambiguous matches fall back to Music search. No extra account grant is requested.
+
+For fixture screenshots, run `tools/snapshot /path/to/proof/after`. It compiles
+the actual SwiftUI views with inert media, controller and simulation fixtures;
+no app is launched and no live player, preference, credential or audio services
+are linked. An optional second argument reads UI sources from the baseline,
+for example `tools/snapshot /path/to/proof/before 1c76df8`. The baseline must fail
+the paired-frame closed-camera and cover-edge pixel checks; current source must
+pass. Liquid Glass, symbol effects, animation, native link routing, pointer hit
+testing and VoiceOver still require live-app verification.
 
 ## Not built
 

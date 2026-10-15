@@ -1,0 +1,62 @@
+#!/usr/bin/python3 -I
+"""Render real SwiftUI views linked ONLY to inert fixtures, without opening windows.
+
+Usage: tools/snapshot OUTPUT [REVISION]
+Optional revision supplies the old UI sources for before/after comparison.
+This is a rasterizer, not an alternative launcher for the app's check suites.
+"""
+import base64
+from pathlib import Path
+import subprocess
+import sys
+
+repo = Path(__file__).resolve().parent.parent
+destination = Path(sys.argv[1]).resolve()
+build = repo / ".build/checks"
+build.mkdir(parents=True, exist_ok=True)
+merged = build / "SnapshotView.swift"
+def source(path):
+    if len(sys.argv) > 2:
+        return subprocess.check_output(["git", "show", f"{sys.argv[2]}:{path}"], cwd=repo, text=True)
+    return (repo / path).read_text()
+
+merged.write_text(source("Sources/NotchApp/UI/NotchView.swift")
+                  + "\n" + (repo / "tools/snapshot.swift").read_text())
+paths = ["UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
+         "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift", "Support/ViewState.swift",
+         "Media/ArtworkPalette.swift"]
+sources = []
+for path in paths:
+    copied = build / ("Snapshot" + Path(path).name)
+    copied.write_text(source("Sources/NotchApp/" + path))
+    sources.append(copied)
+# Reuse pure credit formatting, excluding the network resolver and media bridge.
+credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
+pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]
+credit_source = build / "SnapshotCredits.swift"
+credit_source.write_text("import Foundation\n" + pure + "}\n")
+sources += [credit_source, repo / "tools/snapshot-doubles.swift"]
+subprocess.run(["swiftc", "-parse-as-library", "-module-cache-path", str(build / "ModuleCache"),
+                "-target", "arm64-apple-macosx26.0",
+                *map(str, sources), str(merged), "-o", str(build / "snapshot")],
+               cwd=repo, check=True)
+result = subprocess.run([str(build / "snapshot")],
+                        cwd=repo, check=True, capture_output=True, text=True)
+destination.mkdir(parents=True, exist_ok=True)
+count = 0
+checks = []
+for line in result.stdout.splitlines():
+    if line.startswith("SNAPSHOT "):
+        _, name, data = line.split(" ", 2)
+        (destination / (name + ".png")).write_bytes(base64.b64decode(data, validate=True))
+        count += 1
+    elif line.startswith("RENDER_CHECK "):
+        _, name, passed = line.split()
+        checks.append(passed == "true")
+        print(f"{name}: {passed}")
+if count != 10:
+    sys.exit(f"expected ten snapshots, got {count}: {result.stderr}")
+expected = len(sys.argv) == 2
+if len(checks) != 3 or any(passed != expected for passed in checks):
+    sys.exit("render regression: expected current source to pass, baseline source to fail")
+print(f"Saved {count} fixture PNGs to {destination}")
