@@ -1,13 +1,13 @@
-## Change
+## What changed
 
-Describe the user-visible problem and resulting behavior.
+Describe the problem and what users will see now.
 
-## Verification
+## Testing
 
-- [ ] `./check.sh` passes (or explain what could not run).
-- [ ] Focused regression coverage for changed logic.
-- [ ] Real before/after captures for visual changes; website checked at 1280px
-      and 390px, by keyboard and with Reduce Motion.
-- [ ] No credentials, personal data, unrelated changes or release artifacts.
+- [ ] `./check.sh` passes (or say what couldn't run).
+- [ ] New or updated tests for changed logic.
+- [ ] Before/after screenshots for visual changes; website checked at 1280px
+      and 390px, by keyboard and with Reduce Motion on.
+- [ ] No credentials, personal data, unrelated changes or release files.
 
-List any remaining limits. Link the issue if there is one.
+Note anything you couldn't test, and link the issue if there is one.

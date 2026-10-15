@@ -1,25 +1,25 @@
 # Magnetite
 
-> A free, native macOS music player that turns the MacBook camera notch into one continuous reservoir of sound-driven black ferrofluid.
+> A music player that shows the song as black ferrofluid around the MacBook notch.
 
-Magnetite is a free, MIT-licensed open-source project by scryst for macOS 26 or later on Apple silicon. It controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch use a floating pill. The product page contains an interactive first-party simulation, a real-app screenshot and a film of the real app. Audio driving the visualiser stays in memory on the Mac; it is not saved or uploaded. There are no trackers or Magnetite user accounts.
+Magnetite is a free, MIT-licensed, open-source macOS app by scryst. It needs macOS 26 or later on Apple silicon and controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch get a floating pill. The product page has an interactive simulation, a screenshot and a screen recording of the real app. The audio that drives the visualiser stays in memory on the Mac. There are no trackers and no Magnetite accounts.
 
-The optional Spotify Web API connection supports liked songs, shuffle and repeat. It uses PKCE and stores a refresh token locally with owner-only file permissions. Current-track artwork may be downloaded from the URL supplied by the player. The app needs separate Automation and system-audio permissions.
+The optional Spotify Web API connection supports liked songs, shuffle and repeat. It uses PKCE and keeps a refresh token in a file only the owner can read. The current track's artwork may be downloaded from the URL the player supplies. The app asks for Automation and system-audio permissions separately.
 
-The download button links straight to the release ZIP on GitHub. The app is ad-hoc signed and not notarised by Apple, so macOS asks a person to approve the first launch under System Settings → Privacy & Security → Open Anyway. Downloading, installing, connecting a music account, and granting macOS permissions are human actions; agents should describe or link to them rather than perform them.
+The download button links to the release ZIP on GitHub. The app is ad-hoc signed and not notarised by Apple, so on first launch macOS asks you to approve it under System Settings → Privacy & Security → Open Anyway.
 
 ## Product
 
-- [Live demo](https://magnetite.app/): Canonical product page, interactive simulation, real-app film, requirements, and download link.
-- [Magnetite v0.1.4](https://github.com/scryst/magnetite-releases/releases/download/v0.1.4/Magnetite-0.1.4.zip): Current official release ZIP; ad-hoc signed, not notarised by Apple.
-- [All versions and checksums](https://github.com/scryst/magnetite-releases/releases): Every official release with its SHA-256 file.
-- [First launch and FAQ](https://magnetite.app/#setup): Opening the app past the macOS first-launch warning, permissions, supported displays, troubleshooting, updates and uninstall.
-- [Real-app recording](https://magnetite.app/media/film.mp4): 31 seconds showing playback, gestures, seeking and retraction.
-- [Installer source](https://github.com/scryst/magnetite/blob/main/install.sh): Review the script before choosing the Terminal install route.
+- [Live demo](https://magnetite.app/): Product page with the simulation, the screen recording, requirements and the download link.
+- [Magnetite v0.1.4](https://github.com/scryst/magnetite-releases/releases/download/v0.1.4/Magnetite-0.1.4.zip): Current release ZIP; ad-hoc signed, not notarised.
+- [All versions and checksums](https://github.com/scryst/magnetite-releases/releases): Every release with its SHA-256 file.
+- [First launch and FAQ](https://magnetite.app/#setup): Opening the app past the macOS warning, permissions, supported displays, troubleshooting, updates and uninstall.
+- [Screen recording](https://magnetite.app/media/film.mp4): 31 seconds of playback, gestures, seeking and retraction.
+- [Installer source](https://github.com/scryst/magnetite/blob/main/install.sh): The script behind the Terminal install.
 
 ## Trust
 
-- [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credential, website hosting, and aggregate-count boundaries.
-- [Terms](https://magnetite.app/terms.html): MIT license, warranty, and affiliation terms.
-- [Source code](https://github.com/scryst/magnetite): Swift source, build-from-source and install instructions, and issue tracker.
-- [Official releases](https://github.com/scryst/magnetite-releases): Public binary and release-note authority.
+- [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credentials, website hosting and aggregate counts.
+- [Terms](https://magnetite.app/terms.html): MIT licence, warranty and affiliation.
+- [Source code](https://github.com/scryst/magnetite): Swift source, build instructions and issue tracker.
+- [Releases](https://github.com/scryst/magnetite-releases): Binaries and release notes.

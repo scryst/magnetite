@@ -23,21 +23,21 @@ Prefer to skip the warning? [Read the installer](https://github.com/scryst/magne
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
-The installer checks the published SHA-256 and code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. Those checks show the file is intact, not that Apple has reviewed it. Run it again to update.
+The installer checks the published SHA-256 and code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. The checksum and signature confirm the download is intact; Apple hasn't reviewed it. Run it again to update.
 
 ## See what it does
 
-These are frames from the [31-second recording of the real app](https://magnetite.app/media/film.mp4), not interface mockups. Follow a frame to watch the behaviour.
+These frames come from a [31-second screen recording](https://magnetite.app/media/film.mp4). Click one to play that part.
 
 ### Music becomes liquid
 
-One black surface responds to system audio around familiar playback controls.
+The black outline around the notch moves with whatever your Mac is playing.
 
 <a href="https://magnetite.app/media/film.mp4#t=0,6"><img src="site/media/app-open.webp" width="520" alt="Expanded player with ferrofluid responding around the notch"></a>
 
-### Every artist, one click away
+### Credited artists
 
-Featured artists show alongside the lead ("A, B & C"), and each name opens that artist in Spotify or Music. Connected Spotify uses its catalog credits; Apple Music uses the collaborations named in its artist field. Anything unresolved opens a search.
+Featured artists show alongside the lead ("A, B & C"), and each name opens that artist in Spotify or Music. Connected Spotify uses its catalogue credits; Apple Music uses the collaborations named in its artist field. Anything unresolved opens a search.
 
 ### Skip with a swipe
 
@@ -74,7 +74,7 @@ No Magnetite account, analytics, telemetry or crash reporter. Audio is processed
 - **Artwork downloads:** fetches the current cover from the URL supplied by the music player, then uses its colours in the interface.
 - **Optional Spotify connection:** `user-library-read` and `user-library-modify` read/save/remove liked tracks; `user-read-playback-state` and `user-modify-playback-state` support shuffle/repeat; `user-read-private` checks account capability before offering those controls.
 
-Spotify authorization uses PKCE, without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. Spotify receives authorized API requests; artwork hosts receive image requests. [Full privacy details](https://magnetite.app/privacy.html).
+Spotify authorization uses PKCE, without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. [Full privacy details](https://magnetite.app/privacy.html).
 
 ## FAQ and troubleshooting
 
@@ -95,7 +95,7 @@ Open Spotify or Music and start a track on this Mac. Check the selected music so
 <details>
 <summary><b>Do I need to connect Spotify?</b></summary>
 
-Not for everyday listening: play, pause, skip, seek and the visualiser work with the Spotify desktop app, and Apple Music needs nothing extra. Liked songs, shuffle and repeat need a free Spotify developer app of your own, which takes a few minutes. To connect, choose **Connect Spotify Library…**, create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard) with **Web API** and redirect URI `http://127.0.0.1:8888/callback`, then enter its Client ID. Spotify's current developer-account restrictions apply. Apple Music favourites need no Spotify setup.
+Not for everyday listening: play, pause, skip, seek and the visualiser work with the Spotify desktop app, and Apple Music needs nothing extra. Liked songs, shuffle and repeat need a free Spotify developer app of your own, which takes a few minutes. To connect, choose **Connect Spotify Library…**, create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard) with **Web API** and redirect URI `http://127.0.0.1:8888/callback`, then enter its Client ID. Apple Music favourites need no Spotify setup.
 
 </details>
 
@@ -128,7 +128,7 @@ To build and install into Applications instead, use `./install.sh --from-source`
 
 ## Contributing
 
-[Bug reports and focused pull requests](CONTRIBUTING.md) are welcome. Read [PRODUCT.md](PRODUCT.md) before visual changes and [APP.md](APP.md) for the design and architecture. Run `./check.sh` before a PR; [engineering notes](docs/ENGINEERING.md) explain focused checks and release tooling. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+[Bug reports and focused pull requests](CONTRIBUTING.md) are welcome. [PRODUCT.md](PRODUCT.md) has the design principles and [APP.md](APP.md) explains how the app is built. Run `./check.sh` before a PR; [engineering notes](docs/ENGINEERING.md) explain focused checks and release tooling. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 ## Licence
 
