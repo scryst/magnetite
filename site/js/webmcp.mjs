@@ -9,7 +9,7 @@ function downloadInfo(documentRef) {
   const link = documentRef?.querySelector?.('[data-download]');
   const requirements = documentRef?.querySelector?.('[data-requires]');
   const url = String(link?.href || '');
-  const version = /\/releases\/tag\/v([0-9]+(?:\.[0-9]+){2})(?:$|[?#])/.exec(url)?.[1] || null;
+  const version = /\/releases\/(?:tag|download)\/v([0-9]+(?:\.[0-9]+){2})(?:$|[\/?#])/.exec(url)?.[1] || null;
   return {
     available: Boolean(url && version),
     version,
@@ -49,7 +49,7 @@ export function buildWebMcpTools({ documentRef = globalThis.document, windowRef 
     {
       name: 'magnetite_get_download',
       title: 'Get Magnetite Download',
-      description: 'Returns the exact GitHub Release page, build version, displayed requirements, and file size from the visible page without starting a download.',
+      description: 'Returns the exact GitHub Release download link, build version, displayed requirements, and file size from the visible page without starting a download.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       annotations,
       execute: async () => downloadInfo(documentRef)

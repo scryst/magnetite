@@ -644,8 +644,8 @@ const MUTANTS = {
   'floor-stale-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
-    to: '>Needs macOS 15 on Apple silicon. Free and open source, 617 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.',
+    to: '>Needs macOS 15 on Apple silicon. Free and open source, 617 KB.',
   },
   // A download button that carries no floor at all. Only the count assertion
   // can see this one — every line still present is still correct.
@@ -659,8 +659,8 @@ const MUTANTS = {
   'floor-unstated-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
-    to: '>Needs Apple silicon. Free and open source, 617 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.',
+    to: '>Needs Apple silicon. Free and open source, 617 KB.',
   },
   // The machine dropped instead. The floor is still right, so only the rule
   // that the line names hardware at all can see it — without that rule the
@@ -668,8 +668,8 @@ const MUTANTS = {
   'floor-line-names-no-machine': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>',
-    to: '>Needs macOS 26. Free and open source, 617 KB.</p>',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 617 KB.',
+    to: '>Needs macOS 26. Free and open source, 617 KB.',
   },
   // The notch stops being a download button, and every per-button assertion
   // after it would go quiet against a page that still ships one.
@@ -712,8 +712,29 @@ const MUTANTS = {
     check: DOWNLOAD,
     file: PAGE,
     all: true,
-    from: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.3',
-    to: 'https://github.com/scryst/magnetite-releases/releases/tag/v9.9.9',
+    from: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.3/Magnetite-0.1.3.zip',
+    to: 'https://github.com/scryst/magnetite-releases/releases/download/v9.9.9/Magnetite-9.9.9.zip',
+  },
+  // The button falls back to the release page, which is a page to decode
+  // rather than a download. Only the button, so the metadata still agrees.
+  'download-link-reverts-to-release-page': {
+    check: DOWNLOAD,
+    file: PAGE,
+    from: 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.3/Magnetite-0.1.3.zip"',
+    to: 'href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.3"',
+  },
+  // The way to older versions and the checksum files goes missing.
+  'all-versions-link-dropped': {
+    check: DOWNLOAD,
+    file: PAGE,
+    from: '>All versions and checksums</a>',
+    to: '>Older versions</a>',
+  },
+  'all-versions-link-points-nowhere': {
+    check: DOWNLOAD,
+    file: PAGE,
+    from: '<a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions',
+    to: '<a href="https://github.com/scryst/magnetite-releases/releases/latest" rel="external">All versions',
   },
   'release-link-loses-its-external-destination': {
     check: DOWNLOAD,
@@ -724,8 +745,8 @@ const MUTANTS = {
   'download-copy-reverts-to-release': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Download<span class="visually-hidden">, Magnetite v0.1.3 on GitHub</span>',
-    to: 'Release<span class="visually-hidden">, Magnetite v0.1.3 on GitHub</span>',
+    from: 'Download<span class="visually-hidden">, Magnetite v0.1.3 ZIP from GitHub</span>',
+    to: 'Release<span class="visually-hidden">, Magnetite v0.1.3 ZIP from GitHub</span>',
   },
   'structured-release-names-someone-else': {
     check: DOWNLOAD,
@@ -1351,8 +1372,34 @@ const MUTANTS = {
   'first-launch-note-loses-the-route': {
     check: FIRSTLAUNCH,
     file: PAGE,
-    from: '      approve it under System Settings › Privacy &amp; Security › Open Anyway.',
-    to: '      approve it under System Settings.',
+    from: '<li>Open System Settings → Privacy &amp; Security and scroll down to\n            Security. Click',
+    to: '<li>Open System Settings and scroll down to\n            Security. Click',
+  },
+  'first-launch-box-loses-open-anyway': {
+    check: FIRSTLAUNCH,
+    file: PAGE,
+    from: 'Click <b>Open Anyway</b> next to Magnetite, then confirm',
+    to: 'Click <b>Allow</b> next to Magnetite, then confirm',
+  },
+  // The steps stop being a list a first-timer can follow.
+  'first-launch-steps-are-no-longer-a-list': {
+    check: FIRSTLAUNCH,
+    file: PAGE,
+    from: '<li>Open the ZIP, drag Magnetite to Applications, then double-click it.</li>',
+    to: '<p>Open the ZIP, drag Magnetite to Applications, then double-click it.</p>',
+  },
+  // "Not notarised yet" promises a fix that is not coming.
+  'first-launch-promises-notarisation-yet': {
+    check: FIRSTLAUNCH,
+    file: PAGE,
+    from: 'You only do this once. Only open a download you trust.',
+    to: 'You only do this once. The app isn’t notarised yet.',
+  },
+  'readme-promises-notarisation-yet': {
+    check: FIRSTLAUNCH,
+    file: 'README.md',
+    from: 'You only do this once. Magnetite is ad-hoc signed and not notarised by Apple,',
+    to: 'You only do this once. Magnetite is ad-hoc signed and not notarised yet by Apple,',
   },
   // The film starts itself: a self-starting attribute takes the decision
   // away from site.js, which is the only place the motion preference is
@@ -2885,6 +2932,11 @@ function fresh(work) {
   cpSync(join(repo, ROBOTS), join(work, ROBOTS));
   cpSync(join(repo, SITEMAP), join(work, SITEMAP));
   cpSync(join(repo, LLMS), join(work, LLMS));
+  // The first-launch story is told on the README surfaces too, and the gate
+  // reads them for the word "yet".
+  cpSync(join(repo, 'README.md'), join(work, 'README.md'));
+  mkdirSync(join(work, 'docs'), { recursive: true });
+  cpSync(join(repo, 'docs', 'RELEASES-README.md'), join(work, 'docs', 'RELEASES-README.md'));
   cpSync(join(repo, PRIVACY), join(work, PRIVACY));
   cpSync(join(repo, TERMS), join(work, TERMS));
   mkdirSync(join(work, dirname(SECURITY)), { recursive: true });

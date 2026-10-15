@@ -65,12 +65,12 @@
   "isAccessibleForFree": true,
   "featureList": [
     "Native notch music controls",
-    "Ferrofluid visualizer driven by system audio",
+    "Ferrofluid visualiser driven by system audio",
     "Spotify and Apple Music playback",
     "On-device audio processing with no tracking"
   ],
   "author": { "@type": "Person", "name": "scryst" },
-  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/tag/v0.1.3",
+  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/download/v0.1.3/Magnetite-0.1.3.zip",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 </script>
@@ -403,26 +403,42 @@ try {
         <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
         <img class="band__sleeve" src="media/cover-chrome-funk.webp" alt="" width="36" height="36" hidden>
         <a class="notch-link" data-download rel="external"
-           href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.3"
-           aria-describedby="requires first-launch">Download<span class="visually-hidden">, Magnetite v0.1.3 on GitHub</span></a>
+           href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.3/Magnetite-0.1.3.zip"
+           aria-describedby="requires first-launch-title">Download<span class="visually-hidden">, Magnetite v0.1.3 ZIP from GitHub</span></a>
       </div>
-      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 617 KB.</p>
+      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 617 KB.
+        To check, open Apple menu → About This Mac. It should say Chip Apple M… and macOS 26.</p>
+      <p class="get__all"><a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions and checksums</a></p>
+      <!-- The zip is ad-hoc signed, not notarised, so macOS blocks the first
+           launch once. The dialog offers no way forward, so this box says
+           where Open Anyway lives. portcheck reads the zip for a stapled
+           ticket and requires this box exactly while the Gatekeeper dialog
+           will appear. -->
+      <div class="get__first" data-firstlaunch id="first-launch">
+        <h3 id="first-launch-title">Opening it the first time</h3>
+        <ol>
+          <li>Open the ZIP, drag Magnetite to Applications, then double-click it.</li>
+          <li>macOS says it can’t verify Magnetite. That’s expected for a free
+            app that isn’t in Apple’s paid programme. Click <b>Done</b>.</li>
+          <li>Open System Settings → Privacy &amp; Security and scroll down to
+            Security. Click <b>Open Anyway</b> next to Magnetite, then confirm
+            with Touch ID or your password.</li>
+          <li>Look for the <b>M</b> in the menu bar. Play something in Spotify
+            or Music and hover the notch. Allow the two permission prompts: one
+            to control Spotify or Music, one to record system audio for the
+            visualiser.</li>
+        </ol>
+        <p>You only do this once. Only open a download you trust.</p>
+      </div>
       <!-- The installer fetches the same release with curl, which does not
            quarantine, so the app opens on the first try. One click selects the
            whole command. -->
       <div class="get__install" id="install">
-        <p>Or install it from Terminal:</p>
+        <p>Prefer to skip the warning? Paste this into Terminal (Spotlight → Terminal):</p>
         <code class="install">curl -fsSL <span class="install__tail">https://magnetite.app/install.sh | sh</span></code>
+        <p class="get__aside">It checks the download’s checksum and signature first.
+          That shows the file is intact, not that Apple has reviewed it.</p>
       </div>
-      <!-- Only while the served zip is unnotarised: portcheck reads the zip for
-           the stapled ticket and requires this paragraph exactly when the
-           Gatekeeper dialog will appear. -->
-      <p class="get__note" data-firstlaunch id="first-launch">
-        The zip isn’t notarised yet, so macOS blocks its first launch once:
-        approve it under System Settings › Privacy &amp; Security › Open Anyway.
-        Only approve a download you trust. The Terminal install skips browser
-        quarantine; its checksum and signature checks do not establish notarisation.
-      </p>
       <p class="get__help"><a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>
         · <a href="#setup">First launch &amp; FAQ</a></p>
     </div>
@@ -439,6 +455,23 @@ try {
     <div class="setup__faq">
       <h3>Before you press play</h3>
       <details>
+        <summary>macOS says it can’t open Magnetite</summary>
+        <p>That’s expected on the first launch. Magnetite is free and not in
+          Apple’s paid programme, so macOS can’t verify it. You can still open
+          it, once:</p>
+        <ol>
+          <li>Double-click Magnetite in Applications, then click <b>Done</b>.</li>
+          <li>Open System Settings → Privacy &amp; Security and scroll down to
+            Security.</li>
+          <li>Click <b>Open Anyway</b> next to Magnetite and confirm with Touch
+            ID or your password.</li>
+          <li>Open Magnetite again and allow its two permission prompts.</li>
+        </ol>
+        <p>Right-click → Open no longer works on macOS 15 and later. Prefer to
+          skip all this? Paste the Terminal line from the <a href="#install">download section</a>.
+          Only open a download you trust.</p>
+      </details>
+      <details>
         <summary>What permissions does it need?</summary>
         <p>Automation lets Magnetite read and control Spotify or Music through
           Apple Events. System audio recording drives the visualiser: audio is
@@ -449,10 +482,13 @@ try {
       </details>
       <details>
         <summary>Do I have to connect a Spotify account?</summary>
-        <p>Basic playback works with the Spotify desktop app. The optional
-          “Connect Spotify Library…” setting adds liked songs and Web API
-          controls such as shuffle and repeat. Apple Music favourites work
-          without this setup.</p>
+        <p>Not for everyday listening. Play, pause, skip, seek and the liquid
+          work with the Spotify desktop app, and Apple Music needs nothing
+          extra, favourites included.</p>
+        <p>Liked songs, shuffle and repeat need a free Spotify developer app of
+          your own. It takes a few minutes: the steps are in the
+          <a href="https://github.com/scryst/magnetite#faq-and-troubleshooting" rel="external">README</a>.
+          Then choose “Connect Spotify Library…” in the M menu.</p>
       </details>
       <details>
         <summary>Will it work without a notch?</summary>

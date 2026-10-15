@@ -635,8 +635,28 @@ html[data-journey="on"] { overflow-anchor: none; }
 .band[data-print="none"] .notch-link { top: 0; }
 
 .get__requires { margin: 4vh var(--gutter) 0; color: var(--ink-soft); font-size: 15px; }
-.get__install { margin: 34px var(--gutter) 0; }
+.get__all { margin: 6px var(--gutter) 0; font-size: 14px; }
+.get__all a { text-underline-offset: 3px; }
+/* The numbered first-launch steps, set as a quiet card under the download. */
+.get__first {
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--gutter));
+  max-width: 560px;
+  margin: 26px auto 0;
+  padding: 18px 22px 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.get__first h3 { margin: 0 0 8px; font: 600 16px/1.3 var(--sans); }
+.get__first ol { margin: 0; padding-left: 1.4em; }
+.get__first li { margin: 0 0 7px; padding-left: 2px; text-wrap: pretty; }
+.get__first p { margin: 10px 0 0; color: var(--ink-soft); font-size: 14px; }
+.get__install { margin: 26px var(--gutter) 0; }
 .get__install p { margin: 0 0 10px; color: var(--ink-soft); font-size: 15px; }
+.get__install .get__aside { max-width: 52ch; margin: 12px auto 0; font-size: 14px; text-wrap: pretty; }
 .install {
   display: inline-block;
   max-width: 100%;
@@ -649,14 +669,6 @@ html[data-journey="on"] { overflow-anchor: none; }
 }
 /* Breaks only after -fsSL. Real spaces, so a copied command still runs. */
 .install__tail { white-space: nowrap; }
-.get__note {
-  max-width: 52ch;
-  margin: 28px auto 0;
-  padding: 0 var(--gutter);
-  color: var(--ink-soft);
-  font-size: 14px;
-  text-wrap: pretty;
-}
 .get__help { margin: 18px var(--gutter) 0; font-size: 14px; }
 .get__help a { text-underline-offset: 3px; }
 
@@ -676,6 +688,8 @@ html[data-journey="on"] { overflow-anchor: none; }
 .setup details { border-bottom: 1px solid rgb(34 32 34 / 0.25); }
 .setup summary { padding: 18px 0; cursor: pointer; font-weight: 550; }
 .setup details p { font-size: 16px; margin: 0 0 18px; }
+.setup details ol { max-width: 60ch; margin: 0 0 18px; padding-left: 1.4em; color: var(--ink-soft); font-size: 16px; }
+.setup details li { margin: 0 0 6px; }
 .setup a { text-underline-offset: 3px; }
 @media (max-width: 719px) {
   .setup { grid-template-columns: 1fr; gap: 24px; margin-top: 8vh; }

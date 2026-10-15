@@ -4,27 +4,30 @@ Free, open-source Spotify and Apple Music controls in your MacBook notch, with f
 
 [![Magnetite playing Chrome Funk: album art, playback controls and a liquid outline around the camera notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4)
 
-[![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT licence](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
 
 ## Install
 
-**[Download the latest release](https://github.com/scryst/magnetite-releases/releases/latest)**, unzip it, and drag **Magnetite.app** into Applications.
+**[Download the latest release](https://github.com/scryst/magnetite-releases/releases/latest)** (or [all versions and checksums](https://github.com/scryst/magnetite-releases/releases)), then open it the first time like this:
 
-The current build is ad-hoc signed and **not Apple-notarised**. After trying to open it, approve it in **System Settings → Privacy & Security → Open Anyway**, only if you trust the download.
+1. Open the ZIP, drag **Magnetite** to Applications, then double-click it.
+2. macOS says it can't verify Magnetite. That's expected for a free app that isn't in Apple's paid programme. Click **Done**.
+3. Open **System Settings → Privacy & Security** and scroll down to **Security**. Click **Open Anyway** next to Magnetite, then confirm with Touch ID or your password.
+4. Look for the **M** in the menu bar. Play something in Spotify or Music and hover the notch. Allow the two permission prompts: one to control Spotify or Music, one to record system audio for the visualiser.
 
-Or [read the installer](install.sh), then run it in Terminal:
+You only do this once. Magnetite is ad-hoc signed and not notarised by Apple, so only open a download you trust. On macOS 15 and later, right-click → Open no longer skips the warning.
+
+Prefer to skip the warning? [Read the installer](https://github.com/scryst/magnetite/blob/main/install.sh), then paste this into Terminal (Spotlight → Terminal):
 
 ```sh
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
-The installer checks the published SHA-256 and code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. Those checks verify integrity, not Apple notarisation. Run it again to update.
-
-Start music in Spotify or Music, then **hover the notch**. The **M** in the menu bar holds settings and Quit.
+The installer checks the published SHA-256 and code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. Those checks show the file is intact, not that Apple has reviewed it. Run it again to update.
 
 ## See what it does
 
-These are frames from the [31-second recording of the real app](https://magnetite.app/media/film.mp4), not interface mockups. Follow a frame to watch the behavior.
+These are frames from the [31-second recording of the real app](https://magnetite.app/media/film.mp4), not interface mockups. Follow a frame to watch the behaviour.
 
 ### Music becomes liquid
 
@@ -58,7 +61,7 @@ Film: [Punch Deck](https://punchdeck.bandcamp.com)'s “Chrome Funk,” “Cyber
 
 ## Requirements
 
-- **macOS 26 or later, Apple silicon.** Intel Macs and earlier macOS versions are unsupported.
+- **macOS 26 or later, Apple silicon.** Intel Macs and earlier macOS versions are unsupported. To check, open Apple menu → About This Mac: it should say Chip Apple M… and macOS 26.
 - **Spotify or Apple Music desktop app** for playback controls. The visualiser responds to system audio.
 - A notched MacBook is the intended home. Displays without a notch use a floating pill.
 
@@ -78,7 +81,7 @@ Spotify authorization uses PKCE, without a client secret. Its refresh token is k
 <details>
 <summary><b>macOS blocked the first launch. What now?</b></summary>
 
-For a ZIP from the official Releases page, try opening the app, then use **System Settings → Privacy & Security → Open Anyway**. The current build is not notarised. The Terminal installer downloads with `curl`, which does not add browser quarantine; it still checks the checksum and code signature. You do not need to disable Gatekeeper system-wide.
+Follow the numbered steps under [Install](#install): double-click the app, click **Done**, then use **System Settings → Privacy & Security → Open Anyway**. The build is not notarised by Apple, which is why macOS asks. The Terminal installer downloads with `curl`, which does not add browser quarantine; it still checks the checksum and code signature. You do not need to disable Gatekeeper system-wide.
 
 </details>
 
@@ -92,7 +95,7 @@ Open Spotify or Music and start a track on this Mac. Check the selected music so
 <details>
 <summary><b>Do I need to connect Spotify?</b></summary>
 
-Only for library and additional Web API controls. Basic playback uses the desktop app. To connect, choose **Connect Spotify Library…**, create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard) with **Web API** and redirect URI `http://127.0.0.1:8888/callback`, then enter its Client ID. Spotify's current developer-account restrictions apply. Apple Music favourites need no Spotify setup.
+Not for everyday listening: play, pause, skip, seek and the visualiser work with the Spotify desktop app, and Apple Music needs nothing extra. Liked songs, shuffle and repeat need a free Spotify developer app of your own, which takes a few minutes. To connect, choose **Connect Spotify Library…**, create an app in the [Spotify developer dashboard](https://developer.spotify.com/dashboard) with **Web API** and redirect URI `http://127.0.0.1:8888/callback`, then enter its Client ID. Spotify's current developer-account restrictions apply. Apple Music favourites need no Spotify setup.
 
 </details>
 

@@ -1161,13 +1161,22 @@ function theDownloadLinkPointsAtARealBuild() {
   const plist = readFileSync(join(root, 'Resources', 'Info.plist'), 'utf8');
   const version = /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(plist);
   require(version, 'could not find CFBundleShortVersionString in Info.plist');
-  const named = `Download<span class="visually-hidden">, Magnetite v${version[1]} on GitHub</span>`;
+  const named = `Download<span class="visually-hidden">, Magnetite v${version[1]} ZIP from GitHub</span>`;
   require(new RegExp(`data-download[^>]*>\\s*${named.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}`).test(page),
     `the primary call to action does not plainly say Download for v${version[1]}`);
 
-  const want = `https://github.com/scryst/magnetite-releases/releases/tag/v${version[1]}`;
+  // The button goes straight to the ZIP asset, not the release page: a
+  // non-technical visitor should get a download, not a page to decode.
+  const want = `https://github.com/scryst/magnetite-releases/releases/download/v${version[1]}/Magnetite-${version[1]}.zip`;
   require(href === want,
-    `the page links ${href}, but the personal release for app ${version[1]} is ${want}`);
+    `the page links ${href}, but the release ZIP for app ${version[1]} is ${want}`);
+  // And the releases page stays one plain link away, for older versions and
+  // the checksum files.
+  const all = [...page.matchAll(/<a\b[^>]*>\s*All versions and checksums\s*<\/a>/g)].map((m) => m[0]);
+  require(all.length === 1
+      && /\bhref="https:\/\/github\.com\/scryst\/magnetite-releases\/releases"/.test(all[0])
+      && /\brel="[^"]*\bexternal\b[^"]*"/.test(all[0]),
+  'the page has no single external "All versions and checksums" link to the releases page');
 
   const onDisk = join(here, '..', 'downloads', `Magnetite-${version[1]}.zip`);
   require(existsSync(onDisk), `the v${version[1]} release asset is absent at ${onDisk}`);
@@ -1180,7 +1189,7 @@ function theDownloadLinkPointsAtARealBuild() {
       && metadata.softwareVersion === version[1]
       && metadata.downloadUrl === want
       && metadata.author?.name === 'scryst',
-  'the SoftwareApplication metadata does not name the personal, versioned GitHub Release');
+  'the SoftwareApplication metadata does not name the personal, versioned GitHub Release ZIP');
   const publicRoot = 'https://magnetite.app/';
   const customDomain = readFileSync(join(here, '..', 'CNAME'), 'utf8').trim();
   require(page.includes(`<link rel="canonical" href="${publicRoot}">`)
@@ -1371,10 +1380,12 @@ function theFirstLaunchStoryMatchesTheBuild() {
   const zip = readFileSync(artifact);
   const notarised = zip.includes('Magnetite.app/Contents/CodeResources');
 
-  // Anchored like requirementLines, for the same reason: the paragraph must be
-  // read as written, not whatever text follows some other element.
-  const guidance = [...page.matchAll(/<p[^>]*\sdata-firstlaunch[^>]*>([^<]*)<\/p>/g)]
-    .map((m) => m[1].replace(/\s+/g, ' ').trim());
+  // The first-launch box is a block with a heading and numbered steps, so it is
+  // read as its text with the tags taken out. Anchored on its own attribute,
+  // for the same reason as requirementLines: not whatever text follows some
+  // other element.
+  const guidance = [...page.matchAll(/<(div|section)\b[^>]*\sdata-firstlaunch[^>]*>([\s\S]*?)<\/\1>/g)]
+    .map((m) => m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
 
   if (notarised) {
     require(guidance.length === 0,
@@ -1389,6 +1400,18 @@ function theFirstLaunchStoryMatchesTheBuild() {
     require(/Privacy &amp; Security/.test(guidance[0]) && /Open Anyway/.test(guidance[0]),
       'the first-launch note does not name the route the dialog hides — System '
       + `Settings › Privacy & Security › Open Anyway: "${guidance[0]}"`);
+    const steps = /<div\b[^>]*\sdata-firstlaunch[^>]*>[\s\S]*?<ol>([\s\S]*?)<\/ol>/.exec(page)?.[1] || '';
+    require((steps.match(/<li>/g) || []).length >= 4,
+      'the first-launch box is not a numbered list of steps a first-time visitor can follow');
+  }
+
+  // "Not notarised yet" promises a fix that is not coming: the build stays
+  // ad-hoc signed, so no surface may say it is waiting on Apple.
+  const root = join(here, '..', '..');
+  for (const file of ['site/index.html', 'site/llms.txt', 'README.md', 'docs/RELEASES-README.md']) {
+    const text = readFileSync(join(root, file), 'utf8');
+    require(!/notari[sz]\w*\s+yet|yet[\s\S]{0,12}notari[sz]/i.test(text),
+      `${file} says the build is not notarised "yet", which implies it is coming`);
   }
 }
 
@@ -1744,8 +1767,8 @@ async function thePageExposesOnlyReadOnlyDiscoveryTools() {
     'an unsupported browser is not treated as though it implements WebMCP');
 
   const link = {
-    href: 'https://github.com/scryst/magnetite-releases/releases/tag/v0.1.1',
-    textContent: 'Download, Magnetite v0.1.1 on GitHub',
+    href: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.1/Magnetite-0.1.1.zip',
+    textContent: 'Download, Magnetite v0.1.1 ZIP from GitHub',
   };
   const requirement = { textContent: 'macOS 26 · Apple silicon · Free · 575 KB' };
   const documentRef = {
