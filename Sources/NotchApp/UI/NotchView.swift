@@ -113,34 +113,44 @@ struct NotchRootView: View {
             // The trace needs a shell wide enough to carry it. In Focus Mode the
             // retracted shell is exactly the cutout, so the line ran behind the
             // camera housing and surfaced as a short stub with a curl on one end
-            // — it read as a rendering fault rather than as progress. Draw it
+            // — it read as a rendering fault rather than as progress. Show it
             // only where there is something to draw it along.
-            if trackDrawn {
-                // Outside the timeline below, and before it: the unplayed
-                // remainder is the same shape at every instant of the song, so
-                // re-stroking it fifteen times a second would buy nothing, and
-                // drawing it first is what puts it behind the fill.
-                progressTrack
-                // Display-rate so the trace glides instead of stepping with the
-                // 1Hz poll.
-                // 15Hz, not 60. The trace advances size.width / duration: on a
-                // four-minute track that is 1.43pt/s, i.e. 0.024pt per frame at
-                // 60Hz against a 0.5pt device pixel — 21 frames to move one
-                // pixel. At 15Hz a one-minute track still advances 0.38pt per
-                // frame, under a pixel, so it stays sub-pixel smooth while the
-                // stroke and its radius-6 shadow are re-blurred a quarter as
-                // often.
-                TimelineView(.animation(minimumInterval: 1.0 / 15.0,
-                                        paused: !media.isPlaying || scrubbing)) { _ in
-                    // The tip belongs INSIDE this timeline, with the line it sits
-                    // on. It was outside, so it only moved when the body happened
-                    // to re-evaluate — which is the 1Hz media poll — and the dot
-                    // stepped once a second along a line that was gliding.
-                    ZStack {
-                        progressEdge
-                        playhead
+            //
+            // Hidden, never removed. With the closed strip off, a removed line
+            // was inserted at the OPEN panel's bottom edge and faded in there
+            // while the shell was still growing from the notch. Kept mounted,
+            // its path morphs down with the silhouette and fades on the same
+            // curve, exactly as it does when the strip is on.
+            if media.hasTrack {
+                ZStack(alignment: .top) {
+                    // Outside the timeline below, and before it: the unplayed
+                    // remainder is the same shape at every instant of the song,
+                    // so re-stroking it fifteen times a second would buy nothing,
+                    // and drawing it first is what puts it behind the fill.
+                    progressTrack
+                    // Display-rate so the trace glides instead of stepping with
+                    // the 1Hz poll.
+                    // 15Hz, not 60. The trace advances size.width / duration: on
+                    // a four-minute track that is 1.43pt/s, i.e. 0.024pt per
+                    // frame at 60Hz against a 0.5pt device pixel — 21 frames to
+                    // move one pixel. At 15Hz a one-minute track still advances
+                    // 0.38pt per frame, under a pixel, so it stays sub-pixel
+                    // smooth while the stroke and its radius-6 shadow are
+                    // re-blurred a quarter as often. Paused while hidden.
+                    TimelineView(.animation(minimumInterval: 1.0 / 15.0,
+                                            paused: !media.isPlaying || scrubbing || !trackDrawn)) { _ in
+                        // The tip belongs INSIDE this timeline, with the line it
+                        // sits on. It was outside, so it only moved when the body
+                        // happened to re-evaluate — which is the 1Hz media poll —
+                        // and the dot stepped once a second along a line that was
+                        // gliding.
+                        ZStack {
+                            progressEdge
+                            playhead
+                        }
                     }
                 }
+                .opacity(trackDrawn ? 1 : 0)
             }
             // The tip is not gated on expansion: gating it meant the dot still
             // faded in and out on every open, which is the same defect the

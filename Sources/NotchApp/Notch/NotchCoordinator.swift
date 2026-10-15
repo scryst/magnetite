@@ -434,8 +434,13 @@ final class NotchCoordinator {
 
             if inside, !controller.isMouseInside {
                 controller.mouseEntered()
+                // Warm the audio tap during the hover delay. With the closed
+                // strip off, capture used to wait for expansion, so the ink
+                // opened as a dead box and popped into motion mid-transition.
+                syncLiveActivity()
             } else if !inside, controller.isMouseInside {
                 controller.mouseExited()
+                syncLiveActivity()
             }
 
             // Interaction is only enabled while expanded, so a collapsed notch
@@ -544,7 +549,7 @@ final class NotchCoordinator {
         let onScreen = !systemHidden && hosts.values.contains { $0.controller.isVisible }
         let captureActive = media.hasTrack && onScreen
             && (media.isPlaying || settling)
-            && (settings.enableNowPlaying || anyExpanded)
+            && (settings.enableNowPlaying || anyExpanded || anyHovered)
         if captureActive, !audioAttached {
             audioAttached = true
             audio.addConsumer()
@@ -643,6 +648,11 @@ final class NotchCoordinator {
     /// The menu reads it too, to say whether its command opens or closes.
     var anyExpanded: Bool {
         hosts.values.contains { $0.controller.isExpanded }
+    }
+
+    /// A pointer on a notch is about to open it; capture starts then.
+    private var anyHovered: Bool {
+        hosts.values.contains { $0.controller.isMouseInside }
     }
 
     func applySettingsChange() {
