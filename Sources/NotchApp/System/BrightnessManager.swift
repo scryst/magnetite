@@ -101,6 +101,27 @@ final class BrightnessManager {
         brightness = value
     }
 
+    /// Where the polled read runs. `DisplayServicesGetBrightness` is a
+    /// synchronous round trip to another process, so on the main thread a slow
+    /// answer (waking display, dock handshake) freezes the whole panel five
+    /// times a second. Serial, so a slow read cannot pile up behind itself.
+    private static let readQueue = DispatchQueue(label: "magnetite.brightness.read", qos: .utility)
+
+    /// One poll's read, off the main thread. Nil when the call failed or the
+    /// target display changed while it was out, so a stale level from the old
+    /// display is never taken for a key press on the new one.
+    private func readOffMain() async -> Float? {
+        guard let getBrightness else { return nil }
+        let id = displayID
+        let value: Float? = await withCheckedContinuation { cont in
+            Self.readQueue.async {
+                var v: Float = 0
+                cont.resume(returning: getBrightness(id, &v) == 0 ? v : nil)
+            }
+        }
+        return id == displayID ? value : nil
+    }
+
     /// `DisplayServices` has a change-notification registration, but its callback
     /// signature is undocumented and a wrong one crashes the process. Reading one
     /// float five times a second is cheap and cannot crash.
@@ -111,7 +132,8 @@ final class BrightnessManager {
                 try? await Task.sleep(for: .milliseconds(200))
                 guard let self, !Task.isCancelled else { return }
                 let previous = self.brightness
-                self.readCurrent()
+                guard let level = await self.readOffMain(), !Task.isCancelled else { continue }
+                self.brightness = level
                 let delta = abs(self.brightness - previous)
 
                 // Still: close out a manual ramp with its settled level, since the HUD dwells
@@ -135,7 +157,7 @@ final class BrightnessManager {
                 guard self.manualRamp else { continue }
 
                 // The setting silences the HUD but not the tracking. Checking it above
-                // `readCurrent()` would freeze `brightness`, and the first tick after re-enabling
+                // the read would freeze `brightness`, and the first tick after re-enabling
                 // would compare the live level with a stale baseline and look like a key press.
                 // `VolumeManager` tracks unconditionally and applies its setting downstream.
                 guard Settings.shared.enableBrightness else { continue }

@@ -18,6 +18,7 @@ enum MediaCheck {
         onlyARealTrackURLIsShareable()
         aWedgedReadDoesNotOwnTheNextOne()
         aWedgedPlayerDoesNotHideTheOtherOne()
+        aWedgedCommandNeitherBlocksThePressNorTheNextOne()
         aRecoveredPlayerGetsItsBudgetBack()
         aParkedThreadReturnsExactlyOneSeat()
         aStalledPanelHoldsItsLastFrame()
@@ -369,6 +370,55 @@ enum MediaCheck {
         }
         require(secondTook < 0.5,
                 "the next read spent \(fmt(secondTook))s waiting behind the wedged one")
+    }
+
+    /// A command that never returns (Spotify's main thread busy, an Apple Event
+    /// waiting out its own timeout) must not hold the press, and the press after
+    /// it must not queue behind the stuck one. The stub's first command blocks
+    /// forever; every later one is instant, so a second command that arrives
+    /// late can only have waited behind the first.
+    static func aWedgedCommandNeitherBlocksThePressNorTheNextOne() {
+        let wedge = DispatchSemaphore(value: 0)
+        let calls = Calls()
+        let delivered = Flag()
+        let bridge = MediaBridge(inert: true, stubbedCommand: { _ in
+            if calls.take() == 0 { wedge.wait() } else { delivered.set() }
+        })
+        // A build whose press waits on the command would hang this thread on
+        // the very stub that never returns. The harness gives up on its own.
+        let giveUp = DispatchWorkItem {
+            print("mediacheck: a press waited on a command that never returned, and the suite hung")
+            exit(1)
+        }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 20, execute: giveUp)
+        defer { giveUp.cancel() }
+        let m = MediaManager(bridge: bridge)
+        m.apply(snapshot())
+        let before = m.isPlaying
+
+        // The handler returns at once and the button has already flipped: the
+        // call is dispatched, not awaited.
+        let started = Date()
+        m.playPause()
+        let took = Date().timeIntervalSince(started)
+        require(took < 0.05, "the press blocked its caller for \(fmt(took))s behind a command that never returned")
+        require(m.isPlaying != before, "the button did not flip while the player was still deciding")
+
+        // A press made while the first is still stuck is dropped or queued
+        // behind it; once the lane is abandoned at the command deadline the
+        // next one must get through on a fresh lane.
+        settle(0.2)
+        require(!delivered.isSet, "a second command ran while the first was still on the same lane")
+        let gaveUp = Date()
+        var arrived = false
+        while Date().timeIntervalSince(gaveUp) < 8 {
+            m.playPause()
+            if waitUntil(0.25, { delivered.isSet }) { arrived = true; break }
+        }
+        wedge.signal()
+        require(arrived, "no later press got through a command that never returned")
+        let waited = Date().timeIntervalSince(gaveUp)
+        require(waited < 6, "the press after a wedged command waited \(fmt(waited))s, past its deadline plus slack")
     }
 
     /// A wedged Spotify must not delay a healthy Music. Each player polls its
