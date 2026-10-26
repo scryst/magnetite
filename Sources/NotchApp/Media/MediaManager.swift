@@ -95,6 +95,8 @@ final class MediaManager {
     private var likeQuery = 0
     /// Same guard for Spotify's shuffle and repeat answers.
     private var playbackQuery = 0
+    /// The newest heart write to Spotify's library; the next waits for it.
+    @ObservationIgnored private var likeWrite: Task<Void, Never>?
     @ObservationIgnored private(set) var libraryTask: Task<Void, Never>?
     @ObservationIgnored private(set) var artistTask: Task<Void, Never>?
     private var artistGeneration = 0
@@ -144,12 +146,12 @@ final class MediaManager {
         observers.append(center.addObserver(
             forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshSoon() }
+            MainActor.assumeIsolated { self?.refreshSoon(announced: true) }
         })
         observers.append(center.addObserver(
             forName: .init("com.spotify.client.PlaybackStateChanged"), object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshSoon() }
+            MainActor.assumeIsolated { self?.refreshSoon(announced: true) }
         })
 
         let ws = NSWorkspace.shared.notificationCenter
@@ -238,11 +240,20 @@ final class MediaManager {
     /// Players update their state a beat after applying a command, so at the
     /// idle 1 Hz poll the controls would feel dead. A short burst catches the new
     /// state almost immediately.
-    private func refreshSoon() {
+    ///
+    /// `announced` is the player saying the change has already happened (both
+    /// post a notification as they apply it), so the first read goes out at once
+    /// and the later ones only catch what settles afterwards, such as the
+    /// position. A press is different: the player has not moved yet, so the
+    /// reads start early and keep coming. Measured with a skip in Spotify, the
+    /// old fixed schedule left a 320 ms gap straddling the change and the panel
+    /// showed the new track about 300 ms after Spotify had it.
+    private func refreshSoon(announced: Bool = false) {
         burst?.cancel()
+        let delays = announced ? [0, 150, 350, 700] : [40, 90, 180, 320, 600]
         burst = Task { @MainActor [weak self] in
-            for delay in [40, 90, 180, 320, 600] {
-                try? await Task.sleep(for: .milliseconds(delay))
+            for delay in delays {
+                if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
                 guard let self, !Task.isCancelled else { return }
                 await self.refresh()
             }
@@ -935,15 +946,25 @@ final class MediaManager {
             // B's heart, where nothing would re-ask.
             likeQuery &+= 1
             let query = likeQuery
-            Task { @MainActor in
+            // One write at a time, in press order. Sent together, a press and
+            // the press that undoes it are two requests racing to the server,
+            // and the heart was seen filled over a track the library did not
+            // hold (three presses back to back, no gap, left it saved-then-not
+            // while the heart stayed on).
+            let earlier = likeWrite
+            likeWrite = Task { @MainActor in
+                await earlier?.value
                 let ok = await self.spotify.setSaved(next, trackID: id)
                 guard query == self.likeQuery, id == self.identity else { return }
                 guard ok else {
                     // Put it back if the API refused, rather than leave the
-                    // heart filled over a track that was never saved.
+                    // heart filled over a track that was never saved, and read
+                    // the library for the truth: with presses queued, the value
+                    // before this one is not necessarily what the server holds.
                     self.webLiked = current
                     self.liked = current
                     self.pendingLiked = nil
+                    self.askLibrary(about: id)
                     return
                 }
                 self.webLiked = next

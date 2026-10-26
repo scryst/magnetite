@@ -428,13 +428,22 @@ final class SpotifyWeb {
         // network.
         request.timeoutInterval = Self.requestTimeout
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        guard let (data, response) = try? await URLSession.shared.data(for: request) else {
-            log("\(method) \(url): request failed")
+        let reply: (Data, URLResponse)
+        do { reply = try await URLSession.shared.data(for: request) }
+        catch {
+            // A lookup the panel itself dropped (the artist ask is cancelled on
+            // every track change) is not a network fault, and reporting it put
+            // "Couldn't reach Spotify." in the menu after ordinary skips.
+            if (error as? URLError)?.code == .cancelled || error is CancellationError {
+                return nil
+            }
+            log("\(method) \(url): request failed (\((error as NSError).code))")
             // Surfaced in the menu so a heart that fills then empties has a
             // visible reason.
             lastError = "Couldn't reach Spotify."
             return nil
         }
+        let (data, response) = reply
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {
             guard !retried else {

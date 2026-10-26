@@ -162,9 +162,16 @@ final class MediaBridge: @unchecked Sendable {
     /// one, to exercise the watchdog with a read that never returns.
     private let stubbedRead: (@Sendable (MusicSource) -> Read)?
 
-    init(inert: Bool = false, stubbedRead: (@Sendable (MusicSource) -> Read)? = nil) {
+    /// Replaces the ScriptingBridge command. Only `tools/mediacheck.swift` passes
+    /// one, to press a control whose player never answers.
+    private let stubbedCommand: (@Sendable (MusicSource) -> Void)?
+
+    init(inert: Bool = false,
+         stubbedRead: (@Sendable (MusicSource) -> Read)? = nil,
+         stubbedCommand: (@Sendable (MusicSource) -> Void)? = nil) {
         self.inert = inert
         self.stubbedRead = stubbedRead
+        self.stubbedCommand = stubbedCommand
     }
 
     /// What a lane serves. Each key has its own queue, abandonment budget and
@@ -601,15 +608,16 @@ final class MediaBridge: @unchecked Sendable {
         s.artworkURL = track.artworkUrl
         s.identity = Self.trackKey(of: track, source: source)
             ?? "\(title)\u{1}\(artist)\u{1}\(s.album)"
-        // Spotify declares `shuffling` and `repeating` settable, but writes are
-        // silently ignored when the read-only `shuffling enabled` /
-        // `repeating enabled` flags are false (the playback context does not
-        // support them). So a mode is reported only when the player says it will
-        // take the write; no answer, no control.
-        s.shuffling = Self.modeAvailable(app, source: source, .shuffle)
-            ? Self.shuffleState(app, source: source) : nil
-        s.repeating = Self.modeAvailable(app, source: source, .repeat)
-            ? Self.repeatState(app, source: source) : nil
+        // Spotify's modes are not read here at all: its writes are silently
+        // dropped by the local player, so shuffle and repeat go over the Web API
+        // and `MediaManager.apply` takes Spotify's answer from there. Each mode
+        // read is an Apple Event Spotify serves on its main thread (about 8 ms
+        // apiece), so four reads nobody used made every poll a third longer and
+        // delayed the press that arrived behind it.
+        if source == .music {
+            s.shuffling = Self.shuffleState(app, source: source)
+            s.repeating = Self.repeatState(app, source: source)
+        }
         s.liked = source == .music
             ? (track as? NSObject)?.value(forKey: "favorited") as? Bool
             : nil
@@ -688,15 +696,6 @@ final class MediaBridge: @unchecked Sendable {
     private static let repeatOff: UInt32 = 0x6b52_704f   // 'kRpO'
     private static let repeatAll: UInt32 = 0x6b41_6c6c   // 'kAll'
 
-    /// Whether the player will accept a write to this mode at all. Music has no
-    /// such flag and takes the write, so it is always true there.
-    private static func modeAvailable(_ app: MediaPlayerApp, source: MusicSource,
-                                      _ mode: Mode) -> Bool {
-        guard source == .spotify else { return true }
-        let key = mode == .shuffle ? "shufflingEnabled" : "repeatingEnabled"
-        return (app as? NSObject)?.value(forKey: key) as? Bool ?? false
-    }
-
     private static func shuffleState(_ app: MediaPlayerApp, source: MusicSource) -> Bool? {
         (app as? NSObject)?.value(forKey: key(.shuffle, source)) as? Bool
     }
@@ -713,7 +712,7 @@ final class MediaBridge: @unchecked Sendable {
     /// wedge the same way, so a stuck `playpause` must not own later presses.
     private func command(_ source: MusicSource,
                          _ body: @escaping @Sendable (MediaPlayerApp) -> Void) {
-        guard !inert else { return }
+        guard !inert || stubbedCommand != nil else { return }
         let key = LaneKey.command(source)
         guard let lane = admit(key) else { return }
         let gate = Gate()
@@ -723,8 +722,13 @@ final class MediaBridge: @unchecked Sendable {
             guard let self else { return }
             // A press that outlived its deadline behind a wedged player is
             // dropped; delivered minutes later it would be an unwanted skip.
-            if DispatchTime.now() < expiry, Self.isRunning(source),
-               let app = self.app(source, on: lane) { body(app) }
+            if DispatchTime.now() < expiry {
+                if let stubbedCommand = self.stubbedCommand {
+                    stubbedCommand(source)
+                } else if Self.isRunning(source), let app = self.app(source, on: lane) {
+                    body(app)
+                }
+            }
             self.finished(lane, key: key, late: !gate.close())
         }
 
