@@ -3,7 +3,7 @@
 //   tools/fluidfilm AUDIO.f32 OUTDIR [seconds]
 //
 // AUDIO is raw mono float32 at 48 kHz. It is fed to the real AudioTap in 512-frame
-// chunks, sampled at AudioLevels' 30 Hz, and stepped through FerrofluidSim at the
+// chunks, sampled at AudioLevels' 60 Hz, and stepped through FerrofluidSim at the
 // render clock's 60 Hz, so a frame here is a frame the app would draw. Each frame is
 // written as OUTDIR/NNNNN.png at 2x. No display, pointer, player or capture grant is
 // involved, which makes before/after clips of a physics change exact: same audio,
@@ -28,7 +28,7 @@ enum FluidFilm {
         var samples = [Float](repeating: 0, count: data.count / 4)
         _ = samples.withUnsafeMutableBytes { data.copyBytes(to: $0) }
         let seconds = args.count > 3 ? Double(args[3]) ?? 0 : Double(samples.count) / 48000
-        let ticks = levels(samples, ticks: Int(seconds * 30))
+        let ticks = levels(samples, ticks: Int(seconds * 60))
 
         let sim = FerrofluidSim()
         let silence = [Float](repeating: 0, count: AudioTap.bandCount)
@@ -42,8 +42,8 @@ enum FluidFilm {
         // physics change can be measured as well as watched.
         var previous: [Bool] = []
         var motion = ""
-        for frame in 0..<(ticks.count * 2) {
-            sim.advance(levels: ticks[frame / 2], dt: 1.0 / 60)
+        for frame in 0..<ticks.count {
+            sim.advance(levels: ticks[frame], dt: 1.0 / 60)
             let view = ZStack(alignment: .top) {
                 LinearGradient(colors: [Color(red: 0.10, green: 0.13, blue: 0.27),
                                         Color(red: 0.05, green: 0.06, blue: 0.13)],
@@ -86,7 +86,7 @@ enum FluidFilm {
         }
     }
 
-    /// The bands AudioLevels would publish on each 30 Hz tick.
+    /// The bands AudioLevels would publish on each 60 Hz tick.
     static func levels(_ samples: [Float], ticks: Int) -> [[Float]] {
         let tap = AudioTap()
         var result: [[Float]] = []
@@ -94,7 +94,7 @@ enum FluidFilm {
         var samples = samples
         var offset = 0
         for tick in 1...max(1, ticks) {
-            let due = min(samples.count, Int(Double(tick) / 30 * 48000))
+            let due = min(samples.count, Int(Double(tick) / 60 * 48000))
             while offset + 512 <= due {
                 samples.withUnsafeMutableBufferPointer { buf in
                     var abl = AudioBufferList(

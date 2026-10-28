@@ -509,10 +509,12 @@ final class AudioTap: @unchecked Sendable {
         }
 
         os_unfair_lock_lock(&lock)
-        // Attack fast, release slow, as a level meter does.
+        // Attack fast, release slow, as a level meter does. The attack is nearly a step:
+        // at 0.55 a kick took three callbacks to land and the ink trailed the bass by a
+        // frame it did not need to.
         for i in 0..<Self.bandCount {
             bands[i] = outScratch[i] > bands[i]
-                ? bands[i] + (outScratch[i] - bands[i]) * 0.55
+                ? bands[i] + (outScratch[i] - bands[i]) * 0.85
                 : bands[i] + (outScratch[i] - bands[i]) * 0.16
         }
         lastDeliveryTicks = mach_continuous_time()

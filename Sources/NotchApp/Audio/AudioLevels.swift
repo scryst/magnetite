@@ -8,7 +8,7 @@ import Observation
 @MainActor
 @Observable
 final class AudioLevels {
-    /// Read once rather than 30 times a second on the main actor.
+    /// Read once rather than 60 times a second on the main actor.
     nonisolated static let debugLogging =
         ProcessInfo.processInfo.environment["NOTCH_AUDIO_DEBUG"] != nil
 
@@ -31,7 +31,7 @@ final class AudioLevels {
     private var pump: Task<Void, Never>?
     private var consumers = 0
     /// Reused across ticks so that `levels(into:)`, which keeps the tap's buffer away
-    /// from the real-time thread, does not allocate 30 times a second.
+    /// from the real-time thread, does not allocate 60 times a second.
     private var liveScratch = [Float](repeating: 0, count: AudioTap.bandCount)
     /// One rebuild per stall episode. Reset when delivery resumes, so a later stall
     /// gets another attempt but a tap that stays wedged is reported, not retried.
@@ -61,7 +61,9 @@ final class AudioLevels {
         pump?.cancel()
         pump = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(33))
+                // The fluid steps every 16 ms; reading every 33 left every other step
+                // with no news, so a hit waited up to two frames to land.
+                try? await Task.sleep(for: .milliseconds(16))
                 guard let self, !Task.isCancelled else { return }
                 self.tick()
             }
@@ -124,10 +126,11 @@ final class AudioLevels {
     }
 
     private func decayToSilence() {
-        // Already silent: do not rewrite an observed array of zeroes at 30 Hz.
+        // Already silent: do not rewrite an observed array of zeroes at 60 Hz.
         guard bands.contains(where: { $0 > 0 }) else { return }
         for i in bands.indices {
-            bands[i] *= 0.82
+            // 0.82 per 33 ms, kept at the same pace now that a tick is 16 ms.
+            bands[i] *= 0.905
             if bands[i] < 0.002 { bands[i] = 0 }
         }
     }
