@@ -213,7 +213,7 @@ struct Pour: Equatable {
     static func rest(open: Bool) -> Pour { Pour(fill: open ? 1 : 0) }
 
     /// When the content starts to arrive: once the colour is most of the way down.
-    static var contentLag: Double { Motion.reduceMotion ? 0.07 : 0.2 }
+    static var contentLag: Double { Motion.reduceMotion ? 0.07 : 0.14 }
 
     /// Reduce Motion keeps the order and loses the travel: a flat edge, a short fill.
     static func timeline(opening: Bool) -> KeyframeTimeline<Pour> {
