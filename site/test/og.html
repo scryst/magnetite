@@ -59,7 +59,7 @@ const INK = '#222022';
 const SEED = 9;
 const FRAME = Number(new URLSearchParams(location.search).get('frame')) || 58;
 // The page's own cadence: 60 Hz steps over a 30 Hz capture, 110 ms low pass.
-const CADENCE = replayCadence(60, 30, 0.11);
+const CADENCE = replayCadence(60, 30, 0.01);
 
 const status = document.getElementById('status');
 const faces = await document.fonts.load(`${HEADLINE.weight} 64px ${HEADLINE.family}`);

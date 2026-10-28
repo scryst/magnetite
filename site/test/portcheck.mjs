@@ -852,21 +852,23 @@ function aPeakHoldsBelowTheFieldThatRaisedIt() {
     }
     return { reached, stood };
   };
-  const under = onsetTo(0.032);
-  const over = onsetTo(0.035);
+  // Onsets must clear 1.4 swings now, so the field climbs steeply from about
+  // 0.15 of amplitude and the pair sits closer together than it used to.
+  const under = onsetTo(0.1616);
+  const over = onsetTo(0.1644);
 
   // The pair proves itself discriminating before it is used as evidence, and
   // the MARGINS are written down because they are what a later retune eats
-  // without saying so: 0.3432 sits 0.0168 below the critical field and 0.3752
-  // sits 0.0152 above it, a little over four percent either way. Tighter would
+  // without saying so: 0.3423 sits 0.0177 below the critical field and 0.3754
+  // sits 0.0154 above it, a little over four percent either way. Tighter would
   // pin the constant harder and start failing on an honest change to the
   // smoothing; looser is the hole this closes. Swept afterwards rather than
-  // predicted: the constant now survives on [0.3432, 0.3752) and is killed by
+  // predicted: the constant now survives on [0.3423, 0.3754) and is killed by
   // this check at every step outside it, where before it survived the whole of
   // [0.26, 0.42] and was killed only at 0.24 and 0.44, by two other checks.
   // The interval is half-open because each bound is a value the field REACHES,
-  // and `field > CRITICAL_FIELD` is strict: at 0.3432 nothing stands and the
-  // quiet case still passes, at 0.3752 nothing stands and the loud case fails.
+  // and `field > CRITICAL_FIELD` is strict: at 0.3423 nothing stands and the
+  // quiet case still passes, at 0.3754 nothing stands and the loud case fails.
   require(under.reached > 0.30 && under.reached < 0.36,
     `the quieter onset drives band 0 to ${under.reached.toFixed(4)}, which no longer sits just `
     + 'below the critical 0.36 — the pair has stopped straddling the threshold, and everything '
@@ -2477,7 +2479,8 @@ function theDriveIsTheExponentialItClaims() {
   // In seconds, not in steps, so the two rates are asked about the same four
   // moments — the point of the second rate is that they answer alike, and
   // horizons counted in steps would put them at different places on the curve.
-  const horizons = [1 / 60, 7 / 60, 0.5, 2];
+  const horizons = [1 / 240, 1 / 60, 7 / 60, 0.5, 2];
+  let onSlope = false;
   for (const hz of [60, 240]) {
     const dt = 1 / hz;
     const { k } = replayCadence(hz, hz, tau);
@@ -2494,11 +2497,17 @@ function theDriveIsTheExponentialItClaims() {
         + 'the display');
       reached.push(drive[0]);
     }
-    require(reached[0] < 0.2 && reached[reached.length - 1] > 0.99,
-      `at ${hz}Hz the horizons this check drives span ${reached[0]} to `
-      + `${reached[reached.length - 1]} — they no longer cross the response curve, so a rate wrong `
-      + 'by a factor would be measured where every rate agrees');
+    require(reached[reached.length - 1] > 0.99,
+      `at ${hz}Hz the longest horizon reaches only ${reached[reached.length - 1]} — the check `
+      + 'no longer drives the filter to rest');
+    if (reached.some((r) => r > 0.2 && r < 0.8)) onSlope = true;
   }
+  // Some horizon has to land on the slope, where rates that differ by a factor
+  // disagree. With a 10ms constant one 60Hz step is already 0.81 of the way,
+  // so the slope is found at 240Hz, and asked for by value.
+  require(onSlope,
+    'none of the horizons this check drives lands on the response curve, so a rate wrong by a '
+    + 'factor would be measured where every rate agrees');
 }
 
 // ---------------------------------------------------------------------------

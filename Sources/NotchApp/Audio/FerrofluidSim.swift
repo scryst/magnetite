@@ -464,9 +464,11 @@ final class FerrofluidSim {
         // Two parts: a pool that follows how loud the bass is over about a second, so the
         // ink rests rounded and full rather than as the bare cutout, and the hit on top.
         let bass = drift.prefix(count).reduce(0, +) / Double(count)
-        pool += (min(1, bass * 0.3) - pool) * min(1, 0.8 * dt)
+        // In silence it drains quickly, so the ink comes home and the renderer can stop.
+        let poolRate = quietFor > 0 ? 4.0 : 0.8
+        pool += (min(1, bass * 0.3) - pool) * min(1, poolRate * dt)
         let hit = kick.prefix(count).max() ?? 0
-        let target = min(1, pool + hit * 1.6)
+        let target = min(1, pool + hit * 1.3)
         let rate = target > swell ? 30.0 : 3.6
         swell += (target - swell) * min(1, rate * dt)
         if swell < 0.004 { swell = 0 }
@@ -514,7 +516,9 @@ final class FerrofluidSim {
             // Bass is heavy and drains slowly, treble is light and snaps back; one rate
             // would make the whole crown breathe as a single object.
             let bandT = Double(band) / Double(max(1, levels.count - 1))
-            let fall = 2.8 * (0.55 + 1.5 * bandT)
+            // Twice as fast once the music has stopped, so the ink is home inside the
+            // settle budget rather than draining for four seconds of silence.
+            let fall = 2.8 * (0.55 + 1.5 * bandT) * (quietFor > 0 ? 2 : 1)
             let heightRate = target > sites[index].height ? 40.0 : fall
             sites[index].height += (target - sites[index].height) * min(1, heightRate * dt)
             if sites[index].height < 0.003 { sites[index].height = 0 }
