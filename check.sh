@@ -59,6 +59,8 @@ swiftc -O -parse-as-library tools/mediacheck.swift \
   Sources/NotchApp/Media/SpotifyWeb.swift \
   Sources/NotchApp/Media/ScriptingBridgeProtocols.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
+  Sources/NotchApp/Media/Lyrics.swift \
+  Sources/NotchApp/Media/LyricsSource.swift \
   Sources/NotchApp/Support/Settings.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
   -o .build/checks/mediacheck </dev/null
@@ -67,6 +69,8 @@ swiftc -O -parse-as-library tools/librarycheck.swift tools/librarycheck-doubles.
   Sources/NotchApp/Media/MediaBridge.swift \
   Sources/NotchApp/Media/ScriptingBridgeProtocols.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
+  Sources/NotchApp/Media/Lyrics.swift \
+  Sources/NotchApp/Media/LyricsSource.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
   -o .build/checks/librarycheck </dev/null
 swiftc -O -parse-as-library tools/chromecheck.swift \
@@ -82,6 +86,9 @@ swiftc -O -parse-as-library tools/controllercheck.swift \
   Sources/NotchApp/Support/Settings.swift \
   Sources/NotchApp/Support/Transition.swift \
   -o .build/checks/controllercheck </dev/null
+swiftc -O -parse-as-library tools/lyricscheck.swift \
+  Sources/NotchApp/Media/Lyrics.swift \
+  -o .build/checks/lyricscheck </dev/null
 swiftc -O -parse-as-library tools/palettecheck.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
   -o .build/checks/palettecheck </dev/null
@@ -103,6 +110,7 @@ set -e
 .build/checks/chromecheck </dev/null
 .build/checks/controllercheck </dev/null
 .build/checks/palettecheck </dev/null
+.build/checks/lyricscheck </dev/null
 .build/checks/clickcheck </dev/null
 
 # The site's port of the fluid, against dumps from the Swift above. It belongs

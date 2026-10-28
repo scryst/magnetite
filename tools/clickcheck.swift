@@ -27,7 +27,7 @@
     static func host(_ controller: NotchController, _ media: MediaManager,
                      region: (() -> CGSize)?) -> (NSWindow, CGSize) {
         let size = CGSize(width: ChromeRules.panelWidth + 128,
-                          height: 40 + ChromeRules.expandedBody + 78)
+                          height: 40 + ChromeRules.expandedBody + ChromeRules.lyricsBody + 78)
         let view = NotchHostingView(rootView: NotchRootView(controller: controller, media: media,
                                                             fluid: FerrofluidSim()))
         // With no region the whole window takes clicks: the baseline of what each point
@@ -62,10 +62,24 @@
         Motion.reduceMotion = true
         // SwiftUI handles a button's events only inside an app.
         NSApplication.shared.setActivationPolicy(.prohibited)
+        // Twice: the panel without lyrics, and taller with the lyrics stage, whose lines
+        // must neither take a click nor push the controls out of the region.
+        check(lyrics: false)
+        check(lyrics: true)
+        if failures > 0 { exit(1) }
+        print("clickcheck: with and without lyrics, all 7 controls answer a click, the hit region hides none of them, and nothing under the panel does")
+    }
+
+    static func check(lyrics: Bool) {
         let media = MediaManager()
         let controller = NotchController()
         controller.isExpanded = true
         media.source = .spotify
+        if lyrics {
+            controller.hasLyrics = true
+            media.isPlaying = true
+            media.lyrics = SyncedLyrics(lrc: "[00:01.00]A line long enough to wrap across the whole stage and then some more\n[02:00.00]Next")
+        }
         let shell = controller.currentSize
 
         let (window, size) = host(controller, media, region: { controller.currentSize })
@@ -88,7 +102,7 @@
             hidden[b!, default: 0] += 1
         }
         for (call, count) in hidden.sorted(by: { $0.key < $1.key }) {
-            require(false, "the hit region turns away \(count) clicks that reach \(call)")
+            require(false, "\(lyrics ? "with lyrics: " : "")the hit region turns away \(count) clicks that reach \(call)")
         }
         // Under the shell is the window beneath's: nothing there may answer.
         let shellRows = Int((shell.height / 4).rounded(.up)) + 1
@@ -96,9 +110,10 @@
         require(below.isEmpty, "\(below.count) clicks under the open panel reached a control")
 
         if failures > 0 || CommandLine.arguments.contains("--map") {
+            print(lyrics ? "with lyrics:" : "without lyrics:")
             print(real.map { $0.map { $0.map { glyph[$0] ?? "?" } ?? "." }.joined() }.joined(separator: "\n"))
         }
-        if failures > 0 { exit(1) }
-        print("clickcheck: all \(expected.count) controls answer a click, the hit region hides none of them, and nothing under the panel does")
+        window.orderOut(nil)
+        open.orderOut(nil)
     }
 }

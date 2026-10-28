@@ -47,6 +47,19 @@ final class MediaManager {
     private(set) var repeatBlocked = false
     /// Bumped on every track change so views can retrigger entrance animations.
     private(set) var trackToken = 0
+    /// The playing track's time-synced lyrics; nil when it has none, while they are
+    /// looked up, and with the setting off.
+    private(set) var lyrics: SyncedLyrics?
+    /// False while a new track's lyrics are being looked up, for at most
+    /// `lyricsPatience`. The panel holds its height meanwhile rather than shrinking
+    /// on every skip and growing back a moment later.
+    private(set) var lyricsSettled = true
+    static let lyricsPatience: Duration = .seconds(1.5)
+    @ObservationIgnored private var lyricsTask: Task<Void, Never>?
+    @ObservationIgnored private var lyricsHold: Task<Void, Never>?
+    /// The identity the lyrics on screen, or in flight, belong to.
+    @ObservationIgnored private var lyricsIdentity = ""
+    @ObservationIgnored private var lastSnapshot: TrackSnapshot?
     /// Set when a player is running but every snapshot comes back empty.
     private(set) var automationNote: String?
     private var emptyReads = 0
@@ -357,6 +370,8 @@ final class MediaManager {
             guard hasTrack else { return }
             hasTrack = false
             isPlaying = false
+            lastSnapshot = nil
+            loadLyrics()
             source = nil
             title = ""; artist = ""
             resetArtists()
@@ -521,11 +536,13 @@ final class MediaManager {
             }
         }
 
+        lastSnapshot = snap
         if changed {
             identity = snap.identity
             trackToken &+= 1
             loadArtwork(for: snap)
         }
+        loadLyrics()
         if creditsChanged || (snap.source == .spotify && !spotify.isConnected && askedArtists) {
             resetArtists()
             artists = ArtistCredit.fallback(snap.artist, source: snap.source)
@@ -589,6 +606,46 @@ final class MediaManager {
                   self.source == source, self.artists.contains(credit) else { return }
             if let resolved { self.musicArtistURLs[credit.name] = resolved }
             NSWorkspace.shared.open(resolved ?? credit.url(in: source))
+        }
+    }
+
+    /// Looks up the current track's lyrics once per identity. Also called when the
+    /// setting changes, so turning it on finds the song already playing.
+    func loadLyrics() {
+        guard settings.showsLyrics, let snap = lastSnapshot, !snap.identity.isEmpty else {
+            lyricsTask?.cancel(); lyricsHold?.cancel()
+            lyricsIdentity = ""
+            if lyrics != nil { lyrics = nil }
+            if !lyricsSettled { lyricsSettled = true }
+            return
+        }
+        // Keyed on identity and length, so a failed lookup is not retried at poll rate
+        // (the next play of the track asks again), and a track first read without its
+        // length is asked about once the length arrives: unfiltered by length, a
+        // lookup can pick a different edit whose stamps drift.
+        let key = "\(snap.identity)|\(Int(snap.duration.rounded()))"
+        guard key != lyricsIdentity else { return }
+        lyricsIdentity = key
+        lyricsTask?.cancel(); lyricsHold?.cancel()
+        if lyrics != nil { lyrics = nil }
+        guard snap.duration > 0 else {
+            if !lyricsSettled { lyricsSettled = true }
+            return
+        }
+        lyricsSettled = false
+        let id = key
+        lyricsTask = Task { @MainActor [weak self] in
+            let answer = await LyricsSource.lyrics(title: snap.title, artist: snap.artist,
+                                                   album: snap.album, duration: snap.duration)
+            guard let self, !Task.isCancelled, self.lyricsIdentity == id else { return }
+            if case .synced(let found) = answer { self.lyrics = found }
+            self.lyricsHold?.cancel()
+            if !self.lyricsSettled { self.lyricsSettled = true }
+        }
+        lyricsHold = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.lyricsPatience)
+            guard let self, !Task.isCancelled, self.lyricsIdentity == id else { return }
+            if !self.lyricsSettled { self.lyricsSettled = true }
         }
     }
 

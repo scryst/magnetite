@@ -72,6 +72,7 @@ No Magnetite account, analytics, telemetry or crash reporter. Audio is processed
 - **Automation / Apple Events** (the same macOS permission used by AppleScript): reads now-playing information and controls the local Spotify or Music app through ScriptingBridge. Ordinary playback needs no Spotify Web API connection.
 - **System audio recording:** a CoreAudio process tap reads the system mix for the ferrofluid visualiser. It does not record your microphone or upload audio.
 - **Artwork downloads:** fetches the current cover from the URL supplied by the music player, then uses its colours in the interface.
+- **Lyrics lookups:** sends the current track's title, artist, album and length to [LRCLIB](https://lrclib.net) for time-synced lyrics, and caches each answer under `~/Library/Application Support/Magnetite/Lyrics`. Turn off **Lyrics in Player** in the **M** menu to stop lookups.
 - **Optional Spotify connection:** `user-library-read` and `user-library-modify` read/save/remove liked tracks; `user-read-playback-state` and `user-modify-playback-state` support shuffle/repeat; `user-read-private` checks account capability before offering those controls.
 
 Spotify authorization uses PKCE, without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. [Full privacy details](https://magnetite.app/privacy.html).

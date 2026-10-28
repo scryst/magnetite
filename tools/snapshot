@@ -24,7 +24,7 @@ merged.write_text(source("Sources/NotchApp/UI/NotchView.swift")
                   + "\n" + (repo / "tools/snapshot.swift").read_text())
 paths = ["UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
          "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift", "Support/ViewState.swift",
-         "Media/ArtworkPalette.swift"]
+         "Media/ArtworkPalette.swift", "Media/Lyrics.swift"]
 sources = []
 for path in paths:
     copied = build / ("Snapshot" + Path(path).name)

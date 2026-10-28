@@ -61,7 +61,7 @@ final class Settings {
         "forceSimulatedNotch", "notchAdjustedWidth", "notchAdjustedHeight",
         "notchAdjustedRadius", "hideFromScreenCapture", "expandNotchOnHover",
         "hoverDuration", "peekDuration", "enableNowPlaying", "enableGestures",
-        "enableVolume", "enableBrightness", "musicApp", "spotifyClientID",
+        "enableVolume", "enableBrightness", "musicApp", "spotifyClientID", "showLyrics",
     ]
 
     /// Every bundle identifier this app has shipped under, newest first.
@@ -117,6 +117,7 @@ final class Settings {
     @ObservationIgnored @Stored("enableVolume", true) private var _enableVolume: Bool
     @ObservationIgnored @Stored("enableBrightness", true) private var _enableBrightness: Bool
     @ObservationIgnored @Stored("musicApp", "automatic") private var _musicApp: String
+    @ObservationIgnored @Stored("showLyrics", true) private var _showsLyrics: Bool
     /// Spotify Web API client ID from a personal development-mode app. Not a secret
     /// (PKCE has none). The refresh token it earns lives in `TokenStore`'s 0600 file,
     /// which documents why it is not in the Keychain.
@@ -174,6 +175,11 @@ final class Settings {
     var showsMiniPlayer: Bool {
         get { access(keyPath: \.showsMiniPlayer); return _showsMiniPlayer }
         set { withMutation(keyPath: \.showsMiniPlayer) { _showsMiniPlayer = newValue } }
+    }
+    /// Time-synced lyrics under the open player, for songs LRCLIB has them for.
+    var showsLyrics: Bool {
+        get { access(keyPath: \.showsLyrics); return _showsLyrics }
+        set { withMutation(keyPath: \.showsLyrics) { _showsLyrics = newValue } }
     }
     var enableVolume: Bool {
         get { access(keyPath: \.enableVolume); return _enableVolume }

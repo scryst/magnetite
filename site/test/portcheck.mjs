@@ -1287,6 +1287,7 @@ function thePoliciesStateTheActualBoundaries() {
     'a static trust page loads script instead of remaining inspectable text');
   require(privacy.includes('does not upload or save the audio.')
       && privacy.includes("download the current track's artwork")
+      && privacy.includes('artist, album and length on LRCLIB (lrclib.net)')
       && privacy.includes('owner-only\n    file permissions')
       && privacy.includes('aggregate traffic, referral, star, and download\n    counts')
       && privacy.includes('no visitor profiles or in-app\n    events'),

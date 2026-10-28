@@ -5,6 +5,7 @@ import Foundation
 @MainActor final class Settings {
     static let shared = Settings()
     var musicApp = "auto"
+    var showsLyrics = false
 }
 
 @MainActor final class SpotifyWeb {

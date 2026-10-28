@@ -28,6 +28,7 @@ final class MediaManager {
     var repeating: Bool? = false
     var shuffleBlocked = false
     var repeatBlocked = false
+    var lyrics: SyncedLyrics?
     var smoothPosition: Double { position }
     var smoothProgress: Double { duration > 0 ? min(1, max(0, position / duration)) : 0 }
     /// What the view asked for, in order, so `clickcheck` can tell which control a click reached.
@@ -53,6 +54,7 @@ final class NotchController {
     var hoverWillOpen: Bool { isMouseInside }
     var isExpanded = false
     var hasMedia = true
+    var hasLyrics = false
     var notification: Notification = .none
     var isMiniPlayerShown = true
     var hudProgress: Double = 0
@@ -64,7 +66,8 @@ final class NotchController {
     var cutoutCornerRadius: CGFloat = 9
     var currentSize: CGSize {
         isExpanded ? CGSize(width: ChromeRules.panelWidth,
-                            height: notchSize.height + ChromeRules.expandedBody)
+                            height: notchSize.height + ChromeRules.expandedBody
+                                + (hasLyrics ? ChromeRules.lyricsBody : 0))
         : ChromeRules.retractedSize(collapsed: notchSize, band: menuBarHeight,
                                     hasContent: isMiniPlayerShown || notification.isSome)
     }

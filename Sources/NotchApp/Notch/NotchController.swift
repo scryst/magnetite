@@ -61,6 +61,9 @@ final class NotchController {
     /// Set by the coordinator from playback state. The idle panel is small; a full
     /// player with every field blank looks broken.
     var hasMedia = false
+    /// Set by the coordinator: the track has synced lyrics and the setting is on, so the
+    /// open panel carries the lyrics stage.
+    var hasLyrics = false
 
     /// The two-finger swipe in flight, written by the coordinator on every finger delta
     /// and nil when it ends. Only `SwipeLeanFrame` reads it, as a leaf, so a value
@@ -76,12 +79,13 @@ final class NotchController {
     /// panel plus the shadow's margin. The 40 is the tallest menu-bar band it has to
     /// work under; the band is hardware.
     static let maxExpandedSize = CGSize(width: ChromeRules.panelWidth,
-                                        height: 40 + expandedBodyHeight)
+                                        height: 40 + expandedBodyHeight + ChromeRules.lyricsBody)
 
     var expandedSize: CGSize {
         let band = collapsedSize.height
         return hasMedia
-            ? CGSize(width: ChromeRules.panelWidth, height: band + Self.expandedBodyHeight)
+            ? CGSize(width: ChromeRules.panelWidth,
+                     height: band + Self.expandedBodyHeight + (hasLyrics ? ChromeRules.lyricsBody : 0))
             : CGSize(width: 232, height: band + 40)
     }
 
