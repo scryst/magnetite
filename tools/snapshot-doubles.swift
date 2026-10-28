@@ -30,15 +30,17 @@ final class MediaManager {
     var repeatBlocked = false
     var smoothPosition: Double { position }
     var smoothProgress: Double { duration > 0 ? min(1, max(0, position / duration)) : 0 }
-    func seek(toFraction: Double) {}
-    func previous() {}
-    func next() {}
-    func playPause() {}
-    func toggleLike() {}
-    func toggleShuffle() {}
-    func toggleRepeat() {}
-    func openInPlayer() {}
-    func openArtist(_ credit: ArtistCredit) {}
+    /// What the view asked for, in order, so `clickcheck` can tell which control a click reached.
+    var calls: [String] = []
+    func seek(toFraction: Double) { calls.append("seek") }
+    func previous() { calls.append("previous") }
+    func next() { calls.append("next") }
+    func playPause() { calls.append("playPause") }
+    func toggleLike() { calls.append("toggleLike") }
+    func toggleShuffle() { calls.append("toggleShuffle") }
+    func toggleRepeat() { calls.append("toggleRepeat") }
+    func openInPlayer() { calls.append("openInPlayer") }
+    func openArtist(_ credit: ArtistCredit) { calls.append("openArtist") }
 }
 
 final class NotchController {

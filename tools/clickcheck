@@ -1,0 +1,35 @@
+#!/usr/bin/python3 -I
+"""Click every control of the real open panel, hosted off screen, and check each one
+reaches its action. Builds like tools/snapshot: the real NotchView and NotchPanel
+against inert fixtures, so no player, pointer, display or permission is involved.
+
+Usage: tools/clickcheck [--map]     build and run; --map prints where each click lands
+       tools/clickcheck --build     build only, as check.sh does before its sandbox
+"""
+from pathlib import Path
+import subprocess
+import sys
+
+repo = Path(__file__).resolve().parent.parent
+build = repo / ".build/checks"
+build.mkdir(parents=True, exist_ok=True)
+merged = build / "ClickView.swift"
+merged.write_text((repo / "Sources/NotchApp/UI/NotchView.swift").read_text()
+                  + "\n" + (repo / "tools/clickcheck.swift").read_text())
+sources = [repo / "Sources/NotchApp" / p for p in [
+    "UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
+    "Notch/NotchPanel.swift", "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift",
+    "Support/ViewState.swift", "Media/ArtworkPalette.swift"]]
+# Pure credit formatting only, as in tools/snapshot.
+credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
+pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]
+credit_source = build / "ClickCredits.swift"
+credit_source.write_text("import Foundation\n" + pure + "}\n")
+sources += [credit_source, repo / "tools/snapshot-doubles.swift"]
+subprocess.run(["swiftc", "-parse-as-library", "-module-cache-path", str(build / "ModuleCache"),
+                "-target", "arm64-apple-macosx26.0",
+                *map(str, sources), str(merged), "-o", str(build / "clickcheck")],
+               cwd=repo, check=True)
+if "--build" in sys.argv:
+    sys.exit(0)
+sys.exit(subprocess.run([str(build / "clickcheck"), *sys.argv[1:]], cwd=repo).returncode)
