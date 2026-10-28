@@ -85,6 +85,8 @@ swiftc -O -parse-as-library tools/controllercheck.swift \
 swiftc -O -parse-as-library tools/palettecheck.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
   -o .build/checks/palettecheck </dev/null
+# The real open panel and its hit region, clicked every 4 pt in a window nobody sees.
+/usr/bin/python3 -I tools/clickcheck --build </dev/null
 
 # Compilation uses the normal trusted toolchain. Execute every suite inside the
 # same native boundary, including child processes and temporary mutation copies.
@@ -101,6 +103,7 @@ set -e
 .build/checks/chromecheck </dev/null
 .build/checks/controllercheck </dev/null
 .build/checks/palettecheck </dev/null
+.build/checks/clickcheck </dev/null
 
 # The site's port of the fluid, against dumps from the Swift above. It belongs
 # in this gate rather than in someone's memory: its whole job is to notice when
