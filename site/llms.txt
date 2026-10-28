@@ -11,7 +11,7 @@ The download button links to the release ZIP on GitHub. The app is ad-hoc signed
 ## Product
 
 - [Live demo](https://magnetite.app/): Product page with the simulation, the screen recording, requirements and the download link.
-- [Magnetite v0.1.6](https://github.com/scryst/magnetite-releases/releases/download/v0.1.6/Magnetite-0.1.6.zip): Current release ZIP; ad-hoc signed, not notarised.
+- [Magnetite v0.1.7](https://github.com/scryst/magnetite-releases/releases/download/v0.1.7/Magnetite-0.1.7.zip): Current release ZIP; ad-hoc signed, not notarised.
 - [All versions and checksums](https://github.com/scryst/magnetite-releases/releases): Every release with its SHA-256 file.
 - [First launch and FAQ](https://magnetite.app/#setup): Opening the app past the macOS warning, permissions, supported displays, troubleshooting, updates and uninstall.
 - [Screen recording](https://magnetite.app/media/film.mp4): 31 seconds of playback, gestures, seeking and retraction.
@@ -19,7 +19,7 @@ The download button links to the release ZIP on GitHub. The app is ad-hoc signed
 
 ## Trust
 
-- [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credentials, website hosting and aggregate counts.
+- [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credentials, lyrics lookups, website hosting and aggregate counts.
 - [Terms](https://magnetite.app/terms.html): MIT licence, warranty and affiliation.
 - [Source code](https://github.com/scryst/magnetite): Swift source, build instructions and issue tracker.
 - [Releases](https://github.com/scryst/magnetite-releases): Binaries and release notes.

@@ -45,7 +45,7 @@
   "operatingSystem": "macOS 26 or later",
   "processorRequirements": "Apple silicon",
   "license": "https://github.com/scryst/magnetite/blob/main/LICENSE",
-  "softwareVersion": "0.1.6",
+  "softwareVersion": "0.1.7",
   "image": "https://magnetite.app/og.png",
   "screenshot": "https://magnetite.app/media/app-open.webp",
   "isAccessibleForFree": true,
@@ -56,7 +56,7 @@
     "On-device audio processing with no tracking"
   ],
   "author": { "@type": "Person", "name": "scryst" },
-  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/download/v0.1.6/Magnetite-0.1.6.zip",
+  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/download/v0.1.7/Magnetite-0.1.7.zip",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 </script>
@@ -350,10 +350,10 @@ try {
         <canvas class="band__print" id="band-print" aria-hidden="true" data-render-check-ignore></canvas>
         <img class="band__sleeve" src="media/cover-chrome-funk.webp" alt="" width="36" height="36" hidden>
         <a class="notch-link" data-download rel="external"
-           href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.6/Magnetite-0.1.6.zip"
-           aria-describedby="requires first-launch-title">Download<span class="visually-hidden">, Magnetite v0.1.6 ZIP from GitHub</span></a>
+           href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.7/Magnetite-0.1.7.zip"
+           aria-describedby="requires first-launch-title">Download<span class="visually-hidden">, Magnetite v0.1.7 ZIP from GitHub</span></a>
       </div>
-      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 631 KB.
+      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 687 KB.
         To check, open Apple menu → About This Mac. It should say Chip Apple M… and macOS 26.</p>
       <p class="get__all"><a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions and checksums</a></p>
       <!-- The zip is ad-hoc signed and not notarised, so macOS blocks the first launch. -->
@@ -408,7 +408,8 @@ try {
           processed in memory, never saved or uploaded. Both permissions live
           in System Settings → Privacy &amp; Security.</p>
         <p>No Magnetite account or tracking. Cover art may be downloaded from
-          your player's artwork host. <a href="privacy.html">Read the privacy details</a>.</p>
+          your player's artwork host, and synced lyrics are looked up on LRCLIB
+          by track title and artist. <a href="privacy.html">Read the privacy details</a>.</p>
       </details>
       <details>
         <summary>Do I have to connect a Spotify account?</summary>
