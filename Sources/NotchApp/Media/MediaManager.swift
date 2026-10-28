@@ -520,6 +520,12 @@ final class MediaManager {
             // counts too, since a resume made in the player itself arrives with
             // `isPlaying` still false.
             if position != snap.position || isPlaying || snap.isPlaying {
+                // A jump the player made (a seek in Spotify, a scrub on a phone) glides
+                // there, like a seek made here; drift between polls is far under this.
+                if !changed, duration > 0, skipTrace == nil,
+                   abs(snap.position - smoothPosition) > 2.5 {
+                    glide(to: snap.position / duration)
+                }
                 position = snap.position
                 positionAnchor = Date()
             }
@@ -895,6 +901,18 @@ final class MediaManager {
     }
 
     // MARK: Transport
+
+    /// Carries the trace to a new place in the same track with a settling spring.
+    private func glide(to target: Double) {
+        flourishTask?.cancel()
+        skipTrace = smoothProgress
+        withAnimation(Motion.glide) { skipTrace = min(max(target, 0), 1) }
+        flourishTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(520))
+            guard let self, !Task.isCancelled else { return }
+            self.skipTrace = nil
+        }
+    }
 
     /// Briefly drives the trace so a skip reads as the bar finishing rather than
     /// the position teleporting. Held only for the length of the run; when it
