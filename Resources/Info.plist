@@ -25,9 +25,9 @@
 	<key>CFBundleIconFile</key>
 	<string>Magnetite</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.7</string>
+	<string>0.1.8</string>
 	<key>CFBundleVersion</key>
-	<string>10</string>
+	<string>11</string>
 	<!-- Finder's Get Info and crash reports are the two places a downloaded
 	     app states its publisher; without this key both say nothing. The full
 	     terms ride along in Resources/LICENSE. -->
