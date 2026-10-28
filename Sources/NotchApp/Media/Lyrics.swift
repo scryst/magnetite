@@ -30,6 +30,7 @@ struct SyncedLyrics: Equatable, Sendable {
         for raw in lrc.split(whereSeparator: \.isNewline) {
             var rest = Substring(raw)
             var times: [Double] = []
+            var labelled = false
             while rest.first == "[", let close = rest.firstIndex(of: "]") {
                 let tag = rest[rest.index(after: rest.startIndex)..<close]
                 rest = rest[rest.index(after: close)...]
@@ -39,9 +40,13 @@ struct SyncedLyrics: Equatable, Sendable {
                           let ms = Double(tag.dropFirst(7).trimmingCharacters(in: .whitespaces)) {
                     // A positive offset makes lyrics appear sooner.
                     offset = ms / 1000
+                } else if !times.isEmpty {
+                    labelled = true
                 }
             }
             let text = rest.trimmingCharacters(in: .whitespaces)
+            // A stamped "[Chorus]" is a label, not a silence to count in.
+            if Self.isCredit(text) || (text.isEmpty && labelled) { continue }
             for t in times { stamped.append(Line(time: t, text: text)) }
         }
         guard !stamped.isEmpty else { return nil }
@@ -70,6 +75,36 @@ struct SyncedLyrics: Equatable, Sendable {
     }
 
     init(lines: [Line]) { self.lines = lines }
+
+    /// Lines the uploading site added and nobody sings: "{more ILLIT lyrics at
+    /// lyricsify.com/u/KPopLRCFiles}", a web address, or a credit such as "Lyrics by X"
+    /// or "작사 : X". A sung aside in parentheses is kept.
+    static func isCredit(_ text: String) -> Bool {
+        if text.hasPrefix("{") && text.hasSuffix("}") { return true }
+        let t = text.lowercased()
+        if t.range(of: #"[a-z0-9-]\.(com|net|org|io|kr|jp)\b"#, options: .regularExpression) != nil {
+            return true
+        }
+        if t.range(of: #"^(lyrics?|lrc)( made)? by\b"#, options: .regularExpression) != nil
+            || t.range(of: #"^more .*lyrics (at|on)\b"#, options: .regularExpression) != nil {
+            return true
+        }
+        let label = #"^(作词|作詞|作曲|编曲|編曲|작사|작곡|편곡|lyrics|lyricist|composer|music|(written|composed|arranged|produced) by)\s*[:：]"#
+        return t.range(of: label, options: .regularExpression) != nil
+    }
+
+    /// The latest stamp in raw LRC, credit lines included, as the uploader left it.
+    static func lastStamp(_ lrc: String) -> Double? {
+        var last: Double?
+        for raw in lrc.split(whereSeparator: \.isNewline) {
+            var rest = Substring(raw)
+            while rest.first == "[", let close = rest.firstIndex(of: "]") {
+                if let t = stamp(rest[rest.index(after: rest.startIndex)..<close]) { last = max(last ?? t, t) }
+                rest = rest[rest.index(after: close)...]
+            }
+        }
+        return last
+    }
 
     private static func stamp(_ tag: Substring) -> Double? {
         let parts = tag.split(separator: ":")
@@ -119,7 +154,9 @@ struct LyricsRecord: Codable, Equatable, Sendable {
     static func best(of records: [LyricsRecord], duration: Double, album: String,
                      title: String = "", tolerance: Double = 3) -> LyricsRecord? {
         let usable = records.filter { r in
-            guard let d = r.duration, abs(d - duration) <= tolerance || duration <= 0 else { return false }
+            guard let d = r.duration else { return false }
+            guard abs(d - duration) <= tolerance || duration <= 0 || r.lengthIsGuessed(within: duration)
+            else { return false }
             return r.instrumental == true || !(r.syncedLyrics ?? "").isEmpty
         }
         let album = Self.fold(album)
@@ -135,6 +172,17 @@ struct LyricsRecord: Codable, Equatable, Sendable {
         }
     }
 
+    /// Some uploaders give no real length, only their last stamp: Crush's "Seesaw (ft. IU)"
+    /// says 171 s, exactly where its closing credit sits, and Spotify's recording runs
+    /// 181 s. Such a length says nothing about the edit, so the record is used when its
+    /// lines fit inside the track and it is at most `slack` seconds short. A record whose
+    /// length runs on past its last line was timed to a different recording.
+    func lengthIsGuessed(within track: Double, slack: Double = 15) -> Bool {
+        guard let d = duration, d < track, track - d <= slack,
+              let last = SyncedLyrics.lastStamp(syncedLyrics ?? "") else { return false }
+        return d <= last + 1 && last <= track
+    }
+
     /// Words the record's title shares with the player's, less the words it adds: a
     /// remix credit counts against it.
     static func titleScore(_ record: String, _ title: String) -> Int {
@@ -147,10 +195,12 @@ struct LyricsRecord: Codable, Equatable, Sendable {
     }
 
     /// Players decorate titles that lyric sites do not: "Song - Remastered 2011",
-    /// "Song (feat. X)", "Song [Live]". Used only for the fallback search.
+    /// "Song (feat. X)", "Song [Live]", a member's name as in "Misty (MINA)". Used only
+    /// for the fallback search, whose candidates `titleScore` then tells apart, so a
+    /// version that keeps its decoration on the site still wins.
     static func searchTitle(_ title: String) -> String {
         var t = title
-        for marker in [" - ", " (feat", " (with ", " [", " (Remaster", " (Live"] {
+        for marker in [" - ", " (", " ["] {
             if let r = t.range(of: marker, options: .caseInsensitive), r.lowerBound > t.startIndex {
                 t = String(t[..<r.lowerBound])
             }
