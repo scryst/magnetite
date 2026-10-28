@@ -1,0 +1,23 @@
+#!/bin/bash
+# Films the ink off screen from a stretch of a song, with its audio.
+#
+#   tools/fluidfilm SONG START SECONDS OUT.mp4
+#
+# Decodes SONG to 48 kHz mono, runs it through the real analyser, sim and view
+# (tools/fluidfilm.swift), and muxes the frames with the same stretch of audio.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+song=$1; start=$2; secs=$3; out=$4
+work=.build/checks/fluidfilm
+mkdir -p "$work"
+swiftc -O -parse-as-library tools/fluidfilm.swift \
+  Sources/NotchApp/UI/FerrofluidView.swift Sources/NotchApp/Notch/NotchShape.swift \
+  Sources/NotchApp/Audio/FerrofluidSim.swift Sources/NotchApp/Audio/AudioLevels.swift \
+  Sources/NotchApp/Audio/AudioTap.swift Sources/NotchApp/Support/ChromeRules.swift \
+  -o "$work/fluidfilm"
+ffmpeg -v error -y -ss "$start" -t "$secs" -i "$song" -ac 1 -ar 48000 -f f32le "$work/audio.f32"
+rm -rf "$work/frames"
+"$work/fluidfilm" "$work/audio.f32" "$work/frames" "$secs"
+ffmpeg -v error -y -framerate 60 -i "$work/frames/%05d.png" -ss "$start" -t "$secs" -i "$song" \
+  -c:v libx264 -pix_fmt yuv420p -crf 18 -c:a aac -b:a 128k -shortest "$out"
+echo "$out"
