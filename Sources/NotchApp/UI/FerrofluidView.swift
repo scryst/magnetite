@@ -124,32 +124,6 @@ struct FerrofluidView: View, Animatable {
                 paint(ink, .black)
             }
 
-            // 4. The wet surface. Polished black liquid shows its surroundings as soft
-            //    reflections inside each bulge, never as a line along the edge (rim specular
-            //    is a standing rejection). Each lobe carries a reflection of the cover's colour
-            //    part way out from the cutout, sized to the lobe and well clear of the edge,
-            //    so it slides and swells with the surface; the body carries one broad one that
-            //    the bass heave stretches. Never over the cutout: that is the camera.
-            guard inkOpen > 0.05 else { return }
-            // Lifted toward white: a reflection is the light, not the cover's darkest shade.
-            let light = tint.mix(with: .white, by: 0.4)
-            context.drawLayer { sheen in
-                sheen.clip(to: outline)
-                sheen.clip(to: Path(roundedRect: geometry.core, cornerRadius: geometry.cornerRadius),
-                           options: .inverse)
-                sheen.addFilter(.blur(radius: 3))
-                sheen.blendMode = .plusLighter
-                sheen.opacity = Double(inkOpen)
-                for reflection in geometry.reflections(lobes: lobes, swell: swell, surface: surface) {
-                    sheen.fill(Path(ellipseIn: reflection.rect),
-                               with: .radialGradient(
-                                   Gradient(colors: [light.opacity(reflection.strength),
-                                                     light.opacity(0)]),
-                                   center: CGPoint(x: reflection.rect.midX, y: reflection.rect.midY),
-                                   startRadius: 0,
-                                   endRadius: max(reflection.rect.width, reflection.rect.height) / 2))
-                }
-            }
         }
     }
 
@@ -458,52 +432,6 @@ struct Geometry {
         if ceiling < 0.01 { return raw < 0 ? inward() : 0 }
         if raw < 0 { return inward() }
         return ceiling * tanh(raw / ceiling)
-    }
-
-    /// Where the wet surface shows a reflection, and how bright: one per standing lobe,
-    /// placed part way out along its normal and kept inside the bulge, plus one broad
-    /// one under the body.
-    func reflections(lobes: [(seat: Double, height: CGFloat, spread: CGFloat, reach: Double)],
-                     swell: CGFloat,
-                     surface: (Double, CGFloat, CGFloat, CGFloat) -> CGFloat)
-    -> [(rect: CGRect, strength: Double)] {
-        var result: [(rect: CGRect, strength: Double)] = []
-        for lobe in lobes where lobe.height > 0.12 {
-            let (point, normal) = rim(at: lobe.seat)
-            let amount = surface(lobe.seat, lateralLift(normal), headroom(from: point, along: normal),
-                                 edgeDetail(at: point)) * lateralGate(normal)
-            guard amount > 6 else { continue }
-            // Part way out, on the near side of the tip, and no larger than the bulge.
-            let centre = CGPoint(x: point.x + normal.dx * amount * 0.4,
-                                 y: point.y + normal.dy * amount * 0.4)
-            let along = min(amount * 1.4, 34)
-            let across = min(amount * 0.55, 14)
-            let size = abs(normal.dx) > 0.5 ? CGSize(width: across, height: along)
-                                            : CGSize(width: along, height: across)
-            var rect = CGRect(x: centre.x - size.width / 2, y: centre.y - size.height / 2,
-                              width: size.width, height: size.height)
-            // Clear of the cutout, which the layer clips out: a reflection cut by it would
-            // show the cutout's straight edge.
-            if rect.intersects(core) {
-                if normal.dy > 0.5 { rect.origin.y = max(rect.minY, core.maxY + 1) }
-                else if normal.dx < 0 { rect.origin.x = min(rect.minX, core.minX - rect.width - 1) }
-                else { rect.origin.x = max(rect.minX, core.maxX + 1) }
-            }
-            result.append((rect,
-                           Double(min(0.8, 0.3 + 0.5 * lobe.height))))
-        }
-        // The body's own reflection: a wide soft band under the cutout, stretched by the heave.
-        // Only on a deep heave: on a shallow body it would be a streak along the edge.
-        let body = surface(0.5, 0, headroom(from: CGPoint(x: core.midX, y: core.maxY),
-                                            along: CGVector(dx: 0, dy: 1)), 1) * openness
-        if body > 16 {
-            let width = core.width * 0.6
-            let height = min(body * 0.45, 20)
-            result.append((CGRect(x: core.midX - width / 2, y: core.maxY + body * 0.5 - height / 2,
-                                  width: width, height: height),
-                           Double(0.22 + 0.4 * min(1, swell))))
-        }
-        return result
     }
 
     func poolPath(displacement: (Double, CGFloat, CGFloat, CGFloat) -> CGFloat) -> Path {
