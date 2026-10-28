@@ -405,7 +405,9 @@ struct Geometry {
         let room = 0.42 + 0.58 * openness
         // Less body, more crown: a larger bass term lifts the outline so far that the
         // per-band peaks ride on it as shallow ripples.
-        let bass: CGFloat = swell * 12
+        // The swell is a bass hit now, not a level, so it can be big: a kick heaves the body
+        // well past the band and drains back.
+        let bass: CGFloat = swell * 16
         let drain: CGFloat = raised * 4
         // Raised together with the ceiling below, so taller crowns are not clipped flat
         // by tanh.
@@ -419,7 +421,8 @@ struct Geometry {
         // as the cutout) this goes to zero, since there is no lit area for ink to appear
         // against. The ceiling stays within what the geometry can round off; a 57 pt bulge
         // on a 26 pt visible side could not open smoothly.
-        let ceiling: CGFloat = min((34 + 14 * lateral) * room, max(0, headroom - FerrofluidView.blur))
+        let ceiling: CGFloat = min((34 + 14 * lateral) * room * (1 + 0.9 * swell),
+                                   max(0, headroom - FerrofluidView.blur))
         // Inward, and further on the sides so the body pinches rather than only bulging.
         // The camera guarantee is drawn crisp outside the filter chain.
         func inward() -> CGFloat { max((-7 - 7 * lateral) * room, raw * 0.55) }
