@@ -172,6 +172,12 @@ final class FerrofluidSim {
     private var spread: [Double] = []
     /// The spread `deviation` starts every band at, and returns to on re-entry.
     private static let initialSpread = 0.06
+    /// How many swings a rise must clear to count as an onset.
+    static let onsetFloor = 1.4
+    /// `deviation` slowed to a drift: between hits the body follows how loud the music
+    /// is, not every wobble in it.
+    private var drift: [Double] = []
+    private var pool = 0.0
 
     /// How long every band must sit under `AudioLevels.silenceLevel` before the next
     /// audio counts as re-entry rather than a transient. The levels take about 0.6 s
@@ -257,6 +263,8 @@ final class FerrofluidSim {
         pendingSurge = nil
         inkOpen = openTarget
         baseline = []
+        drift = []
+        pool = 0
         spread = []
         // Last, after every field it reads: publishing earlier computes `isSettled` from
         // stale state and can pin the renderer running.
@@ -325,11 +333,13 @@ final class FerrofluidSim {
         if sites.count != Self.siteCount { seed(levels: levels) }
         updateKick(levels: levels, dt: dt)
         let dev = deviation(levels, dt: dt)
+        if drift.count != dev.count { drift = dev }
+        for index in dev.indices { drift[index] += (dev[index] - drift[index]) * min(1, 2.0 * dt) }
         updateSwell(levels: levels, dev: dev, dt: dt)
         updateFlow(levels: levels, dt: dt)
         updateImpact(dt: dt)
         publishGates()
-        updateSites(levels: levels, dev: dev, dt: dt)
+        updateSites(levels: levels, dev: drift, dt: dt)
     }
 
     private func seed(levels: [Float]) {
@@ -358,10 +368,18 @@ final class FerrofluidSim {
             surge(held.strength, direction: held.direction)
         }
 
-        let decay = pow(0.05, dt)
+        // An onset is a rise wider than this band's own recent swing. Every rise used to
+        // count, so ordinary level noise kicked the surface every frame and a drum hit
+        // looked like the bar around it. Measured against `spread`, a quiet passage and a
+        // loud one both stay still between hits.
+        // The kick is the strike itself and lasts a fraction of a beat; how long the ink
+        // takes to recover is the surface's business, set by its own drain rates.
+        let decay = pow(0.002, dt)
         for index in levels.indices {
             let rise = Double(max(0, levels[index] - previousLevels[index]))
-            kick[index] = max(kick[index] * decay, min(1, rise * 8))
+            let swing = index < spread.count ? spread[index] : Self.initialSpread
+            let onset = rise / max(0.03, swing * 1.6) - Self.onsetFloor
+            kick[index] = max(kick[index] * decay, min(1, max(0, onset) * 0.8))
         }
         previousLevels = levels
     }
@@ -443,9 +461,15 @@ final class FerrofluidSim {
 
     private func updateSwell(levels: [Float], dev: [Double], dt: Double) {
         let count = max(1, min(3, levels.count))
-        let bass = dev.prefix(count).reduce(0, +) / Double(count)
-        let target = min(1, bass * 0.8)
-        let rate = target > swell ? 22.0 : 5.5
+        // Two parts: a pool that follows how loud the bass is over about a second, so the
+        // ink rests rounded and full rather than as the bare cutout, and the hit on top.
+        let bass = drift.prefix(count).reduce(0, +) / Double(count)
+        // In silence it drains quickly, so the ink comes home and the renderer can stop.
+        let poolRate = quietFor > 0 ? 4.0 : 0.8
+        pool += (min(1, bass * 0.3) - pool) * min(1, poolRate * dt)
+        let hit = kick.prefix(count).max() ?? 0
+        let target = min(1, pool + hit * 1.3)
+        let rate = target > swell ? 30.0 : 3.6
         swell += (target - swell) * min(1, rate * dt)
         if swell < 0.004 { swell = 0 }
     }
@@ -460,9 +484,10 @@ final class FerrofluidSim {
 
         for index in sites.indices {
             let band = min(levels.count - 1, sites[index].band)
-            let raw = min(1, dev[band] * 0.5 + kick[band] * 0.8)
+            let raw = min(1, dev[band] * 0.22 + kick[band] * 1.4)
 
-            let fieldRate = raw > sites[index].field ? 40.0 : 9.0
+            // Heaves on the hit, drains like something thick.
+            let fieldRate = raw > sites[index].field ? 60.0 : 6.0
             sites[index].field += (raw - sites[index].field) * min(1, fieldRate * dt)
             let field = sites[index].field
 
@@ -491,8 +516,10 @@ final class FerrofluidSim {
             // Bass is heavy and drains slowly, treble is light and snaps back; one rate
             // would make the whole crown breathe as a single object.
             let bandT = Double(band) / Double(max(1, levels.count - 1))
-            let fall = 4.6 * (0.55 + 1.5 * bandT)
-            let heightRate = target > sites[index].height ? 24.0 : fall
+            // Twice as fast once the music has stopped, so the ink is home inside the
+            // settle budget rather than draining for four seconds of silence.
+            let fall = 2.8 * (0.55 + 1.5 * bandT) * (quietFor > 0 ? 2 : 1)
+            let heightRate = target > sites[index].height ? 40.0 : fall
             sites[index].height += (target - sites[index].height) * min(1, heightRate * dt)
             if sites[index].height < 0.003 { sites[index].height = 0 }
             standing += sites[index].height

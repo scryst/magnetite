@@ -23,6 +23,8 @@ export const GLOW_FADE = 0.10;
 export const CRITICAL_FIELD = 0.36;
 const COLLAPSE_FIELD = 0.16;
 const INITIAL_SPREAD = 0.06;
+// How many swings a rise must clear to count as an onset.
+const ONSET_FLOOR = 1.4;
 const REENTRY_AFTER = 0.35;
 
 /**
@@ -81,6 +83,9 @@ export class FerrofluidSim {
     this.kick = [];
     this.baseline = [];
     this.spread = [];
+    // `deviation` slowed to a drift, and the bass pool the body rests on.
+    this.drift = [];
+    this.pool = 0;
     this.quietFor = 0;
     this.pendingSurge = null;
     // Stands in for `runClock()`. The Swift owns a 16ms Task; on the page the
@@ -176,11 +181,13 @@ export class FerrofluidSim {
     if (this.sites.length !== SITE_COUNT) this.seed(levels);
     this.updateKick(levels, dt);
     const dev = this.deviation(levels, dt);
+    if (this.drift.length !== dev.length) this.drift = dev.slice();
+    for (let i = 0; i < dev.length; i++) this.drift[i] += (dev[i] - this.drift[i]) * Math.min(1, 2.0 * dt);
     this.updateSwell(levels, dev, dt);
     this.updateFlow(levels, dt);
     this.updateImpact(dt);
     this.publishGates();
-    this.updateSites(levels, dev, dt);
+    this.updateSites(levels, this.drift, dt);
   }
 
   seed(levels) {
@@ -212,11 +219,15 @@ export class FerrofluidSim {
       this.pendingSurge = null;
       this.surge(held.strength, held.direction);
     }
-    const decay = Math.pow(0.05, dt);
+    // An onset is a rise wider than this band's own recent swing, so level
+    // noise no longer kicks the surface between hits.
+    const decay = Math.pow(0.002, dt);
     for (let i = 0; i < levels.length; i++) {
       // Subtracted at Float width, as the Swift does, before widening.
       const rise = Math.max(0, f32(levels[i] - this.previousLevels[i]));
-      this.kick[i] = Math.max(this.kick[i] * decay, Math.min(1, rise * 8));
+      const swing = i < this.spread.length ? this.spread[i] : INITIAL_SPREAD;
+      const onset = rise / Math.max(0.03, swing * 1.6) - ONSET_FLOOR;
+      this.kick[i] = Math.max(this.kick[i] * decay, Math.min(1, Math.max(0, onset) * 0.8));
     }
     this.previousLevels = levels.slice();
   }
@@ -284,11 +295,17 @@ export class FerrofluidSim {
 
   updateSwell(levels, dev, dt) {
     const count = Math.max(1, Math.min(3, levels.length));
+    // A pool that follows the bass over about a second, and the hit on top.
     let bass = 0;
-    for (let i = 0; i < count; i++) bass += dev[i];
+    for (let i = 0; i < count; i++) bass += this.drift[i];
     bass /= count;
-    const target = Math.min(1, bass * 0.8);
-    const rate = target > this.swell ? 22.0 : 5.5;
+    // In silence it drains quickly, so the ink comes home and the loop can stop.
+    const poolRate = this.quietFor > 0 ? 4.0 : 0.8;
+    this.pool += (Math.min(1, bass * 0.3) - this.pool) * Math.min(1, poolRate * dt);
+    let hit = 0;
+    for (let i = 0; i < count && i < this.kick.length; i++) if (this.kick[i] > hit) hit = this.kick[i];
+    const target = Math.min(1, this.pool + hit * 1.3);
+    const rate = target > this.swell ? 30.0 : 3.6;
     this.swell += (target - this.swell) * Math.min(1, rate * dt);
     if (this.swell < 0.004) this.swell = 0;
   }
@@ -308,9 +325,10 @@ export class FerrofluidSim {
     for (let index = 0; index < this.sites.length; index++) {
       const site = this.sites[index];
       const band = Math.min(levels.length - 1, site.band);
-      const raw = Math.min(1, dev[band] * 0.5 + this.kick[band] * 0.8);
+      const raw = Math.min(1, dev[band] * 0.22 + this.kick[band] * 1.4);
 
-      const fieldRate = raw > site.field ? 40.0 : 9.0;
+      // Heaves on the hit, drains like something thick.
+      const fieldRate = raw > site.field ? 60.0 : 6.0;
       site.field += (raw - site.field) * Math.min(1, fieldRate * dt);
       const field = site.field;
 
@@ -340,8 +358,9 @@ export class FerrofluidSim {
 
       // Bass is heavy and drains slowly; treble is light and snaps back.
       const bandT = band / Math.max(1, levels.length - 1);
-      const fall = 4.6 * (0.55 + 1.5 * bandT);
-      const heightRate = target > site.height ? 24.0 : fall;
+      // Twice as fast once the music has stopped, so the ink settles in budget.
+      const fall = 2.8 * (0.55 + 1.5 * bandT) * (this.quietFor > 0 ? 2 : 1);
+      const heightRate = target > site.height ? 40.0 : fall;
       site.height += (target - site.height) * Math.min(1, heightRate * dt);
       if (site.height < 0.003) site.height = 0;
       standing += site.height;

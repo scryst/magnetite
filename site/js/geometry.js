@@ -259,12 +259,13 @@ export class Geometry {
     const room = 0.42 + 0.58 * this.openness;
     // Less body, more crown: at swell*15 against mound*23 the bass lifted the
     // whole outline so far the per-band peaks rode on it as ripples.
-    const bass = swell * 12;
+    const bass = swell * 16;
     const drain = raised * 4;
     const lobeSum = mound * 27 * detail;
     // The sides are driven harder BEFORE the saturation, not scaled after it.
     const raw = (bass - drain + lobeSum) * travel * room * (1 + 1.2 * lateral);
-    const ceiling = Math.min((34 + 14 * lateral) * room,
+    // A hit raises it on the bottom run only; on the flanks too it makes a corner.
+    const ceiling = Math.min((34 + 14 * lateral) * room * (1 + 0.9 * swell * (1 - lateral)),
       Math.max(0, headroom - Geometry.blur));
     // Inward, and further inward on the sides, so the body pinches rather than
     // only bulging.
