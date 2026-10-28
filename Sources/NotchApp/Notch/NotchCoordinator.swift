@@ -137,16 +137,8 @@ final class NotchCoordinator {
             let hosting = NotchHostingView(rootView: root)
             hosting.frame = NSRect(origin: .zero, size: panelSize)
             hosting.autoresizingMask = [.width, .height]
-            // AppKit coordinates: the notch hangs from the top of the panel.
-            hosting.hitRegion = { [weak controller] in
-                guard let controller else { return .zero }
-                let s = controller.currentSize
-                // Exactly the drawn shell; keeping the panel open is the hover zone's job.
-                return CGRect(x: (panelSize.width - s.width) / 2,
-                              y: panelSize.height - s.height,
-                              width: s.width,
-                              height: s.height)
-            }
+            // Exactly the drawn shell; keeping the panel open is the hover zone's job.
+            hosting.shellSize = { [weak controller] in controller?.currentSize ?? .zero }
 
             panel.contentView = hosting
             panel.orderFrontRegardless()

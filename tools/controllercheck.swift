@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 /// Headless checks on the per-display notch state machine.
 ///
@@ -23,6 +24,7 @@ enum ControllerCheck {
         everyStoredSettingIsCarriedAcrossTheRename()
         theURLSchemeTheAppAnswersIsTheOneItRegistered()
         everyNameTheAppHasShippedUnderIsStillMigrated()
+        theOpenPanelTakesClicksFromItsTopEdge()
         print("controllercheck: all checks passed")
     }
 
@@ -313,6 +315,32 @@ enum ControllerCheck {
         return re.matches(in: text, range: range).compactMap {
             Range($0.range(at: 1), in: text).map { String(text[$0]) }
         }
+    }
+
+    /// The heart and the title row sit just under the band. A hosting view is flipped,
+    /// and a region written bottom-up hung the shell from the window's bottom edge: the
+    /// heart took no clicks, and a strip under the panel swallowed clicks meant for the
+    /// window beneath. Hit-tested on a real hosting view, since only AppKit knows which
+    /// way the view is flipped.
+    @MainActor
+    static func theOpenPanelTakesClicksFromItsTopEdge() {
+        let window = CGSize(width: 500, height: 244)
+        let shell = CGSize(width: 372, height: 160)
+        let view = NotchHostingView(rootView: Color.black.frame(width: window.width,
+                                                                height: window.height))
+        view.shellSize = { shell }
+        // Installed as the app installs it, so `hitTest` receives points in the window's
+        // bottom-up coordinates. Never ordered on screen.
+        let host = NSWindow(contentRect: NSRect(origin: .zero, size: window),
+                            styleMask: .borderless, backing: .buffered, defer: true)
+        host.contentView = view
+        view.layoutSubtreeIfNeeded()
+        func hits(_ fromTop: CGFloat) -> Bool {
+            view.hitTest(NSPoint(x: window.width / 2 + 54, y: window.height - fromTop)) != nil
+        }
+        require(hits(74), "the heart's row, 74 pt from the top, takes no clicks")
+        require(hits(shell.height - 8), "the transport row near the shell's bottom takes no clicks")
+        require(!hits(shell.height + 30), "the empty window under the open panel swallows clicks")
     }
 
     /// A controller on whatever display this Mac has. Which display does not

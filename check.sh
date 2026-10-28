@@ -74,6 +74,7 @@ swiftc -O -parse-as-library tools/chromecheck.swift \
   -o .build/checks/chromecheck </dev/null
 swiftc -O -parse-as-library tools/controllercheck.swift \
   Sources/NotchApp/Notch/NotchController.swift \
+  Sources/NotchApp/Notch/NotchPanel.swift \
   Sources/NotchApp/Notch/ScreenMetrics.swift \
   Sources/NotchApp/Notch/NotchShape.swift \
   Sources/NotchApp/Notch/SwipeRecogniser.swift \
