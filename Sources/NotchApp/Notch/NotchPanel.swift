@@ -7,14 +7,24 @@ import SwiftUI
 /// morph without resizing the window, and its empty area must not swallow clicks.
 final class NotchHostingView<Content: View>: NSHostingView<Content> {
 
-    /// Notch region in this view's (unflipped, AppKit) coordinates.
-    var hitRegion: () -> CGRect = { .zero }
+    /// Size of the drawn shell, which hangs centred from the view's top edge.
+    var shellSize: () -> CGSize = { .zero }
 
     override var safeAreaInsets: NSEdgeInsets { NSEdgeInsets() }
 
+    /// The shell measured from the top edge. A hosting view is flipped, so a region
+    /// written in bottom-up AppKit terms hangs from the bottom instead: the title row
+    /// and the heart stopped taking clicks, and a strip under the open panel swallowed
+    /// clicks meant for the window beneath.
+    var hitRegion: CGRect {
+        let s = shellSize()
+        let y = isFlipped ? 0 : bounds.height - s.height
+        return CGRect(x: (bounds.width - s.width) / 2, y: y, width: s.width, height: s.height)
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
-        guard hitRegion().insetBy(dx: -2, dy: -2).contains(local) else { return nil }
+        guard hitRegion.insetBy(dx: -2, dy: -2).contains(local) else { return nil }
         return super.hitTest(point)
     }
 }
