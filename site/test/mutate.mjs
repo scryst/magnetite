@@ -152,26 +152,27 @@ const MUTANTS = {
     from: 'Expires: 2027-08-31T23:59:59Z',
     to: 'Expires: 2025-08-31T23:59:59Z',
   },
-  // The bug exactly as it shipped, and as it shipped for the capture's whole
-  // life: the page plays eight seconds of music in four. Nothing in the suite
-  // could see it, because site.js said 60 and portprobe dumped at 60 and the
-  // two agreed with each other.
-  'the-capture-plays-at-double-speed': {
+  // The bug as it shipped for the capture's whole life, from the side it is on
+  // now: the page indexes the 60Hz replay at 30 and plays eight seconds of
+  // music in sixteen. It was the other way round while the file was 30Hz and
+  // the page said 60, and nothing in the suite could see it, because site.js
+  // said 60 and portprobe dumped at 60 and the two agreed with each other.
+  'the-capture-plays-at-half-speed': {
     check: RATE,
     file: SITE_JS,
-    from: 'const CAPTURE_HZ = 30;',
-    to: 'const CAPTURE_HZ = 60;',
+    from: 'const CAPTURE_HZ = 60;',
+    to: 'const CAPTURE_HZ = 30;',
   },
   // The same 2x from the other end: the app's pump retimed and the site left
   // where it was. The rate is a fact about the app, so the check has to fail
   // when the APP moves, not only when the page does.
-  'the-app-republishes-twice-as-often': {
+  'the-app-republishes-half-as-often': {
     check: RATE,
     file: LEVELS_SWIFT,
-    from: 'try? await Task.sleep(for: .milliseconds(33))',
-    to: 'try? await Task.sleep(for: .milliseconds(16))',
+    from: 'try? await Task.sleep(for: .milliseconds(16))',
+    to: 'try? await Task.sleep(for: .milliseconds(33))',
   },
-  // A step rate that is not the app's render clock. `SIM_HZ` divides
+  // A step rate that is not the app's render clock. `SIM_HZ` is a multiple of
   // `CAPTURE_HZ` here, so the arithmetic still works and every frame still gets
   // a whole number of steps — it is simply a different physics from the one the
   // golden holds.
@@ -179,12 +180,12 @@ const MUTANTS = {
     check: RATE,
     file: SITE_JS,
     from: 'const SIM_HZ = 60;',
-    to: 'const SIM_HZ = 90;',
+    to: 'const SIM_HZ = 120;',
   },
-  // A rate pair that does not divide. `the-page-steps-at-its-own-rate` uses 90,
-  // which still gives a whole 3 steps per captured frame, so it proves the rate
+  // A rate pair that does not divide. `the-page-steps-at-its-own-rate` uses 120,
+  // which still gives a whole 2 steps per captured frame, so it proves the rate
   // must be the APP's and leaves the divisibility guard beside it unexercised.
-  // 45 over 30 is one and a half steps per frame: every other captured frame
+  // 45 over 60 is three quarters of a step per frame: every other captured frame
   // would be held for a different number of steps than its neighbour, which is
   // not a cadence at all. The guard exists so that arrives as a failure rather
   // than as a `per` of 1.5 quietly rounding somewhere downstream.
@@ -207,20 +208,20 @@ const MUTANTS = {
   'the-card-steps-at-the-capture-rate': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
+    from: 'const CADENCE = replayCadence(60, 60, 0.01);',
     to: 'const CADENCE = replayCadence(30, 30, 0.01);',
   },
-  'the-card-holds-each-frame-once': {
+  'the-card-holds-each-frame-twice': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
-    to: 'const CADENCE = replayCadence(60, 60, 0.01);',
+    from: 'const CADENCE = replayCadence(60, 60, 0.01);',
+    to: 'const CADENCE = replayCadence(60, 30, 0.01);',
   },
   'the-card-smooths-differently': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
-    to: 'const CADENCE = replayCadence(60, 30, 0.2);',
+    from: 'const CADENCE = replayCadence(60, 60, 0.01);',
+    to: 'const CADENCE = replayCadence(60, 60, 0.2);',
   },
   // The remainder thrown away instead of carried. Passes at 120Hz, where the
   // step divides the callback exactly, and runs SLOW at 90 — which is why the
@@ -357,10 +358,13 @@ const MUTANTS = {
     from: '    sim.advance(smoothed(levelsAt(s)), SIM_STEP);',
     to: '    sim.advance(smoothed(levelsAt(s)), dt);',
   },
-  // The hold dropped from the still: one step per captured frame instead of
-  // two, so the reduce-motion picture is integrated over half the audio the
-  // moving one is. It reads as a frame of the fluid to every source-pattern
-  // assertion, because it is one — of a different cadence.
+  // A hold put in the still: two steps per captured frame instead of one, so
+  // the reduce-motion picture is integrated over twice the steps the moving one
+  // is. It was the other way round while the capture was 30Hz and the app held
+  // each frame for two steps, and the mutant dropped the hold; at 60Hz there is
+  // none to drop, and `steps: 1` is the cadence itself. It reads as a frame of
+  // the fluid to every source-pattern assertion, because it is one — of a
+  // different cadence.
   //
   // In clock.js now, and answering to a different check. This was `const steps
   // = 1` inside `renderStill`, where it was caught by the SYNTAX of the line it
@@ -368,14 +372,14 @@ const MUTANTS = {
   // = 2 / SIM_HZ` on the line above it walked straight through. The still has
   // no recipe of its own any more, so the mutation has to be made where the
   // recipe lives, and what catches it is the film disagreeing with it.
-  'the-still-does-not-hold-its-frames': {
+  'the-still-holds-its-frames': {
     check: STILLFILM,
     file: CLOCK,
     from: '  return { dt, steps: Math.round(simHz / captureHz), k: 1 - Math.exp(-dt / tau) };',
-    to: '  return { dt, steps: 1, k: 1 - Math.exp(-dt / tau) };',
+    to: '  return { dt, steps: 2, k: 1 - Math.exp(-dt / tau) };',
   },
   // The still's own walk, one step short per captured frame. Not the same
-  // mutant as the one above: the cadence still says two, so every source
+  // mutant as the one above: the cadence still says one, so every source
   // pattern and every count agrees, and the only thing that can tell is running
   // the loop against the replay's index.
   'the-still-walks-short': {
@@ -478,12 +482,34 @@ const MUTANTS = {
     from: '    for (const v of levels) sum = f32(sum + v);',
     to: '    for (const v of levels) sum = sum + v;',
   },
-  // The bass drive off by a hair — the kind of drift a hand-copied constant has.
+  // The blow a kick strikes the body with, off by a hair — the kind of drift a
+  // hand-copied constant has.
   'swell-gain-drift': {
     check: REPLAY,
     file: SIM,
-    from: '    const target = Math.min(1, this.pool + hit * 1.3);',
-    to: '    const target = Math.min(1, this.pool + hit * 1.32);',
+    from: 'const SWELL_BLOW = 22.0;',
+    to: 'const SWELL_BLOW = 22.4;',
+  },
+  // The body's spring a little stiffer, and the spike's a little softer.
+  'swell-spring-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const omega = this.quietFor > 0 ? 20.0 : 15.0;',
+    to: 'const omega = this.quietFor > 0 ? 20.0 : 15.3;',
+  },
+  'spike-spring-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const omega = rising ? 52.0 :',
+    to: 'const omega = rising ? 51.0 :',
+  },
+  // An onset measured against one frame back again: a hit that straddles two
+  // 16ms frames has each half fall under the bar.
+  'onset-forgets-the-older-frame': {
+    check: REPLAY,
+    file: SIM,
+    from: 'Math.min(this.previousLevels[i], this.olderLevels[i])',
+    to: 'this.previousLevels[i]',
   },
   // The bed the body rests on between hits, off by a hair.
   'pool-gain-drift': {
@@ -497,8 +523,8 @@ const MUTANTS = {
   'onset-floor-drift': {
     check: REPLAY,
     file: SIM,
-    from: 'const ONSET_FLOOR = 1.4;',
-    to: 'const ONSET_FLOOR = 1.35;',
+    from: 'const ONSET_FLOOR = 0.9;',
+    to: 'const ONSET_FLOOR = 0.85;',
   },
   // The drift the sites follow between hits, at a slightly different pace.
   'drift-rate-drift': {
@@ -648,7 +674,7 @@ const MUTANTS = {
   'loop-seam-moved': {
     check: AUDIO,
     file: DATA,
-    from: 'export const LOOP_FRAME = 26;',
+    from: 'export const LOOP_FRAME = 52;',
     to: 'export const LOOP_FRAME = 0;',
   },
   // The direction that actually matters: the BUILD's floor moves and the page
@@ -1738,15 +1764,17 @@ const MUTANTS = {
   // reading it. Same shape as the visibility wiring one commit ago, found by
   // the same method and killed by execution rather than by a tighter rule.
   //
-  // The two rates handed to `replayFrame` the wrong way round. 30/60 instead of
-  // 60/30 is two steps per captured frame becoming half of one, so the replay
-  // walks the capture at four times its own rate and every check that drives
-  // `replayFrame` directly stays green, because the function is correct.
+  // The sim's rate handed to `replayFrame` as twice what it is. The mutant was
+  // the two rates swapped, which was two steps per captured frame becoming half
+  // of one and walked the capture at four times its own rate; both are 60 now
+  // and swapping them changes nothing. Doubled, it holds every captured frame
+  // for two steps, and every check that drives `replayFrame` directly stays
+  // green, because the function is correct.
   'the-replay-runs-at-the-wrong-rate': {
     check: SPENDS,
     file: SITE_JS,
     from: '  return replayFrame(step, SIM_HZ, CAPTURE_HZ, REAL_LEVELS.length, LOOP_FRAME);',
-    to: '  return replayFrame(step, CAPTURE_HZ, SIM_HZ, REAL_LEVELS.length, LOOP_FRAME);',
+    to: '  return replayFrame(step, SIM_HZ * 2, CAPTURE_HZ, REAL_LEVELS.length, LOOP_FRAME);',
   },
   // The wall's gap and the fixed step swapped on the way into the bank. This is
   // the defect the banking exists to prevent, re-entered at the call: the
@@ -2843,14 +2871,14 @@ const MUTANTS = {
   'the-silence-pump-never-reaches-zero': {
     check: BAND_PUMP,
     file: BANDS_JS,
-    from: '      const decayed = this.bands[i] * 0.82;',
+    from: '      const decayed = this.bands[i] * 0.905;',
     to: '      const decayed = this.bands[i];',
   },
   'the-lowest-sine-lights-the-next-band': {
     check: BAND_SINES,
     file: 'site/test/golden/bands-band-00.txt',
-    from: '7 9.96263325e-01 9.08905327e-01',
-    to: '7 9.08905327e-01 9.96263325e-01',
+    from: '7 9.99998271e-01 9.12312806e-01',
+    to: '7 9.12312806e-01 9.99998271e-01',
   },
 };
 

@@ -57,9 +57,9 @@ const H = 630;
 const PAPER = '#ECEBE6';
 const INK = '#222022';
 const SEED = 9;
-const FRAME = Number(new URLSearchParams(location.search).get('frame')) || 58;
-// The page's own cadence: 60 Hz steps over a 30 Hz capture, 110 ms low pass.
-const CADENCE = replayCadence(60, 30, 0.01);
+const FRAME = Number(new URLSearchParams(location.search).get('frame')) || 116;
+// The page's own cadence: 60 Hz steps over the 60 Hz capture, 10 ms low pass.
+const CADENCE = replayCadence(60, 60, 0.01);
 
 const status = document.getElementById('status');
 const faces = await document.fonts.load(`${HEADLINE.weight} 64px ${HEADLINE.family}`);

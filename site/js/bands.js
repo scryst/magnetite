@@ -132,7 +132,7 @@ export class BandAnalyser {
       const level = Math.min(1, Math.max(0, (db + 70) / 55));
       // Attack fast, release slow — the app's meter, applied per publish.
       const prev = this.bands[b];
-      this.bands[b] = Math.fround(prev + (level - prev) * (level > prev ? 0.55 : 0.16));
+      this.bands[b] = Math.fround(prev + (level - prev) * (level > prev ? 0.85 : 0.16));
     }
   }
 
@@ -156,7 +156,7 @@ export class LevelPump {
     this.scratch = new Float32Array(BAND_COUNT);
   }
 
-  /** One 30 Hz-ish tick: adopt live bands, or decay toward honest silence. */
+  /** One 60 Hz-ish tick: adopt live bands, or decay toward honest silence. */
   tick(analyser) {
     if (analyser) {
       analyser.levels(this.scratch);
@@ -170,7 +170,8 @@ export class LevelPump {
       }
     }
     for (let i = 0; i < BAND_COUNT; i++) {
-      const decayed = this.bands[i] * 0.82;
+      // 0.82 per 33ms, kept at the same pace now that a tick is 16ms.
+      const decayed = this.bands[i] * 0.905;
       this.bands[i] = decayed < 0.002 ? 0 : decayed;
     }
     return false;

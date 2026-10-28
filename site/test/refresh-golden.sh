@@ -17,11 +17,12 @@ swiftc -O -parse-as-library site/test/portprobe.swift \
   Sources/NotchApp/Audio/AudioTap.swift \
   -o .build/checks/portprobe
 
-# `sim-held` is the app's OWN cadence — every captured frame stepped twice,
-# because the render clock is 60Hz and AudioLevels republishes at 30. It is a
-# separate mode from `sim` and not a variant of it: a port can agree on 240
-# changing frames and disagree the first time a frame repeats, which is the
-# defect theReplayIsSteppedLikeTheApp exists to catch. It was missing from this
+# `sim-held` is the app's OWN cadence — the 30Hz capture played at 60Hz with a
+# midpoint between each pair of frames, one step apiece, because the render clock
+# is 60Hz and AudioLevels republishes every 16ms; then the last frame held for a
+# second. It is a separate mode from `sim` and not a variant of it: a port can
+# agree on frames that all change and disagree the first time a frame repeats,
+# which is the defect theReplayIsSteppedLikeTheApp exists to catch. It was missing from this
 # list while its golden existed, so that file was hand-made once and nothing
 # here would ever have noticed it going stale — a golden outside this loop is a
 # gate that quietly stops tracking the app.

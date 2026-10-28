@@ -53,21 +53,45 @@ enum PortProbe {
 
     // MARK: - Levels
 
-    private static func realLevels() -> [[Float]] {
+    /// The capture as Resources/real-levels.txt holds it, at the 30Hz it was taken at.
+    private static func capture() -> [[Double]] {
         let path = "Resources/real-levels.txt"
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
             FileHandle.standardError.write("missing \(path)\n".data(using: .utf8)!)
             exit(2)
         }
         return text.split(separator: "\n").compactMap { line in
-            let values = line.split(separator: " ").compactMap { Float($0) }
+            let values = line.split(separator: " ").compactMap { Double($0) }
             return values.count == AudioTap.bandCount ? values : nil
         }
     }
 
+    private static func realLevels() -> [[Float]] {
+        capture().map { $0.map { Float($0) } }
+    }
+
+    /// The capture at the app's 60Hz: the midpoint of each consecutive pair put
+    /// between the two, as `tools/fluidcheck.swift` replays it and as
+    /// site/test/gen-levels.mjs writes it for the page. The midpoint is taken in
+    /// Double from the decimals as written and narrowed once, because the page's
+    /// data carries it as a decimal and widens it from there; a midpoint of two
+    /// narrowed Floats can sit one ulp from that.
+    private static func resampled() -> [[Float]] {
+        var out: [[Float]] = []
+        let frames = capture()
+        for (index, frame) in frames.enumerated() {
+            if index > 0 {
+                out.append(zip(frames[index - 1], frame).map { Float(($0 + $1) / 2) })
+            }
+            out.append(frame.map { Float($0) })
+        }
+        return out
+    }
+
     // MARK: - Modes
 
-    /// 240 frames of real captured audio at a fixed 60fps step.
+    /// 240 frames of real captured audio, one step each at a fixed 1/60: the
+    /// port's arithmetic on a sequence nothing ships.
     @MainActor
     private static func replay() {
         let sim = FerrofluidSim()
@@ -80,30 +104,29 @@ enum PortProbe {
 
     /// The same capture, stepped the way the APP steps it.
     ///
-    /// `replay()` above advances once per captured frame, which is a cadence
-    /// nothing ships: it proves the port's arithmetic and says nothing about the
-    /// sequence the fluid actually integrates. On the machine the render clock
-    /// is 60Hz and `AudioLevels` republishes at 30 — `Task.sleep(.milliseconds(33))`
-    /// — so every captured frame is stepped TWICE and the second step sees a
-    /// delta of exactly zero. `tools/fluidcheck.swift` has driven it that way
-    /// since the capture was added; the website did not, and the difference is
-    /// the whole reason this mode exists.
+    /// `replay()` above advances once per 30Hz captured frame, which is a
+    /// cadence nothing ships: it proves the port's arithmetic and says nothing
+    /// about the sequence the fluid actually integrates. On the machine the
+    /// render clock is 60Hz and `AudioLevels` republishes every 16ms, so every
+    /// step has news: the capture is played at 60Hz with a midpoint between each
+    /// pair of its frames, one step apiece. It was stepped twice per frame, with
+    /// the second step seeing a delta of exactly zero, while the pump slept 33ms.
     ///
-    /// A zero-delta step is not a step the varying sequence ever takes. Both of
-    /// the sim's inputs are measured against a remembered past, `deviation`
-    /// divides by an adapting `spread`, and `isSettled` can early-return — so
-    /// "the port agrees on 240 changing frames" does not imply it agrees on a
-    /// held one. This mode is what makes that a checked claim rather than an
-    /// assumed one.
+    /// That zero-delta step is still a step the app can take, when a read lands
+    /// on the bands it already had, so the dump ends with the last frame held
+    /// for a second. Both of the sim's inputs are measured against a remembered
+    /// past, `deviation` divides by an adapting `spread`, and `isSettled` can
+    /// early-return, so "the port agrees on frames that all change" does not
+    /// imply it agrees on a held one. This mode is what makes that a checked
+    /// claim rather than an assumed one.
     ///
-    /// One dump line per CAPTURED frame, after both steps: the site samples
-    /// where the eye does, at the frame, not between its halves.
+    /// One dump line per step.
     @MainActor
     private static func replayHeld() {
         let sim = FerrofluidSim()
-        let frames = realLevels()
+        var frames = resampled()
+        frames += [[Float]](repeating: frames[frames.count - 1], count: 60)
         for (index, levels) in frames.enumerated() {
-            sim.advance(levels: levels, dt: 1.0 / 60)
             sim.advance(levels: levels, dt: 1.0 / 60)
             frame(sim, index)
         }
