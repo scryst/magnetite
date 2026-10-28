@@ -190,7 +190,10 @@ struct NotchRootView: View {
             .compactMap { NSColor($0).usingColorSpace(.sRGB) }
             .max { $0.saturationComponent * $0.brightnessComponent
                    < $1.saturationComponent * $1.brightnessComponent }
-        guard let vivid, vivid.saturationComponent > 0.12 else { return .white }
+        // A greyscale sleeve's palette tints its greys up to 0.16 in whatever hue the
+        // noise leans, so below 0.2 the sleeve has no colour to lend and the floor
+        // below would invent one (a black-and-white cover drew a green line).
+        guard let vivid, vivid.saturationComponent > 0.2 else { return .white }
         return Color(hue: vivid.hueComponent,
                      saturation: min(0.7, max(0.45, vivid.saturationComponent)),
                      brightness: 1)
