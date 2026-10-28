@@ -180,6 +180,11 @@ enum Motion {
         reduceMotion ? .easeOut(duration: 0.14)
                      : .spring(response: 0.26, dampingFraction: 0.72)
     }
+    /// The playhead carried to a new place in the track: fast out, settled in.
+    static var glide: Animation {
+        reduceMotion ? .easeOut(duration: 0.16)
+                     : .spring(response: 0.42, dampingFraction: 0.86)
+    }
     /// Track change, the one place extra bounce is earned.
     static var track: Animation {
         reduceMotion ? .easeOut(duration: 0.20)
@@ -200,31 +205,31 @@ enum Motion {
 }
 
 /// The open, staged as a pour. The shell's bottom edge leads in the middle like the
-/// front of a poured liquid, then wobbles flat; the colour fills the body behind it and
-/// the content arrives last. Closing drains the colour up while the edge trails. One
+/// front of a poured liquid, then wobbles flat, and the content arrives last. Closing
+/// draws the edge up from the corners while the middle trails. One
 /// timeline rather than a spring per value, so the order is a single fact
 /// `chromecheck` can sample.
 struct Pour: Equatable {
     /// How far the middle of the bottom edge hangs below its corners, in points.
     var sag: CGFloat = 0
-    /// How much of the body the colour has filled, from the top.
-    var fill: CGFloat = 0
 
-    static func rest(open: Bool) -> Pour { Pour(fill: open ? 1 : 0) }
+    static func rest(open: Bool) -> Pour { Pour() }
 
-    /// When the content starts to arrive: once the colour is most of the way down.
+    /// When the content starts to arrive: once the edge is most of the way down.
     static var contentLag: Double { Motion.reduceMotion ? 0.07 : 0.14 }
 
-    /// Reduce Motion keeps the order and loses the travel: a flat edge, a short fill.
+    /// Reduce Motion keeps the order and loses the travel: a flat edge throughout.
+    /// The colour fills the whole shell at every frame in both directions. It used to
+    /// flood down behind the edge and drain ahead of it, which showed as a black slab
+    /// under the colour mid-morph.
     static func timeline(opening: Bool) -> KeyframeTimeline<Pour> {
         if Motion.reduceMotion {
             return KeyframeTimeline(initialValue: rest(open: !opening)) {
-                KeyframeTrack(\.fill) { LinearKeyframe(opening ? 1 : 0, duration: 0.16) }
+                KeyframeTrack(\.sag) { LinearKeyframe(0, duration: 0.16) }
             }
         }
         if !opening {
             return KeyframeTimeline(initialValue: rest(open: true)) {
-                KeyframeTrack(\.fill) { CubicKeyframe(0, duration: 0.16, startVelocity: 0) }
                 // Drawn up from the corners, the middle trails, then lets go.
                 KeyframeTrack(\.sag) {
                     CubicKeyframe(9, duration: 0.1)
@@ -238,10 +243,6 @@ struct Pour: Equatable {
             KeyframeTrack(\.sag) {
                 CubicKeyframe(16, duration: 0.13, startVelocity: 0)
                 SpringKeyframe(0, duration: 0.5, spring: Spring(response: 0.26, dampingRatio: 0.42))
-            }
-            KeyframeTrack(\.fill) {
-                LinearKeyframe(0, duration: 0.03)
-                CubicKeyframe(1, duration: 0.24, startVelocity: 0, endVelocity: 0)
             }
         }
     }

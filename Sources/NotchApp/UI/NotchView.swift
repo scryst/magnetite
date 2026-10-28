@@ -37,6 +37,8 @@ struct NotchRootView: View {
     @Namespace private var glass
     @ViewState private var scrubbing = false
     @ViewState private var scrubFraction: CGFloat = 0
+    /// Where the line stood when a scrub began, so the landing knows which way it moved.
+    @ViewState private var seekFrom: Double = 0
     @ViewState private var seekHovering = false
     /// When the running pour started; nil at rest. `pourSettled` is the state the last
     /// pour finished in, so the frame before `onChange` lands already reads as the
@@ -117,11 +119,9 @@ struct NotchRootView: View {
                         }
                     }
                 }
-                // Out while a pour runs: riding the growing silhouette, the line sweeps down
-                // through the panel like a scan line. It comes back on the settled edge.
-                .animation(.easeOut(duration: 0.2)) {
-                    $0.opacity(trackDrawn && pourStart == nil ? 1 : 0)
-                }
+                // On the edge from the first frame of a morph: it is the edge, so it travels
+                // with it. Held back until the pour settled, it arrived late.
+                .opacity(trackDrawn ? 1 : 0)
             }
             // The tip is not gated on expansion (that would fade the dot in on every open);
             // width carries the state. The seek strip stays gated so a collapsed notch is never
@@ -182,6 +182,19 @@ struct NotchRootView: View {
     }
 
     private var tint: Color { media.palette.colors.first ?? .accentColor }
+    /// The played line: the cover's most vivid colour at full brightness, so the line
+    /// belongs to the record rather than being a white rule, and still stands off the
+    /// darker wash made of the same colours. A grey sleeve has no hue to lend: white.
+    private var lineTint: Color {
+        let vivid = media.palette.colors
+            .compactMap { NSColor($0).usingColorSpace(.sRGB) }
+            .max { $0.saturationComponent * $0.brightnessComponent
+                   < $1.saturationComponent * $1.brightnessComponent }
+        guard let vivid, vivid.saturationComponent > 0.12 else { return .white }
+        return Color(hue: vivid.hueComponent,
+                     saturation: min(0.7, max(0.45, vivid.saturationComponent)),
+                     brightness: 1)
+    }
 
     private func pour(at date: Date) -> Pour {
         let timeline = Pour.timeline(opening: expanded)
@@ -191,20 +204,6 @@ struct NotchRootView: View {
         let t = date.timeIntervalSince(start)
         return t >= timeline.duration ? .rest(open: expanded) : timeline.value(time: t)
     }
-
-    /// How far down the colour reaches: the closed shell's height at rest, the open
-    /// panel's when filled. Feathered, so the colour floods down rather than wiping.
-    private func colourMask(_ pour: Pour) -> some View {
-        let closed = controller.retractedHeight
-        let height = closed + pour.fill * max(0, controller.expandedSize.height - closed)
-        return VStack(spacing: 0) {
-            Rectangle().frame(height: height)
-            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                .frame(height: pour.fill < 1 && pour.fill > 0 ? 28 : 0)
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-    }
-
 
     // MARK: Chrome
 
@@ -218,15 +217,17 @@ struct NotchRootView: View {
 
             // This frame establishes the coordinate space the masks resolve in; without it the
             // oversized `coverWash` frame becomes the reference.
+            // Taller than the shell by the deepest sag, so the colour reaches the edge where
+            // it hangs below its corners; the outer frame keeps the layout at `size`.
             glassLayer(shape)
-                .frame(width: size.width, height: size.height)
+                .frame(width: size.width, height: size.height + 20, alignment: .top)
+                .frame(width: size.width, height: size.height, alignment: .top)
                 .allowsHitTesting(false)
                 // A bare notch is black: unscoped, the tint rides the spring's tail down to the
                 // cutout and leaves a ring round the camera.
                 .animation(shellTinted ? .easeOut(duration: 0.12) : .easeOut(duration: 0.16)) {
                     $0.opacity(shellTinted ? 1 : 0)
                 }
-                .mask(alignment: .top) { colourMask(pour) }
 
             FerrofluidView(sim: fluid,
                            notchSize: controller.notchSize,
@@ -277,7 +278,7 @@ struct NotchRootView: View {
 
     private func glassLayer(_ shape: NotchShape) -> some View {
         Color.clear
-            .glassEffect(.regular.tint(tint.opacity(0.65)), in: shape)
+            .glassEffect(.regular.tint(tint.opacity(0.3)), in: shape)
             .overlay { coverWash }
             .compositingGroup()
             .mask(shape)
@@ -304,16 +305,12 @@ struct NotchRootView: View {
         if media.hasTrack {
             ZStack {
                 if let art = media.artwork {
-                    Image(nsImage: art)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: size.width * 1.18, height: size.height * 1.18)
-                        .blur(radius: 46)
-                        .saturation(1.5)
-                        .opacity(0.5)
+                    CoverField(fluid: fluid, art: art, size: size)
                 }
 
+                // Over the cover the mesh is the motion, not the colour; alone it is both.
                 MeshField(fluid: fluid, colors: meshColors)
+                    .opacity(media.artwork == nil ? 1 : 0.42)
             }
             // A scrim keeps the colour rich but dark enough for white type; additive
             // blending blows the field out. See `ArtworkPalette.scrimAlpha`.
@@ -329,6 +326,7 @@ struct NotchRootView: View {
                     ],
                     startPoint: .top, endPoint: .bottom)
             }
+            .overlay { Grain() }
         }
     }
 
@@ -393,8 +391,20 @@ struct NotchRootView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { g in
-                            scrubbing = true
-                            scrubFraction = min(max(g.location.x / max(w, 1), 0), 1)
+                            let f = min(max(g.location.x / max(w, 1), 0), 1)
+                            if scrubbing {
+                                scrubFraction = f
+                            } else {
+                                // First contact: the head travels to the pointer and the
+                                // clocks roll there, rather than both teleporting.
+                                seekFrom = shownFraction
+                                var t = Transaction(animation: Motion.seek)
+                                t.rollsClocks = true
+                                withTransaction(t) {
+                                    scrubbing = true
+                                    scrubFraction = f
+                                }
+                            }
                             // The ink follows the playhead, harder than a hover.
                             fluid.setPointer(rim: Double(scrubFraction), strength: 1.5)
                         }
@@ -405,6 +415,12 @@ struct NotchRootView: View {
                             let f = min(max(g.location.x / max(w, 1), 0), 1)
                             media.seek(toFraction: Double(f))
                             scrubbing = false
+                            // Landing is an event: the ink heaves the way the song moved.
+                            let moved = Double(f) - seekFrom
+                            if abs(moved) > 0.01 {
+                                fluid.surge(min(0.9, 0.45 + abs(moved)),
+                                            direction: moved > 0 ? 1 : -1)
+                            }
                         }
                 )
                 .onHover { seekHovering = $0 }
@@ -431,12 +447,12 @@ struct NotchRootView: View {
     /// Grab handle at the playhead: a true circle centred on the line's end, drawn by a
     /// shape that animates with the edge, so it never leaves the line mid-morph. Retracted
     /// it is the line's own width, so the peek and the panel end the line the same way.
-    /// Hover and grab grow the dot, never the line, and nothing glows.
+    /// Hover and grab grow the dot, never the line.
     private var playhead: some View {
         EdgeDot(edge: traceEdge,
                 at: max(0.0001, edgeTrim),
                 diameter: expanded ? (scrubbing ? 14 : (seekHovering ? 11 : 7)) : traceWidth)
-            .fill(.white)
+            .fill(expanded ? lineTint.mix(with: .white, by: 0.55) : lineTint)
             .animation(Motion.seek, value: seekHovering)
             .animation(Motion.seek, value: scrubbing)
             .allowsHitTesting(false)
@@ -466,7 +482,7 @@ struct NotchRootView: View {
                         height: size.height,
                         bottomCornerRadius: controller.bottomCornerRadius,
                         inset: traceInset)
-            .stroke(.white.opacity(0.16),
+            .stroke(.white.opacity(0.2),
                     style: StrokeStyle(lineWidth: traceWidth, lineCap: .round))
             .animation(Motion.seek, value: scrubbing)
             .animation(Motion.seek, value: seekHovering)
@@ -480,32 +496,22 @@ struct NotchRootView: View {
                         inset: traceInset)
     }
 
-    /// The played line as a comet: thin and faint where the track began, full and lit at
-    /// the playhead. Still: a light running along it or a glow pulsing with the music
-    /// reads as a loading bar.
+    /// The played line: one stroke fading in smoothly from where the track began to full
+    /// strength at the playhead. One gradient, not segments, which stepped visibly. No
+    /// glow: a halo round the head read as an effect laid on top.
     private var progressEdge: some View {
         let e = max(0.0001, edgeTrim)
-        let segments = 14
+        let headX = traceEdge.path(in: CGRect(origin: .zero, size: size))
+            .trimmedPath(from: 0, to: e).currentPoint?.x ?? 0
+        let reach = max(0.001, headX / max(1, size.width))
         return ZStack {
-            ForEach(0..<segments, id: \.self) { i in
-                let k = CGFloat(i + 1) / CGFloat(segments)
-                traceEdge
-                    .trim(from: e * CGFloat(i) / CGFloat(segments), to: e * k)
-                    .stroke(tint.opacity(0.28 + 0.72 * k * k),
-                            style: StrokeStyle(lineWidth: traceWidth * (0.5 + 0.5 * k),
-                                               lineCap: i == 0 ? .round : .butt))
-            }
-            // Expanded only: a glow on a line at the bottom of the menu-bar band spills onto
-            // window chrome.
-            if expanded {
-                traceEdge
-                    .trim(from: max(0, e - 0.07), to: e)
-                    .stroke(tint, style: StrokeStyle(lineWidth: traceWidth * 2.4, lineCap: .round))
-                    .blur(radius: 6)
-                    .opacity(0.6)
-            }
+            traceEdge
+                .trim(from: 0, to: e)
+                .stroke(LinearGradient(colors: [lineTint.opacity(0.25), lineTint],
+                                       startPoint: .leading,
+                                       endPoint: UnitPoint(x: reach, y: 0.5)),
+                        style: StrokeStyle(lineWidth: traceWidth, lineCap: .round))
         }
-        .compositingGroup()
         .animation(Motion.seek, value: scrubbing)
         .animation(Motion.seek, value: seekHovering)
         .allowsHitTesting(false)
@@ -644,7 +650,7 @@ private struct ExpandedPlayer: View {
         HStack(alignment: .center, spacing: 6) {
             VStack(alignment: .leading, spacing: 0) {
                     MarqueeText(text: media.title,
-                                font: .system(size: 15, weight: .semibold))
+                                font: .system(size: 16, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(height: Grid.title)
                         // Optical, not geometric: centring the line box leaves the cap line 3.5 pt below
@@ -661,7 +667,7 @@ private struct ExpandedPlayer: View {
                                 .combined(with: .opacity)))
 
                     ArtistLine(media: media)
-                        .foregroundStyle(.white.opacity(0.76))
+                        .foregroundStyle(.white.opacity(0.62))
                         .id(media.trackToken)
                         .transition(.asymmetric(
                             insertion: .offset(y: 8 * Motion.travel)
@@ -680,8 +686,8 @@ private struct ExpandedPlayer: View {
                         TransportButton(symbol: liked ? "heart.fill" : "heart",
                                         label: liked ? "Remove from Favourites"
                                                      : "Add to Favourites",
-                                        diameter: Grid.mode, glyph: 10.5,
-                                        tint: liked ? .pink : .white.opacity(0.55)) {
+                                        diameter: Grid.mode, glyph: 12,
+                                        tint: liked ? .pink : .white.opacity(0.6)) {
                             media.toggleLike()
                             // Heavier than a skip: the one press here that changes something outside this app.
                             strike(liked ? 0.7 : 1.15)
@@ -705,13 +711,13 @@ private struct ExpandedPlayer: View {
         HStack(spacing: 0) {
             TransportButton(symbol: "backward.fill",
                             label: "Previous Track",
-                            diameter: Grid.controls, glyph: 9.5) {
+                            diameter: Grid.controls, glyph: 13) {
                 media.previous()
                 strike(0.8, direction: -1)
             }
             TransportButton(symbol: media.isPlaying ? "pause.fill" : "play.fill",
                             label: media.isPlaying ? "Pause" : "Play",
-                            diameter: Grid.primary, glyph: 12.5,
+                            diameter: Grid.primary, glyph: 19,
                             prominent: true) {
                 // No strike: play's real answer is the music, and slamming the reservoir first
                 // would announce the change before it happens. The swipe does the same.
@@ -719,7 +725,7 @@ private struct ExpandedPlayer: View {
             }
             TransportButton(symbol: "forward.fill",
                             label: "Next Track",
-                            diameter: Grid.controls, glyph: 9.5) {
+                            diameter: Grid.controls, glyph: 13) {
                 media.next()
                 strike(0.8, direction: 1)
             }
@@ -741,7 +747,7 @@ private struct ExpandedPlayer: View {
                                 label: media.shuffleBlocked
                                     ? "Shuffle Not Available"
                                     : shuffling ? "Shuffle On" : "Shuffle Off",
-                                diameter: Grid.mode, glyph: 8,
+                                diameter: Grid.mode, glyph: 10,
                                 tint: shuffleStyle.tint,
                                 fill: shuffleStyle.fill,
                                 rim: shuffleStyle.rim) {
@@ -759,7 +765,7 @@ private struct ExpandedPlayer: View {
                                 label: media.repeatBlocked
                                     ? "Repeat Not Available"
                                     : repeating ? "Repeat On" : "Repeat Off",
-                                diameter: Grid.mode, glyph: 8,
+                                diameter: Grid.mode, glyph: 10,
                                 tint: repeatStyle.tint,
                                 fill: repeatStyle.fill,
                                 rim: repeatStyle.rim) {
@@ -922,9 +928,9 @@ private struct LyricsColumn: View, Equatable {
     /// Where the sung line's top sits in the stage: below the top fade.
     static let anchor: CGFloat = 8
     static let spacing: CGFloat = 7
-    static let font = Font.system(size: 17, weight: .bold)
+    static let font = Font.system(size: 18, weight: .bold)
     /// One unwrapped line, for lines not yet measured.
-    static let estimate: CGFloat = 21
+    static let estimate: CGFloat = 22
 
     static func == (a: Self, b: Self) -> Bool {
         a.current == b.current && a.countIn == b.countIn && a.playing == b.playing
@@ -971,7 +977,7 @@ private struct LyricsColumn: View, Equatable {
         // Sung: full white, dimmed only while paused so a pause reads here too. Next: a
         // step down, then fading out of reach. Past: gone as it rolls into the top edge.
         let opacity: Double = d == 0 ? (playing ? 1 : 0.62)
-            : d == 1 ? 0.34 : d == 2 ? 0.16 : 0
+            : d == 1 ? 0.3 : d == 2 ? 0.12 : 0
         Group {
             if lines[i].isBreak {
                 countInDots(lit: d == 0 ? (countIn ?? 0) : 0)
@@ -979,10 +985,12 @@ private struct LyricsColumn: View, Equatable {
             } else {
                 Text(lines[i].text)
                     .font(Self.font)
+                    .tracking(-0.3)
                     .foregroundStyle(.white)
-                    // Two rows are all the stage shows above its bottom fade; a longer
-                    // line shrinks a little to fit them before it would truncate.
-                    .lineLimit(2)
+                    // The sung line may take two rows and shrinks a little before it would
+                    // truncate. Lines still to come take one: a second row only reached the
+                    // stage's bottom fade, so it showed as a line cut in half.
+                    .lineLimit(d == 0 ? 2 : 1)
                     .minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1147,8 +1155,8 @@ private struct PanelClocks: View {
                     .fixedSize()
                     // Flexible, so the flanks resolve against the same padded edges the body uses.
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentTransition(.identity)
-                    .transaction { $0.animation = nil }
+                    .contentTransition(.numericText())
+                    .transaction { if !$0.rollsClocks { $0.animation = nil } }
 
                 Color.clear.frame(width: notchWidth)
 
@@ -1162,17 +1170,18 @@ private struct PanelClocks: View {
                     .lineLimit(1)
                     .fixedSize()
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                    .contentTransition(.identity)
-                    .transaction { $0.animation = nil }
+                    .contentTransition(.numericText())
+                    .transaction { if !$0.rollsClocks { $0.animation = nil } }
             }
             .frame(height: band)
         }
         // A readout jumps; it does not dissolve. A changed string under an animation is
         // crossfaded with both glyph runs painted, and a swipe commits while
         // `SwipeLeanFrame` is easing the sheet back, so the runs land at different x.
-        // Suppression has to sit on the Texts (`.contentTransition(.identity)` plus a
-        // `.transaction` that strips inherited animation); `.animation(nil, value:)` on
-        // the timeline does not reach the redraw that changes `pos`.
+        // Suppression has to sit on the Texts (a `.transaction` that strips inherited
+        // animation); `.animation(nil, value:)` on the timeline does not reach the redraw
+        // that changes `pos`. A seek is the one exception (`rollsClocks`): it rolls the
+        // digits to the new time, and no swipe ever carries it.
         .padding(.horizontal, Grid.margin)
         .modifier(AnimatedWidth(width: width))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -1337,7 +1346,7 @@ private struct TransportButton: View {
     /// A white wash behind the glyph and the rim stroke's strength, for the mode toggles
     /// (see `modeStyle`). Transport keeps the defaults.
     var fill: Double = 0
-    var rim: Double = 1
+    var rim: Double = 0
     var action: () -> Void
 
     @ViewState private var hovering = false
@@ -1346,23 +1355,23 @@ private struct TransportButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .accessibilityHidden(true)
-                .font(.system(size: glyph, weight: .semibold))
+                .font(.system(size: glyph, weight: prominent ? .bold : .semibold))
+                .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
                 .foregroundStyle(tint)
                 .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                 .frame(width: diameter, height: diameter)
-                // The glass belongs to the label, so press and hover deform one object.
-                .glassEffect(.regular.interactive(), in: .circle)
-                // A lit top edge gives each disc an edge and a direction; regular glass over a
-                // dark wash is otherwise the least visible thing on the panel.
-                .overlay {
-                    Circle().fill(.white.opacity(prominent ? 0.07 : fill))
+                // Bare glyphs on the cover: a ring round every control was the loudest thing
+                // on the card and said nothing. A disc appears under the pointer, and the mode
+                // toggles keep theirs because it carries their state.
+                .background {
+                    Circle().fill(.white.opacity(max(fill, hovering ? (prominent ? 0.16 : 0.11) : 0)))
                 }
                 .overlay {
                     Circle().stroke(
-                        LinearGradient(colors: [.white.opacity((prominent ? 0.55 : 0.30) * rim),
-                                                .white.opacity((prominent ? 0.10 : 0.05) * rim)],
+                        LinearGradient(colors: [.white.opacity(0.30 * rim),
+                                                .white.opacity(0.05 * rim)],
                                        startPoint: .top, endPoint: .bottom),
-                        lineWidth: prominent ? 0.9 : 0.6)
+                        lineWidth: 0.6)
                 }
                 .padding(4)
                 .contentShape(.circle)
@@ -1524,5 +1533,93 @@ private struct MeshField: View {
             .init(0, 0.5 + b),  .init(0.5 + c, 0.5 + d),  .init(1, 0.5 - f),
             .init(0, 1),        .init(0.5 - e, 1),        .init(1, 1),
         ]
+    }
+}
+
+/// The sleeve as the card's light. Three blurred copies turn and drift against each other
+/// on the music's own clock, so the colour moves the way the ink does instead of sitting
+/// in the middle as a glow; the swell breathes them and a hit brightens them in the frame
+/// it lands. Still when nothing plays and under Reduce Motion, like the mesh.
+private struct CoverField: View {
+    var fluid: FerrofluidSim
+    var art: NSImage
+    var size: CGSize
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0,
+                                paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
+            let t = fluid.flowPhase
+            let swell = min(1, fluid.swell)
+            let side = max(size.width, size.height)
+            ZStack {
+                copy(side: side * 1.6, turn: t * 22,
+                     x: sin(t * 0.9) * 0.12, y: cos(t * 0.7) * 0.16,
+                     scale: 1 + 0.12 * swell)
+                copy(side: side * 1.0, turn: 180 - t * 34,
+                     x: cos(t * 1.1 + 1.0) * 0.30, y: sin(t * 0.8 + 2.0) * 0.34,
+                     scale: 1 + 0.26 * swell)
+                    .opacity(0.8)
+                copy(side: side * 0.7, turn: 90 + t * 50,
+                     x: sin(t * 1.3 + 4.0) * 0.36, y: cos(t * 1.2 + 0.5) * 0.38,
+                     scale: 1 + 0.4 * swell)
+                    .opacity(0.7)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .blur(radius: 26)
+            .saturation(1.5)
+            .brightness(0.1 * swell)
+        }
+    }
+
+    /// One copy of the sleeve, `turn` degrees round, its centre `x`/`y` panel widths off.
+    private func copy(side: CGFloat, turn: Double, x: Double, y: Double,
+                      scale: Double) -> some View {
+        Image(nsImage: art)
+            .resizable()
+            .scaledToFill()
+            .frame(width: side, height: side)
+            .rotationEffect(.degrees(turn))
+            .scaleEffect(scale)
+            .offset(x: x * size.width, y: y * size.width)
+    }
+}
+
+/// Film grain over the colour field, so a blurred cover reads as a surface rather than a
+/// gradient. One tile, made once with a fixed seed so every render is the same.
+private struct Grain: View {
+    static let tile: Image = {
+        let side = 96
+        var state: UInt32 = 0x9E37_79B9
+        var pixels = [UInt8](repeating: 0, count: side * side)
+        for i in pixels.indices {
+            state = state &* 1_664_525 &+ 1_013_904_223
+            pixels[i] = UInt8(truncatingIfNeeded: state >> 24)
+        }
+        let context = CGContext(data: &pixels, width: side, height: side, bitsPerComponent: 8,
+                                bytesPerRow: side, space: CGColorSpaceCreateDeviceGray(),
+                                bitmapInfo: CGImageAlphaInfo.none.rawValue)
+        guard let image = context?.makeImage() else { return Image(systemName: "circle") }
+        return Image(decorative: image, scale: 2)
+    }()
+
+    var body: some View {
+        Rectangle()
+            .fill(ImagePaint(image: Self.tile))
+            .opacity(0.08)
+            .blendMode(.overlay)
+            .allowsHitTesting(false)
+    }
+}
+
+/// Set on the transaction of a seek's first contact, the one change that should roll the
+/// clocks' digits. Everything else they show jumps; see `PanelClocks`.
+private struct RollsClocks: TransactionKey {
+    static let defaultValue = false
+}
+
+extension Transaction {
+    var rollsClocks: Bool {
+        get { self[RollsClocks.self] }
+        set { self[RollsClocks.self] = newValue }
     }
 }
