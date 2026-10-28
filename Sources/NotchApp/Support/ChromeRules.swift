@@ -50,7 +50,7 @@ enum ChromeRules {
     /// Heights the two type tiers' frames claim, here so `textColumnFits` can be asserted.
     static let titleLine: CGFloat = 19
     static let artistLine: CGFloat = 16
-    static let bottom: CGFloat = 14
+    static let bottom: CGFloat = 20
     /// Panel height BELOW the cutout band.
     static let expandedBody: CGFloat = bandGap + art + bottom
 
@@ -66,10 +66,11 @@ enum ChromeRules {
     /// The invisible scrub strip along the panel's bottom edge. It is the last child of
     /// the root ZStack, so it hit-tests above everything under it. Play's hit circle
     /// reaches down to h-10, and the strip maps x straight to a fraction, so a taller
-    /// strip turns a pause press into a jump to 50%. 10 pt centred 5 pt off the bottom
-    /// is [h-10, h].
-    static let seekStripHeight: CGFloat = 10
-    static let seekStripCentre: CGFloat = 5
+    /// strip turns a pause press into a jump to 50%. 16 pt centred 8 pt off the bottom
+    /// is [h-16, h]; `bottom` leaves that room under the controls, since 10 pt was too
+    /// thin to find with a pointer.
+    static let seekStripHeight: CGFloat = 16
+    static let seekStripCentre: CGFloat = 8
 
     /// Gap between the top of the scrub strip and the lowest control it could steal a
     /// press from; negative means it is stealing.

@@ -108,13 +108,11 @@ struct NotchRootView: View {
                     // Display-rate so the trace glides instead of stepping with the 1 Hz poll. 15 Hz,
                     // not 60: on a four-minute track it moves 0.024 pt per frame at 60 Hz against a
                     // 0.5 pt device pixel, and still stays sub-pixel smooth at 15 Hz.
-                    // Open, the light running down the line needs the display rate; 15 Hz would
-                    // step it.
-                    TimelineView(.animation(minimumInterval: expanded ? 1.0 / 60.0 : 1.0 / 15.0,
-                                            paused: !media.isPlaying || scrubbing || !trackDrawn)) { frame in
+                    TimelineView(.animation(minimumInterval: 1.0 / 15.0,
+                                            paused: !media.isPlaying || scrubbing || !trackDrawn)) { _ in
                         // The tip sits inside the timeline with its line, or it would step at the 1 Hz poll.
                         ZStack {
-                            progressEdge(at: frame.date)
+                            progressEdge
                             playhead
                         }
                     }
@@ -430,23 +428,15 @@ struct NotchRootView: View {
         }
     }
 
-    /// Grab handle at the playhead: a near-zero-length trim of the same path with a
-    /// round cap, so it follows the silhouette without position maths of its own.
+    /// Grab handle at the playhead: a true circle centred on the line's end, drawn by a
+    /// shape that animates with the edge, so it never leaves the line mid-morph. Retracted
+    /// it is the line's own width, so the peek and the panel end the line the same way.
+    /// Hover and grab grow the dot, never the line, and nothing glows.
     private var playhead: some View {
-        NotchBottomEdge(width: size.width,
-                        height: size.height,
-                        bottomCornerRadius: controller.bottomCornerRadius,
-                        inset: traceInset)
-            .trim(from: max(0, edgeTrim - 0.0015), to: max(0.0016, edgeTrim))
-            // The handle grows out of the trace and never fades: at rest it is the line's own
-            // width, hover swells it into a grabbable handle and grabbing swells it further.
-            // A dot that grows reads as a response to the pointer; one that fades in reads as
-            // a light switched on.
-            .stroke(.white, style: StrokeStyle(
-                lineWidth: expanded ? (scrubbing ? 12 : (seekHovering ? 9 : 2.5))
-                                    : traceWidth,
-                lineCap: .round))
-            .shadow(color: tint.opacity(0.9), radius: scrubbing || seekHovering ? 6 : 0)
+        EdgeDot(edge: traceEdge,
+                at: max(0.0001, edgeTrim),
+                diameter: expanded ? (scrubbing ? 14 : (seekHovering ? 11 : 7)) : traceWidth)
+            .fill(.white)
             .animation(Motion.seek, value: seekHovering)
             .animation(Motion.seek, value: scrubbing)
             .allowsHitTesting(false)
@@ -457,7 +447,7 @@ struct NotchRootView: View {
     /// Retracted, the line has only the sliver between the cutout and the band, so it
     /// is sized to that rather than pushed down until its top clears.
     private var traceWidth: CGFloat {
-        let full: CGFloat = scrubbing ? 4 : (seekHovering ? 3.4 : ChromeRules.traceStroke)
+        let full = ChromeRules.traceStroke
         guard !expanded else { return full }
         return ChromeRules.retractedTraceWidth(shellHeight: size.height,
                                                cutoutHeight: controller.notchSize.height,
@@ -490,11 +480,10 @@ struct NotchRootView: View {
                         inset: traceInset)
     }
 
-    /// The played line as a comet: thin and faint where the track began, full and hot at
-    /// the playhead. Open, the head blooms with the music and a bead of light runs down
-    /// the line into it every few seconds, so the line reads as something flowing rather
-    /// than a bar filling.
-    private func progressEdge(at date: Date) -> some View {
+    /// The played line as a comet: thin and faint where the track began, full and lit at
+    /// the playhead. Still: a light running along it or a glow pulsing with the music
+    /// reads as a loading bar.
+    private var progressEdge: some View {
         let e = max(0.0001, edgeTrim)
         let segments = 14
         return ZStack {
@@ -512,18 +501,8 @@ struct NotchRootView: View {
                 traceEdge
                     .trim(from: max(0, e - 0.07), to: e)
                     .stroke(tint, style: StrokeStyle(lineWidth: traceWidth * 2.4, lineCap: .round))
-                    .blur(radius: 6 + 5 * fluid.brightness)
-                    .opacity(0.7 + 0.3 * fluid.brightness)
-                if media.isPlaying {
-                    let run = (date.timeIntervalSinceReferenceDate / 2.8)
-                        .truncatingRemainder(dividingBy: 1)
-                    let at = e * CGFloat(run)
-                    traceEdge
-                        .trim(from: max(0, at - 0.05 * e), to: at)
-                        .stroke(.white.opacity(0.7 * sin(.pi * run)),
-                                style: StrokeStyle(lineWidth: traceWidth * 0.7, lineCap: .round))
-                        .blur(radius: 1)
-                }
+                    .blur(radius: 6)
+                    .opacity(0.6)
             }
         }
         .compositingGroup()
