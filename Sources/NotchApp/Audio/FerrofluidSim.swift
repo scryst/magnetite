@@ -22,6 +22,8 @@ final class FerrofluidSim {
         /// Small fixed jitter keeps the lobes from reading as a comb.
         let fan: Double
         var height: Double
+        /// How fast `height` is moving; the spike is a spring, so it can overshoot.
+        var velocity: Double = 0
         var field: Double
         var isUp: Bool
     }
@@ -29,6 +31,10 @@ final class FerrofluidSim {
     @ObservationIgnored private(set) var sites: [Site] = []
     /// Bass energy displaces the whole continuous reservoir.
     @ObservationIgnored private(set) var swell: Double = 0
+    private var swellVelocity = 0.0
+    private var lastBassHit = 0.0
+    /// How hard a full kick throws the body, in swell per second.
+    static let swellBlow = 22.0
     /// Ink standing in peaks; the shared pool sinks by this amount.
     @ObservationIgnored private(set) var raised: Double = 0
 
@@ -110,9 +116,9 @@ final class FerrofluidSim {
 
     private func publishGates() {
         let e = Self.settledEpsilon
-        let settled = swell < e && impact < e && pointerPull < e
+        let settled = swell < e && abs(swellVelocity) < 0.02 && impact < e && pointerPull < e
             && inkOpen == openTarget
-            && !sites.contains { $0.height > 0.003 }
+            && !sites.contains { $0.height > 0.003 || abs($0.velocity) > 0.05 }
         if settled != isSettled { isSettled = settled }
         let sound = brightness >= 0.002
         if sound != hasSound { hasSound = sound }
@@ -138,6 +144,9 @@ final class FerrofluidSim {
     private var running: Task<Void, Never>?
     private weak var audio: AudioLevels?
     private var previousLevels: [Float] = []
+    /// The frame before `previousLevels`. A hit's rise straddles two 16 ms frames, so
+    /// measured against one frame back each half can fall under the onset bar.
+    private var olderLevels: [Float] = []
     private var kick: [Double] = []
     /// A surge that arrived before there was anything to apply it to.
     private var pendingSurge: (strength: Double, direction: Double)?
@@ -173,7 +182,7 @@ final class FerrofluidSim {
     /// The spread `deviation` starts every band at, and returns to on re-entry.
     private static let initialSpread = 0.06
     /// How many swings a rise must clear to count as an onset.
-    static let onsetFloor = 1.4
+    static let onsetFloor = 0.9
     /// `deviation` slowed to a drift: between hits the body follows how loud the music
     /// is, not every wobble in it.
     private var drift: [Double] = []
@@ -201,6 +210,7 @@ final class FerrofluidSim {
     /// removing it, and a stale spread only under-reacts briefly.
     private func reenter(_ levels: [Float]) {
         previousLevels = levels
+        olderLevels = levels
         baseline = levels.map(Double.init)
     }
 
@@ -255,9 +265,12 @@ final class FerrofluidSim {
         audio = nil
         sites = []
         swell = 0
+        swellVelocity = 0
+        lastBassHit = 0
         raised = 0
         impact = 0
         previousLevels = []
+        olderLevels = []
         kick = []
         quietFor = 0
         pendingSurge = nil
@@ -355,6 +368,8 @@ final class FerrofluidSim {
         }
         raised = 0
         swell = 0
+        swellVelocity = 0
+        lastBassHit = 0
     }
 
     /// Positive band rise gives the surface its immediate attack.
@@ -362,6 +377,7 @@ final class FerrofluidSim {
         if kick.count != levels.count {
             kick = [Double](repeating: 0, count: levels.count)
             previousLevels = levels
+            olderLevels = levels
         }
         if let held = pendingSurge {
             pendingSurge = nil
@@ -376,11 +392,13 @@ final class FerrofluidSim {
         // takes to recover is the surface's business, set by its own drain rates.
         let decay = pow(0.002, dt)
         for index in levels.indices {
-            let rise = Double(max(0, levels[index] - previousLevels[index]))
+            let rise = Double(max(0, levels[index] - min(previousLevels[index],
+                                                         olderLevels[index])))
             let swing = index < spread.count ? spread[index] : Self.initialSpread
             let onset = rise / max(0.03, swing * 1.6) - Self.onsetFloor
-            kick[index] = max(kick[index] * decay, min(1, max(0, onset) * 0.8))
+            kick[index] = max(kick[index] * decay, min(1, max(0, onset)))
         }
+        olderLevels = previousLevels
         previousLevels = levels
     }
 
@@ -468,10 +486,18 @@ final class FerrofluidSim {
         let poolRate = quietFor > 0 ? 4.0 : 0.8
         pool += (min(1, bass * 0.3) - pool) * min(1, poolRate * dt)
         let hit = kick.prefix(count).max() ?? 0
-        let target = min(1, pool + hit * 1.3)
-        let rate = target > swell ? 30.0 : 3.6
-        swell += (target - swell) * min(1, rate * dt)
-        if swell < 0.004 { swell = 0 }
+        // A spring rather than a chase: the body rests on the pool, and a kick is a blow
+        // that throws it, so it moves in the frame the hit arrives, overshoots, and
+        // bounces home like a liquid instead of easing in and out like a meter. Only the
+        // rise of the kick strikes; its decay is the spring's business.
+        let blow = max(0, hit - lastBassHit)
+        lastBassHit = hit
+        swellVelocity += blow * Self.swellBlow
+        let omega = quietFor > 0 ? 20.0 : 15.0
+        swellVelocity += (omega * omega * (pool - swell) - 2 * 0.4 * omega * swellVelocity) * dt
+        swell = min(1.15, swell + swellVelocity * dt)
+        if swell <= 0 { swell = 0; swellVelocity = max(0, swellVelocity) }
+        if swell < 0.004, abs(swellVelocity) < 0.02 { swell = 0; swellVelocity = 0 }
     }
 
     private func updateSites(levels: [Float], dev: [Double], dt: Double) {
@@ -518,10 +544,22 @@ final class FerrofluidSim {
             let bandT = Double(band) / Double(max(1, levels.count - 1))
             // Twice as fast once the music has stopped, so the ink is home inside the
             // settle budget rather than draining for four seconds of silence.
-            let fall = 2.8 * (0.55 + 1.5 * bandT) * (quietFor > 0 ? 2 : 1)
-            let heightRate = target > sites[index].height ? 40.0 : fall
-            sites[index].height += (target - sites[index].height) * min(1, heightRate * dt)
-            if sites[index].height < 0.003 { sites[index].height = 0 }
+            // A spring: the spike shoots up within a frame or two, overshoots, and rings
+            // down. A plain chase reached its mark and stopped dead, which read as stiff.
+            // The stiff spring holds until the spike turns over, so the momentum it gave
+            // is braked by the spring that made it; braked by the soft one, a spike told
+            // to fall kept climbing for 150 ms.
+            var v = sites[index].velocity
+            let rising = v > 0 || target > sites[index].height + 0.05
+            let omega = rising ? 52.0 : (7.0 + 13.0 * bandT) * (quietFor > 0 ? 1.6 : 1)
+            let zeta = rising ? 0.5 : 0.7
+            v += (omega * omega * (target - sites[index].height) - 2 * zeta * omega * v) * dt
+            var h = sites[index].height + v * dt
+            if h <= 0 { h = 0; v = max(0, v) }
+            if h > 1.25 { h = 1.25; v = min(0, v) }
+            if h < 0.003, abs(v) < 0.05 { h = 0; v = 0 }
+            sites[index].height = h
+            sites[index].velocity = v
             standing += sites[index].height
         }
 

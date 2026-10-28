@@ -343,19 +343,25 @@ enum FluidCheck {
     /// direction `next()` runs the progress trace.
     @MainActor
     private static func aSkipHasADirection() {
-        func lean(_ direction: Double, frames: Int = 10) -> (low: Double, high: Double, centroid: Double) {
+        func lean(_ direction: Double, frames: Int = 10)
+            -> (low: Double, high: Double, centroid: Double, crestLow: Double, crestHigh: Double) {
             let sim = FerrofluidSim()
             let floor = [Float](repeating: 0.2, count: 12)
             for _ in 0..<180 { sim.advance(levels: floor, dt: 1.0 / 60) }
             sim.surge(0.9, direction: direction)
-            for _ in 0..<frames { sim.advance(levels: floor, dt: 1.0 / 60) }
+            var crestLow = 0.0, crestHigh = 0.0
+            for _ in 0..<frames {
+                sim.advance(levels: floor, dt: 1.0 / 60)
+                crestLow = max(crestLow, sim.sites.filter { $0.rim < 0.4 }.map(\.height).max() ?? 0)
+                crestHigh = max(crestHigh, sim.sites.filter { $0.rim > 0.6 }.map(\.height).max() ?? 0)
+            }
             let low = sim.sites.filter { $0.rim < 0.4 }.map(\.height).max() ?? 0
             let high = sim.sites.filter { $0.rim > 0.6 }.map(\.height).max() ?? 0
             let mass = sim.sites.reduce(0.0) { $0 + $1.height }
             let centroid = mass > 0
                 ? sim.sites.reduce(0.0) { $0 + $1.rim * $1.height } / mass
                 : 0.5
-            return (low, high, centroid)
+            return (low, high, centroid, crestLow, crestHigh)
         }
 
         let f = lean(1), b = lean(-1)
@@ -365,9 +371,10 @@ enum FluidCheck {
                 "a skip back did not lean left (low \(b.low), high \(b.high))")
         require(f.centroid > 0.55 && b.centroid < 0.45,
                 "the two skips are not mirrored (forward \(f.centroid), back \(b.centroid))")
-        // Peaks, not sums: the `fall` drain gradient is band-dependent, so the
-        // totals legitimately diverge while the crests stay matched.
-        let peaks = (f.high, b.low)
+        // Crests, not sums or one frame: the spikes are springs that drain faster in
+        // the treble, so totals and any single frame legitimately diverge while the
+        // highest point each side reaches stays matched.
+        let peaks = (f.crestHigh, b.crestLow)
         require(abs(peaks.0 - peaks.1) / max(peaks.0, peaks.1) < 0.15,
                 "one direction hits harder than the other (\(peaks.0) vs \(peaks.1))")
 
@@ -439,11 +446,13 @@ enum FluidCheck {
 
         let sim = FerrofluidSim()
         var swells: [Double] = [], ups: [Int] = []
+        var last = frames[0]
         for (i, f) in frames.enumerated() {
-            // The app steps at 60 Hz while levels arrive at 30, so each frame is
-            // stepped twice and the second step sees a delta of exactly zero.
+            // The capture is 30 Hz and the app reads and steps at 60, so the step
+            // between two captured frames sees their midpoint, as the meter would.
+            sim.advance(levels: zip(last, f).map { ($0 + $1) / 2 }, dt: 1.0 / 60)
             sim.advance(levels: f, dt: 1.0 / 60)
-            sim.advance(levels: f, dt: 1.0 / 60)
+            last = f
             guard i > frames.count / 4 else { continue }      // let the baseline settle
             swells.append(sim.swell)
             ups.append(sim.sites.filter(\.isUp).count)
@@ -494,11 +503,14 @@ enum FluidCheck {
         var resumeSwell = 0.0, resumeMove = 0.0
         var previousMean = 0.0
         var frame = 0
+        var lastLevels: [Float] = []
 
         func step(_ levels: [Float], record: (Double, Double) -> Void) {
-            // Levels arrive at 30 Hz and the app steps at 60, as elsewhere here.
+            // A 30 Hz capture read at 60 Hz: the midpoint, then the frame, as above.
+            let between = lastLevels.isEmpty ? levels : zip(lastLevels, levels).map { ($0 + $1) / 2 }
+            sim.advance(levels: between, dt: 1.0 / 60)
             sim.advance(levels: levels, dt: 1.0 / 60)
-            sim.advance(levels: levels, dt: 1.0 / 60)
+            lastLevels = levels
             let heights = sim.sites.map(\.height)
             let mean = heights.isEmpty ? 0
                 : heights.reduce(0, +) / Double(heights.count)
