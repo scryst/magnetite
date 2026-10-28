@@ -447,7 +447,9 @@ struct Geometry {
         // as the cutout) this goes to zero, since there is no lit area for ink to appear
         // against. The ceiling stays within what the geometry can round off; a 57 pt bulge
         // on a 26 pt visible side could not open smoothly.
-        let ceiling: CGFloat = min((34 + 14 * lateral) * room * (1 + 0.9 * swell),
+        // A hit raises it on the bottom run only: grown on the flanks too, the outline
+        // turns past 40 degrees where the side meets the top.
+        let ceiling: CGFloat = min((34 + 14 * lateral) * room * (1 + 0.9 * swell * (1 - lateral)),
                                    max(0, headroom - FerrofluidView.blur))
         // Inward, and further on the sides so the body pinches rather than only bulging.
         // The camera guarantee is drawn crisp outside the filter chain.

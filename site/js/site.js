@@ -114,15 +114,24 @@ const STILL_SEED = 9;
  * physics below it is untouched, and this is the one place the page is
  * knowingly not the app: `theReplayIsSteppedLikeTheApp` proves the port under
  * the app's cadence with the levels raw, and then the page smooths them.
+ *
+ * Short, because the sim now finds its hits in how far a band rises in ONE
+ * step. At 110ms a rise reached it a seventh at a time, no hit ever cleared
+ * the onset floor, and the hero stood only for the first two seconds of the
+ * capture and then lay flat; at 20ms it stood, but hardly past the cutout.
+ * At 10ms, measured over the capture against 110ms under the old physics: the
+ * ink reaches further (median depth 49pt against 45, p90 58 against 53) and
+ * moves less between hits (median step 0.59pt against 1.07, p90 2.4 against
+ * 3.0). Only the hits move more, which is the point.
  */
-const SMOOTH_TAU = 0.11;
+const SMOOTH_TAU = 0.01;
 
 /**
  * Live audio is already attack/release metered by `BandAnalyser`. Reusing the
- * replay's 110ms filter made the enlarged ink feel a beat behind the music;
- * this shorter pass keeps the hero continuous without masking new hits.
+ * replay's filter made the enlarged ink feel a beat behind the music; this
+ * shorter pass keeps the hero continuous without masking new hits.
  */
-const LIVE_SMOOTH_TAU = 0.035;
+const LIVE_SMOOTH_TAU = 0.004;
 
 /**
  * The three numbers above, turned into the three the loops actually use.
