@@ -6,10 +6,12 @@
 // honest about that is to make disagreement impossible.
 //
 // The input is not synthesised. `REAL_LEVELS` is 240 frames captured from the
-// app's own audio tap, replayed at the 30 Hz it was captured at and stepped
-// twice apiece at 60 — which is what the app does with them, and what this file
-// spent its whole existence not doing. It said 60 Hz here, indexed at 60 Hz
-// below, and played eight seconds of music in four. See `CAPTURE_HZ`. The ink
+// app's own audio tap, captured at 30 Hz and replayed at the 60 the app now
+// reads and steps at, with the midpoint of each pair of frames put between
+// them — one step per frame, which is what the app does with them, and what
+// this file spent its whole existence not doing. It said 60 Hz here for a
+// capture taken at 30, and played eight seconds of music in four. See
+// `CAPTURE_HZ`. The ink
 // is displaced by the same numbers that displace it on the machine, at the same
 // pace; the one deliberate difference is the low pass, and `SMOOTH_TAU` says
 // why a page five times the size of a menu bar needs one.
@@ -28,39 +30,36 @@ import { startTouches } from './touches.js';
 import { startCorner } from './corner.js';
 
 /**
- * The rate the capture was TAKEN at, which is not the rate the page draws at.
+ * The rate the REPLAYED capture runs at, which is not the rate it was taken at
+ * and not the rate the page draws at.
  *
- * This was 60, and 60 was wrong. `AudioLevels.swift` pumps its read loop on
- * `Task.sleep(for: .milliseconds(33))` — the class comment beside it says "30
- * times a second" and the tap's own says "roughly 30 times a second" — so the
- * `[levels]` lines that `NOTCH_AUDIO_DEBUG` prints, which are byte-for-byte the
- * format of `Resources/real-levels.txt`, arrive at 30Hz. The commit that added
- * the capture (cefd7f7) says so outright: "the clock runs at 60Hz while levels
- * arrive at 30, so every second step sees a delta of exactly zero", and
- * `tools/fluidcheck.swift` steps each captured frame TWICE for that reason. The
- * pump was already 33ms at that commit, so this was never 60.
+ * It was 60 and wrong, then 30 and right: `Resources/real-levels.txt` was
+ * captured at 30Hz, when `AudioLevels.swift` pumped on a 33ms sleep, and
+ * indexing it at 60 played eight seconds of music in four. Everything
+ * downstream inherited that — the loop period was reported as 3.567s and was
+ * 7.133s, the entrance landed at 1.72s instead of the 3.43s of the music it
+ * claims to be caused by, and `SMOOTH_TAU` was added below to quiet a "jitter"
+ * that was the double speed.
  *
- * Indexing at 60 played eight seconds of music in four. Everything downstream
- * inherited it: the loop period was reported as 3.567s and is 7.133s, the
- * entrance landed at 1.72s instead of the 3.43s of the music it claims to be
- * caused by, and `SMOOTH_TAU` was added below to quiet a "jitter" that was the
- * double speed. The page's own header said the ink is "displaced by the same
- * numbers that displace it on the machine", and it was displaced by the same
- * numbers at twice the pace.
+ * It is 60 again because 764de02 moved the pump to 16ms, so the app reads and
+ * steps at 60 with news every step. The 30Hz file is not played at 2x, which
+ * would be the right tempo and a rise of a whole captured frame at every step;
+ * `data/real-levels.js` carries it resampled, the midpoint of each pair
+ * between the two, which is what `tools/fluidcheck.swift` does with it. So a
+ * frame here is one step, and `REAL_LEVELS.length` is 2N-1 frames of N.
  *
  * `theCaptureIsReplayedAtItsOwnRate` reads the pump interval out of
  * AudioLevels.swift and fails if these two ever disagree again.
  */
-const CAPTURE_HZ = 30;
+const CAPTURE_HZ = 60;
 
 /**
  * The rate the PHYSICS is stepped at, which is the app's render clock.
  *
- * Two constants because they are two facts. The app runs `TimelineView` at
- * 1/60 and reads whatever `bands` currently holds, so a captured frame is
- * stepped twice and the second step sees no change — that stepped, held input
- * is the sequence the shipping fluid actually integrates, and it is what the
- * page reproduces now that the index advances at 30.
+ * Two constants because they are two facts, even though both read 60 now. The
+ * app runs `TimelineView` at 1/60 and `AudioLevels` publishes every 16ms, so
+ * each step has news and the replay holds no frame — that is the sequence the
+ * shipping fluid integrates, and the page reproduces it.
  */
 const SIM_HZ = 60;
 
@@ -86,8 +85,12 @@ const SIM_HZ = 60;
  * `reducedTravel` caps the excursion, so nothing in this capture crowns
  * dramatically under the preference. What the choice buys is an edge that
  * undulates and ends that taper instead of the flat pill — not a peak.
+ *
+ * 220 is that frame 110 at the capture's resampled 60Hz: the same moment of the
+ * music, kept when the replay moved to 60 and the sim's spikes became springs.
+ * It was not chosen again by eye under the new physics.
  */
-const STILL_FRAME = 110;
+const STILL_FRAME = 220;
 /** Fixed, so the still is the same still on every load and every resize. */
 const STILL_SEED = 9;
 
@@ -95,10 +98,12 @@ const STILL_SEED = 9;
  * Time constant on the drive, in seconds.
  *
  * This said "the capture is a 60 Hz tap and it is BUSY — every frame is a new
- * number", and both halves were wrong: the capture is 30Hz, and once it is
- * indexed at 30 each frame is held for two steps, so half the steps are a new
- * number and the other half are the same one. The chatter it was added to quiet
- * was the double speed. That would make this a compensation for a bug that has
+ * number", and both halves were wrong: the capture was 30Hz, and once it was
+ * indexed at 30 each frame was held for two steps, so half the steps were a new
+ * number and the other half the same one. The chatter it was added to quiet
+ * was the double speed. The replay is 60Hz again, with the midpoints put in,
+ * so every step is a new number once more and the app's own pump delivers the
+ * same. That would make this a compensation for a bug that has
  * since been fixed, and the honest move looked like deleting it.
  *
  * It is not, and the reason is scale. The hero draws the liquid at three times
@@ -617,8 +622,8 @@ function renderStill() {
     still = new FerrofluidSim(mulberry32(STILL_SEED));
     still.reduceMotion = true;
     still.setOpen(true);
-    // Stepped like the app: the clock is 1/60 and a captured frame is held for
-    // two of them. The walk is in `clock.js` so the gate drives the same one;
+    // Stepped like the app: the clock is 1/60 and a captured frame of the 60Hz
+    // replay is one of them. The walk is in `clock.js` so the gate drives the same one;
     // see `theStillIsAFrameOfTheFilm`.
     driveStill(still, REAL_LEVELS, STILL_FRAME, CADENCE);
   }

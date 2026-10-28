@@ -48,7 +48,7 @@ import { bankSteps, replayFrame, replayCadence, smoothStep, driveStill } from '.
 import {
   shouldDraw, watchOutcome, applyWatch, filmAction, filmResume, filmTransport, prefersReducedMotion,
 } from '../js/visibility.js';
-import { loadSourceLevels, quietestFrame } from './gen-levels.mjs';
+import { loadSourceLevels, quietestFrame, resample60 } from './gen-levels.mjs';
 import { deriveMark, faviconSVG, inlineGlyph, markSwift, GLYPH_IN_PAGE } from './gen-mark.mjs';
 import { hold, camera, sheet, reach, shown, shots, focus, SHOTS, FOOTAGE, PLAYER, WORDS, DOT } from '../js/tunnel.js';
 import { CUES, HAND, touchesAt } from '../js/touches.js';
@@ -143,15 +143,17 @@ function compareFrames(name, drive) {
  * the per-band z-score exists to prevent.
  *
  * What this does NOT prove, despite its name: that the site drives the physics
- * the way the app drives it. One step per captured frame is a cadence nothing
- * ships — not the app, which steps each frame twice, and not the page, which
- * steps on a wall clock. It is a test of the PORT's arithmetic, and a good one.
+ * the way the app drives it. One step per 30Hz captured frame is a cadence
+ * nothing ships — not the app, which reads at 60 with the midpoints between,
+ * and not the page, which steps on a wall clock. It is a test of the PORT's
+ * arithmetic, and a good one. The capture's own frames are the even ones of
+ * `REAL_LEVELS`, which carries it resampled.
  * The cadence claim its name makes is held by `theReplayIsSteppedLikeTheApp`
  * below, which did not exist while the page was replaying at double speed.
  */
 function theReplayMatchesTheShippingPhysics() {
   compareFrames('sim', (sim, check) => {
-    REAL_LEVELS.forEach((levels, index) => {
+    REAL_LEVELS.filter((_, i) => i % 2 === 0).forEach((levels, index) => {
       sim.advance(levels, 1 / 60);
       check(index);
     });
@@ -162,24 +164,33 @@ function theReplayMatchesTheShippingPhysics() {
  * The port agrees with the Swift on the sequence the APP actually integrates.
  *
  * On the machine the render clock is 60Hz and `AudioLevels` republishes bands
- * at 30, so every captured frame is stepped twice and the second step sees a
- * delta of exactly zero. That held step is not a step the varying sequence
- * above ever takes, and it is not a step that can be assumed equivalent: both
- * of the sim's inputs are measured against a remembered past, `deviation`
- * divides by an adapting `spread`, and `isSettled` can early-return. A port can
- * agree on 240 changing frames and disagree the first time a frame repeats.
+ * every 16ms, so every step has news: the 30Hz capture is played at 60 with the
+ * midpoint of each pair between them, one step apiece, which is what
+ * `REAL_LEVELS` is. While the pump slept 33ms every captured frame was stepped
+ * twice instead and the second step saw a delta of exactly zero.
+ *
+ * That held step is still a step the app takes when a read lands on the bands
+ * it already had, so the golden ends with the last frame held for a second. It
+ * is not a step that can be assumed equivalent to the others: both of the sim's
+ * inputs are measured against a remembered past, `deviation` divides by an
+ * adapting `spread`, and `isSettled` can early-return. A port can agree on
+ * frames that all change and disagree the first time a frame repeats.
  *
  * The golden is `sim-held`, from portprobe's mode of the same name. Regenerate
- * it with the same swiftc line refresh-golden.sh uses, then
- * `.build/checks/portprobe sim-held > site/test/golden/sim-held.txt`.
+ * it with refresh-golden.sh.
  */
 function theReplayIsSteppedLikeTheApp() {
   compareFrames('sim-held', (sim, check) => {
-    REAL_LEVELS.forEach((levels, index) => {
+    let index = 0;
+    for (const levels of REAL_LEVELS) {
       sim.advance(levels, 1 / 60);
-      sim.advance(levels, 1 / 60);
-      check(index);
-    });
+      check(index++);
+    }
+    const last = REAL_LEVELS[REAL_LEVELS.length - 1];
+    for (let hold = 0; hold < 60; hold++) {
+      sim.advance(last, 1 / 60);
+      check(index++);
+    }
   });
 }
 
@@ -255,8 +266,9 @@ function theReplayClockIsTheAppsClock() {
     `on rounded frame times a 60Hz display takes [${even60}] steps a frame and a 120Hz one `
     + `[${even120}] — the liquid holds for a frame and then jumps two`);
 
-  // And the hold: every captured frame gets the same whole number of steps, so
-  // the second one sees no change, exactly as it does on the machine.
+  // And the hold: every captured frame gets the same whole number of steps —
+  // one at 60Hz over a 60Hz replay, where it was two while the pump slept 33ms
+  // and the second saw no change — exactly as it does on the machine.
   //
   // Driven through the REAL `replayFrame`, not through a copy. This check used
   // to carry its own `Math.floor((s / simHz) * captureHz)` — the page's own
@@ -329,8 +341,8 @@ function theReplayClockIsTheAppsClock() {
   for (const index of complete) {
     require(counts.get(index) === per,
       `captured frame ${index} received ${counts.get(index)} steps, not ${per} — the page is out `
-      + 'of phase with the capture, so a frame is held for the wrong length and the second step '
-      + 'is not the zero-delta one the app takes');
+      + 'of phase with the capture, so a frame is held for the wrong length and the sequence is '
+      + 'not the one the app takes');
   }
 
   // And `frame()`, which is the one place left that steps inline.
@@ -391,10 +403,10 @@ function theReplayClockIsTheAppsClock() {
 }
 
 /**
- * The site replays the capture at the rate the capture was taken at.
+ * The site replays the capture at the rate the app reads levels at.
  *
- * It did not, for as long as the capture has existed. `CAPTURE_HZ` was 60 and
- * the levels arrive at 30, so eight seconds of music played in four: the loop
+ * It did not, for as long as the capture was a 30Hz one. `CAPTURE_HZ` was 60
+ * and the levels arrived at 30, so eight seconds of music played in four: the loop
  * period was stated as 3.567s and was 7.133s, the entrance fired at 1.72s of a
  * moment that happens at 3.43s, and a low pass was added to the drive to quiet
  * a "jitter" that was the double speed. Nothing caught it because nothing
@@ -402,10 +414,12 @@ function theReplayClockIsTheAppsClock() {
  * said 60 in a loop, and they agreed with each other.
  *
  * So this reads the rate out of the APP, which is the only place it is a fact:
- * the pump interval in `AudioLevels.swift`. Tolerance because 33ms is 30.30Hz
- * nominal and the pump cannot beat its own sleep — the honest reading of "33ms
- * between reads" is 30Hz to within a frame, and the check fails a 2x error
- * without pretending to measure the real jitter of a main-actor timer.
+ * the pump interval in `AudioLevels.swift`. Tolerance because 16ms is 62.5Hz
+ * nominal and the pump cannot beat its own sleep — the honest reading of "16ms
+ * between reads" is 60Hz to within 5%, and the check fails a 2x error without
+ * pretending to measure the real jitter of a main-actor timer. It was a flat
+ * Hz when the pump slept 33ms: 30.3 against 30 is a third of a hertz, 62.5
+ * against 60 is two and a half.
  */
 function theCaptureIsReplayedAtItsOwnRate() {
   const swift = readFileSync(
@@ -422,7 +436,7 @@ function theCaptureIsReplayedAtItsOwnRate() {
   require(Number.isFinite(captureHz), 'site.js declares no CAPTURE_HZ');
   require(Number.isFinite(simHz), 'site.js declares no SIM_HZ');
 
-  require(Math.abs(captureHz - appHz) <= 1,
+  require(Math.abs(captureHz - appHz) / appHz <= 0.05,
     `site.js replays the capture at ${captureHz}Hz and the app publishes levels every `
     + `${pump[1]}ms, which is ${appHz.toFixed(2)}Hz — the page is playing the music at `
     + `${(captureHz / appHz).toFixed(2)}x`);
@@ -852,23 +866,25 @@ function aPeakHoldsBelowTheFieldThatRaisedIt() {
     }
     return { reached, stood };
   };
-  // Onsets must clear 1.4 swings now, so the field climbs steeply from about
-  // 0.15 of amplitude and the pair sits closer together than it used to.
-  const under = onsetTo(0.1616);
-  const over = onsetTo(0.1644);
+  // Onsets must clear 0.9 swings now, over the lower of the last two frames and
+  // at a gain of 1.0, so the field climbs steeply from about 0.09 of amplitude
+  // and the pair sits at about 0.11. It was 0.1616 and 0.1644 at 1.4 swings and
+  // a gain of 0.8; the amplitudes were found again by bisection, not scaled.
+  const under = onsetTo(0.1086);
+  const over = onsetTo(0.1108);
 
   // The pair proves itself discriminating before it is used as evidence, and
   // the MARGINS are written down because they are what a later retune eats
-  // without saying so: 0.3423 sits 0.0177 below the critical field and 0.3754
-  // sits 0.0154 above it, a little over four percent either way. Tighter would
+  // without saying so: 0.3427 sits 0.0173 below the critical field and 0.3751
+  // sits 0.0151 above it, a little over four percent either way. Tighter would
   // pin the constant harder and start failing on an honest change to the
   // smoothing; looser is the hole this closes. Swept afterwards rather than
-  // predicted: the constant now survives on [0.3423, 0.3754) and is killed by
+  // predicted: the constant now survives on [0.3427, 0.3751) and is killed by
   // this check at every step outside it, where before it survived the whole of
   // [0.26, 0.42] and was killed only at 0.24 and 0.44, by two other checks.
   // The interval is half-open because each bound is a value the field REACHES,
-  // and `field > CRITICAL_FIELD` is strict: at 0.3423 nothing stands and the
-  // quiet case still passes, at 0.3754 nothing stands and the loud case fails.
+  // and `field > CRITICAL_FIELD` is strict: at 0.3427 nothing stands and the
+  // quiet case still passes, at 0.3751 nothing stands and the loud case fails.
   require(under.reached > 0.30 && under.reached < 0.36,
     `the quieter onset drives band 0 to ${under.reached.toFixed(4)}, which no longer sits just `
     + 'below the critical 0.36 — the pair has stopped straddling the threshold, and everything '
@@ -1020,16 +1036,22 @@ function theHaloEasesRatherThanSwitching() {
  */
 function theCapturedAudioIsTheAppsOwn() {
   const source = loadSourceLevels();
-  require(source.length === REAL_LEVELS.length,
-    `the site carries ${REAL_LEVELS.length} frames, Resources/real-levels.txt has ${source.length}`);
-  require(REAL_LEVELS.length === 240, `expected 240 frames, found ${REAL_LEVELS.length}`);
-  for (let i = 0; i < source.length; i++) {
-    require(source[i].length === BAND_COUNT, `frame ${i} is not ${BAND_COUNT} bands`);
+  require(source.length === 240, `expected 240 captured frames, found ${source.length}`);
+  // The page carries the 30Hz capture at 60: the capture's own frames at the
+  // even indices and the midpoint of each pair at the odd ones, which is how
+  // the app's 60Hz reads would have seen it and how fluidcheck replays it.
+  const resampled = resample60(source);
+  require(REAL_LEVELS.length === resampled.length,
+    `the site carries ${REAL_LEVELS.length} frames, Resources/real-levels.txt resampled to 60Hz `
+    + `has ${resampled.length}`);
+  for (let i = 0; i < resampled.length; i++) {
+    require(REAL_LEVELS[i].length === BAND_COUNT, `frame ${i} is not ${BAND_COUNT} bands`);
     for (let b = 0; b < BAND_COUNT; b++) {
-      closeTo(REAL_LEVELS[i][b], source[i][b], 1e-12, `captured frame ${i} band ${b}`);
+      closeTo(REAL_LEVELS[i][b], resampled[i][b], 1e-12,
+        `${i % 2 ? 'midpoint' : 'captured'} frame ${i} band ${b}`);
     }
   }
-  const quietest = quietestFrame(source);
+  const quietest = quietestFrame(resampled);
   require(LOOP_FRAME === quietest.index,
     `the replay loops at frame ${LOOP_FRAME}, but the quietest frame is ${quietest.index}`);
 }

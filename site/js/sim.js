@@ -24,8 +24,10 @@ export const CRITICAL_FIELD = 0.36;
 const COLLAPSE_FIELD = 0.16;
 const INITIAL_SPREAD = 0.06;
 // How many swings a rise must clear to count as an onset.
-const ONSET_FLOOR = 1.4;
+const ONSET_FLOOR = 0.9;
 const REENTRY_AFTER = 0.35;
+// How hard a full kick throws the body, in swell per second.
+const SWELL_BLOW = 22.0;
 
 /**
  * The Swift carries band levels as `[Float]`, and three places do their
@@ -66,6 +68,8 @@ export class FerrofluidSim {
     this.random = random;
     this.sites = [];
     this.swell = 0;
+    this.swellVelocity = 0;
+    this.lastBassHit = 0;
     this.raised = 0;
     this.impact = 0;
     this.inkOpen = 0;
@@ -80,6 +84,10 @@ export class FerrofluidSim {
     this.pointerPull = 0;
     this.pointerTarget = 0;
     this.previousLevels = [];
+    // The frame before `previousLevels`. A hit's rise straddles two 16ms
+    // frames, so measured against one frame back each half can fall under the
+    // onset bar.
+    this.olderLevels = [];
     this.kick = [];
     this.baseline = [];
     this.spread = [];
@@ -127,9 +135,9 @@ export class FerrofluidSim {
 
   publishGates() {
     const e = SETTLED_EPSILON;
-    const settled = this.swell < e && this.impact < e && this.pointerPull < e
+    const settled = this.swell < e && Math.abs(this.swellVelocity) < 0.02 && this.impact < e && this.pointerPull < e
       && this.inkOpen === this.openTarget
-      && !this.sites.some((s) => s.height > 0.003);
+      && !this.sites.some((s) => s.height > 0.003 || Math.abs(s.velocity) > 0.05);
     if (settled !== this.isSettled) this.isSettled = settled;
     const sound = this.brightness >= 0.002;
     if (sound !== this.hasSound) this.hasSound = sound;
@@ -142,6 +150,7 @@ export class FerrofluidSim {
    */
   reenter(levels) {
     this.previousLevels = levels.slice();
+    this.olderLevels = levels.slice();
     this.baseline = levels.map(Number);
   }
 
@@ -201,18 +210,22 @@ export class FerrofluidSim {
         band,
         fan: r() * 0.76 - 0.38,
         height: 0,
+        velocity: 0,
         field: 0,
         isUp: false,
       });
     }
     this.raised = 0;
     this.swell = 0;
+    this.swellVelocity = 0;
+    this.lastBassHit = 0;
   }
 
   updateKick(levels, dt) {
     if (this.kick.length !== levels.length) {
       this.kick = new Array(levels.length).fill(0);
       this.previousLevels = levels.slice();
+      this.olderLevels = levels.slice();
     }
     if (this.pendingSurge) {
       const held = this.pendingSurge;
@@ -223,12 +236,14 @@ export class FerrofluidSim {
     // noise no longer kicks the surface between hits.
     const decay = Math.pow(0.002, dt);
     for (let i = 0; i < levels.length; i++) {
-      // Subtracted at Float width, as the Swift does, before widening.
-      const rise = Math.max(0, f32(levels[i] - this.previousLevels[i]));
+      // Subtracted at Float width, as the Swift does, before widening, and
+      // measured from the lower of the last two frames.
+      const rise = Math.max(0, f32(levels[i] - Math.min(this.previousLevels[i], this.olderLevels[i])));
       const swing = i < this.spread.length ? this.spread[i] : INITIAL_SPREAD;
       const onset = rise / Math.max(0.03, swing * 1.6) - ONSET_FLOOR;
-      this.kick[i] = Math.max(this.kick[i] * decay, Math.min(1, Math.max(0, onset) * 0.8));
+      this.kick[i] = Math.max(this.kick[i] * decay, Math.min(1, Math.max(0, onset)));
     }
+    this.olderLevels = this.previousLevels;
     this.previousLevels = levels.slice();
   }
 
@@ -304,10 +319,17 @@ export class FerrofluidSim {
     this.pool += (Math.min(1, bass * 0.3) - this.pool) * Math.min(1, poolRate * dt);
     let hit = 0;
     for (let i = 0; i < count && i < this.kick.length; i++) if (this.kick[i] > hit) hit = this.kick[i];
-    const target = Math.min(1, this.pool + hit * 1.3);
-    const rate = target > this.swell ? 30.0 : 3.6;
-    this.swell += (target - this.swell) * Math.min(1, rate * dt);
-    if (this.swell < 0.004) this.swell = 0;
+    // A spring rather than a chase: the body rests on the pool, and a kick is
+    // a blow that throws it, so it moves in the frame the hit arrives,
+    // overshoots, and bounces home. Only the rise of the kick strikes.
+    const blow = Math.max(0, hit - this.lastBassHit);
+    this.lastBassHit = hit;
+    this.swellVelocity += blow * SWELL_BLOW;
+    const omega = this.quietFor > 0 ? 20.0 : 15.0;
+    this.swellVelocity += (omega * omega * (this.pool - this.swell) - 2 * 0.4 * omega * this.swellVelocity) * dt;
+    this.swell = Math.min(1.15, this.swell + this.swellVelocity * dt);
+    if (this.swell <= 0) { this.swell = 0; this.swellVelocity = Math.max(0, this.swellVelocity); }
+    if (this.swell < 0.004 && Math.abs(this.swellVelocity) < 0.02) { this.swell = 0; this.swellVelocity = 0; }
   }
 
   updateSites(levels, dev, dt) {
@@ -356,13 +378,23 @@ export class FerrofluidSim {
         target = 0;
       }
 
-      // Bass is heavy and drains slowly; treble is light and snaps back.
       const bandT = band / Math.max(1, levels.length - 1);
-      // Twice as fast once the music has stopped, so the ink settles in budget.
-      const fall = 2.8 * (0.55 + 1.5 * bandT) * (this.quietFor > 0 ? 2 : 1);
-      const heightRate = target > site.height ? 40.0 : fall;
-      site.height += (target - site.height) * Math.min(1, heightRate * dt);
-      if (site.height < 0.003) site.height = 0;
+      // A spring: the spike shoots up within a frame or two, overshoots, and
+      // rings down. The stiff spring holds until the spike turns over, so the
+      // momentum it gave is braked by the spring that made it.
+      // Bass is soft and treble stiff, and the fall is quicker once the music has
+      // stopped, so the ink settles in budget.
+      let v = site.velocity;
+      const rising = v > 0 || target > site.height + 0.05;
+      const omega = rising ? 52.0 : (7.0 + 13.0 * bandT) * (this.quietFor > 0 ? 1.6 : 1);
+      const zeta = rising ? 0.5 : 0.7;
+      v += (omega * omega * (target - site.height) - 2 * zeta * omega * v) * dt;
+      let h = site.height + v * dt;
+      if (h <= 0) { h = 0; v = Math.max(0, v); }
+      if (h > 1.25) { h = 1.25; v = Math.min(0, v); }
+      if (h < 0.003 && Math.abs(v) < 0.05) { h = 0; v = 0; }
+      site.height = h;
+      site.velocity = v;
       standing += site.height;
     }
 

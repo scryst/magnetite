@@ -9,7 +9,7 @@
  *
  * Channels are meaned here, before the hop buffer, exactly where the Swift
  * means its interleaved buffer. Bands go to the main thread per publish;
- * the LevelPump there decides at its own 30 Hz what the page may show.
+ * the LevelPump there decides at its own 60 Hz what the page may show.
  */
 import { BandAnalyser, BAND_COUNT } from './bands.js';
 
