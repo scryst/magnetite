@@ -22,7 +22,7 @@ enum ChromeCheck {
         theModesClearTheTransport()
         theTypeFitsBesideTheSleeve()
         aModeYouCannotUseDoesNotLookLikeOneYouCan()
-        theHeartTrailsTheTitleNotTheMargin()
+        theHeartSitsInRepeatsColumn()
         theTraceFitsBetweenTheCameraAndTheChrome()
         theTraceHasSomethingToRunAlong()
         theRetractedClockDoesNotStepAtThePollRate()
@@ -384,92 +384,23 @@ enum ChromeCheck {
         }
     }
 
-    /// The heart sits beside the track it names, not on the panel margin.
-    /// `MarqueeText` fills its column, so a trailing heart would stay at the
-    /// margin however short the title is; `heartSlack` offsets it back to the end
-    /// of the text.
-    static func theHeartTrailsTheTitleNotTheMargin() {
-        // The real column: panel less both margins, the sleeve, its gutter, the
-        // heart's own slot and the stack spacing.
-        let column = ChromeRules.panelWidth - ChromeRules.margin * 2
-            - ChromeRules.art - 12 - ChromeRules.slot(ChromeRules.modeDiameter) - 6
-
-        // A short title must move the heart materially, or nothing below
-        // measures anything. "Flower Pot" at 15pt semibold is about 66pt.
-        let shortTitle = ChromeRules.heartSlack(textWidth: 60, columnWidth: column)
-        require(shortTitle > 100,
-                "a 60pt title in a \(column)pt column slides the heart \(shortTitle)pt — "
-                + "if that is now negligible this check is measuring nothing")
-
-        for text in stride(from: 0.0, through: 400.0, by: 5) {
-            let slack = ChromeRules.heartSlack(textWidth: CGFloat(text), columnWidth: column)
-            require(slack >= 0, "text \(text)pt gives slack \(slack) — the heart moves RIGHT, "
-                    + "off the panel's margin")
-            require(slack <= column, "text \(text)pt slides the heart \(slack)pt out of a "
-                    + "\(column)pt column")
-            // Offsetting by the unused tail lands the heart exactly at the end of
-            // the text, never inside it.
-            require(column - slack >= min(CGFloat(text), column) - 0.001,
-                    "text \(text)pt leaves the heart at \(column - slack)pt, on top of "
-                    + "the title rather than after it")
-        }
-
-        // A title that fills or overflows has no slack, so the heart stays put.
-        for text in [column, column + 1, column + 200] {
-            require(ChromeRules.heartSlack(textWidth: text, columnWidth: column) == 0,
-                    "a title of \(text)pt in a \(column)pt column still moves the heart")
-        }
-        // Wider words never buy more room.
-        var previous = CGFloat.greatestFiniteMagnitude
-        for text in stride(from: 0.0, through: 400.0, by: 5) {
-            let slack = ChromeRules.heartSlack(textWidth: CGFloat(text), columnWidth: column)
-            require(slack <= previous, "slack grew from \(previous) to \(slack) at \(text)pt")
-            previous = slack
-        }
-
+    /// The heart holds one place on every track, in the repeat toggle's column. It
+    /// used to trail the title, so it jumped with each song's length and the button
+    /// was never where the hand last found it.
+    static func theHeartSitsInRepeatsColumn() {
         let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
-        guard !code.isEmpty else { return }
-        require(code.contains("ChromeRules.heartSlack("),
-                "the heart no longer asks ChromeRules.heartSlack where to sit, so it is "
-                + "back on the panel margin naming nothing")
-        // It must be an offset: a layout change would narrow the column the
-        // marquee measures against and the title would vanish.
-        require(code.contains("offset(x: -heartSlack)"),
-                "the heart's slack is no longer applied as an offset — a layout change "
-                + "here narrows the marquee's box")
-
-        // The slack is measured off a hidden mirror of each line, because the
-        // visible label fills its column and its frame says nothing about the
-        // words' width. That only works while the mirror and the label use the
-        // same font, and the two declarations are far apart, so count them. Sizes
-        // are re-read from the view, and scoped to `trackLine` and `ArtistLine`
-        // rather than the file, which sets .medium elsewhere at matching sizes.
-        guard let track = section(code, from: "private var trackLine"),
-              let artist = topLevelSection(code, from: "private struct ArtistLine") else {
-            require(false, "cannot find trackLine and ArtistLine to check their type against the mirrors")
+        guard !code.isEmpty, let track = section(code, from: "private var trackLine")
+        else {
+            require(false, "cannot find trackLine to check where the heart sits")
             return
         }
-        // The visible artist line lives in ArtistLine (its names are links); its
-        // mirror stays in trackLine.
-        let line = track + artist
-        for role in ["semibold", "medium"] {
-            let sizes = line.components(separatedBy: "weight: .\(role)")
-                .dropLast()
-                .compactMap { chunk -> String? in
-                    guard let open = chunk.range(of: "size: ", options: .backwards) else {
-                        return nil
-                    }
-                    return String(chunk[open.upperBound...]
-                        .prefix { $0.isNumber || $0 == "." })
-                }
-            require(sizes.count == 2,
-                    "the \(role) tier is declared \(sizes.count) times in trackLine, not "
-                    + "twice — one visible line and one hidden mirror is the whole "
-                    + "arrangement the slack depends on")
-            require(sizes[0] == sizes[1],
-                    "the \(role) line is set at \(sizes[0]) and measured at \(sizes[1]) — "
-                    + "the heart trails a width that is not the one on screen")
-        }
+        require(track.contains("diameter: Grid.mode"),
+                "the heart is no longer a mode-sized disc, so it cannot share repeat's column")
+        require(track.contains("offset(x: ChromeRules.controlInset)"),
+                "the heart no longer pushes out by its padding ring, so its disc stops "
+                + "\(ChromeRules.controlInset)pt short of the margin repeat's disc meets")
+        require(!track.contains("onGeometryChange"),
+                "trackLine measures its text again — the heart is moving with the title")
     }
 
     /// The scrub strip stays below every control. It is invisible, full-width and
