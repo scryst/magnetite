@@ -26,6 +26,9 @@ struct NotchShape: Shape, Animatable {
     var height: CGFloat
 
     var style: Style = .notch
+    /// How far the middle of the bottom edge hangs below the corners, in points. Set
+    /// per frame by the pour, never animated by SwiftUI; negative bows it up.
+    var sag: CGFloat = 0
 
     var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>,
                                        AnimatablePair<CGFloat, CGFloat>> {
@@ -102,7 +105,19 @@ struct NotchShape: Shape, Animatable {
         p.addLine(to: CGPoint(x: minX, y: maxY - br))
         p.addQuadCurve(to: CGPoint(x: minX + br, y: maxY),
                        control: CGPoint(x: minX, y: maxY))
-        p.addLine(to: CGPoint(x: maxX - br, y: maxY))
+        if abs(sag) > 0.05 {
+            // Two halves with level tangents at the corners and the middle, so a moving
+            // front has no kink anywhere: a liquid's leading edge, not a bent bar.
+            let run = (maxX - minX - 2 * br) / 2, mid = rect.midX
+            p.addCurve(to: CGPoint(x: mid, y: maxY + sag),
+                       control1: CGPoint(x: minX + br + run * 0.55, y: maxY),
+                       control2: CGPoint(x: mid - run * 0.45, y: maxY + sag))
+            p.addCurve(to: CGPoint(x: maxX - br, y: maxY),
+                       control1: CGPoint(x: mid + run * 0.45, y: maxY + sag),
+                       control2: CGPoint(x: maxX - br - run * 0.55, y: maxY))
+        } else {
+            p.addLine(to: CGPoint(x: maxX - br, y: maxY))
+        }
         p.addQuadCurve(to: CGPoint(x: maxX, y: maxY - br),
                        control: CGPoint(x: maxX, y: maxY))
         p.addLine(to: CGPoint(x: maxX, y: minY + tr))
@@ -145,8 +160,8 @@ enum Motion {
         reduceMotion ? .easeOut(duration: 0.16)
                      : .spring(response: 0.34, dampingFraction: 0.82)
     }
-    /// The mini player's clock leaves fast, before the panel's content (delayed 0.07 s)
-    /// is visible, and returns only after that content's 0.175 s exit, so a readout is
+    /// The mini player's clock leaves fast, before the panel's content
+    /// (`Pour.contentLag`) is visible, and returns only after that content's 0.175 s exit, so a readout is
     /// never on screen twice.
     static var miniClockOut: Animation { .easeOut(duration: 0.07) }
     static var miniClockIn: Animation {
@@ -181,6 +196,54 @@ enum Motion {
     /// a second, smaller answer to the commit's surge.
     static var leanRelease: Animation {
         reduceMotion ? .easeOut(duration: 0.14) : .easeOut(duration: 0.30)
+    }
+}
+
+/// The open, staged as a pour. The shell's bottom edge leads in the middle like the
+/// front of a poured liquid, then wobbles flat; the colour fills the body behind it and
+/// the content arrives last. Closing drains the colour up while the edge trails. One
+/// timeline rather than a spring per value, so the order is a single fact
+/// `chromecheck` can sample.
+struct Pour: Equatable {
+    /// How far the middle of the bottom edge hangs below its corners, in points.
+    var sag: CGFloat = 0
+    /// How much of the body the colour has filled, from the top.
+    var fill: CGFloat = 0
+
+    static func rest(open: Bool) -> Pour { Pour(fill: open ? 1 : 0) }
+
+    /// When the content starts to arrive: once the colour is most of the way down.
+    static var contentLag: Double { Motion.reduceMotion ? 0.07 : 0.2 }
+
+    /// Reduce Motion keeps the order and loses the travel: a flat edge, a short fill.
+    static func timeline(opening: Bool) -> KeyframeTimeline<Pour> {
+        if Motion.reduceMotion {
+            return KeyframeTimeline(initialValue: rest(open: !opening)) {
+                KeyframeTrack(\.fill) { LinearKeyframe(opening ? 1 : 0, duration: 0.16) }
+            }
+        }
+        if !opening {
+            return KeyframeTimeline(initialValue: rest(open: true)) {
+                KeyframeTrack(\.fill) { CubicKeyframe(0, duration: 0.16, startVelocity: 0) }
+                // Drawn up from the corners, the middle trails, then lets go.
+                KeyframeTrack(\.sag) {
+                    CubicKeyframe(9, duration: 0.1)
+                    SpringKeyframe(0, duration: 0.22, spring: Spring(response: 0.2, dampingRatio: 0.8))
+                }
+            }
+        }
+        return KeyframeTimeline(initialValue: rest(open: false)) {
+            // Leads while the shell falls, then is caught: one bounce up past flat and
+            // a smaller one back, as a surface settles.
+            KeyframeTrack(\.sag) {
+                CubicKeyframe(16, duration: 0.13, startVelocity: 0)
+                SpringKeyframe(0, duration: 0.5, spring: Spring(response: 0.26, dampingRatio: 0.42))
+            }
+            KeyframeTrack(\.fill) {
+                LinearKeyframe(0, duration: 0.03)
+                CubicKeyframe(1, duration: 0.24, startVelocity: 0, endVelocity: 0)
+            }
+        }
     }
 }
 

@@ -38,6 +38,11 @@ struct NotchRootView: View {
     @ViewState private var scrubbing = false
     @ViewState private var scrubFraction: CGFloat = 0
     @ViewState private var seekHovering = false
+    /// When the running pour started; nil at rest. `pourSettled` is the state the last
+    /// pour finished in, so the frame before `onChange` lands already reads as the
+    /// pour's first frame rather than its last.
+    @ViewState private var pourStart: Date?
+    @ViewState private var pourSettled = false
 
     /// The drag position while scrubbing, otherwise real playback, so you can drag to a
     /// specific second.
@@ -54,7 +59,9 @@ struct NotchRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            chrome
+            TimelineView(.animation(paused: pourStart == nil)) { frame in
+                chrome(pour: pour(at: frame.date))
+            }
             // Content only; the chrome, trace and playhead are the silhouette and do not move.
             // The ZStack is the container `content`'s transitions need: as the root of
             // `SwipeLeanFrame`'s body, an `if`/`else if` chain has nothing to be inserted into
@@ -77,6 +84,17 @@ struct NotchRootView: View {
             }
                 .frame(width: size.width, height: size.height, alignment: .top)
                 .clipShape(shape)
+            // Outside the lean frame: the slot it follows already carries the lean.
+            ZStack(alignment: .topLeading) {
+                if let slot = coverSlot {
+                    CoverLayer(media: media)
+                        .matchedGeometryEffect(id: slot, in: glass, isSource: false)
+                        .transition(.scale(scale: 0.84).combined(with: .opacity))
+                }
+            }
+                .frame(width: size.width, height: size.height, alignment: .topLeading)
+                .clipShape(shape)
+                .allowsHitTesting(false)
             // Drawn whenever there is a track, so it does not fade in on every open; it
             // follows the silhouette as it morphs. It needs a shell wide enough to carry it (in
             // Focus Mode the retracted shell is the cutout and the line would show as a stub
@@ -90,16 +108,22 @@ struct NotchRootView: View {
                     // Display-rate so the trace glides instead of stepping with the 1 Hz poll. 15 Hz,
                     // not 60: on a four-minute track it moves 0.024 pt per frame at 60 Hz against a
                     // 0.5 pt device pixel, and still stays sub-pixel smooth at 15 Hz.
-                    TimelineView(.animation(minimumInterval: 1.0 / 15.0,
-                                            paused: !media.isPlaying || scrubbing || !trackDrawn)) { _ in
+                    // Open, the light running down the line needs the display rate; 15 Hz would
+                    // step it.
+                    TimelineView(.animation(minimumInterval: expanded ? 1.0 / 60.0 : 1.0 / 15.0,
+                                            paused: !media.isPlaying || scrubbing || !trackDrawn)) { frame in
                         // The tip sits inside the timeline with its line, or it would step at the 1 Hz poll.
                         ZStack {
-                            progressEdge
+                            progressEdge(at: frame.date)
                             playhead
                         }
                     }
                 }
-                .opacity(trackDrawn ? 1 : 0)
+                // Out while a pour runs: riding the growing silhouette, the line sweeps down
+                // through the panel like a scan line. It comes back on the settled edge.
+                .animation(.easeOut(duration: 0.2)) {
+                    $0.opacity(trackDrawn && pourStart == nil ? 1 : 0)
+                }
             }
             // The tip is not gated on expansion (that would fade the dot in on every open);
             // width carries the state. The seek strip stays gated so a collapsed notch is never
@@ -110,6 +134,17 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(expanded ? Motion.expand : Motion.collapse, value: expanded)
+        .onAppear { pourSettled = expanded }
+        .onChange(of: expanded) { _, open in
+            let start = Date.now
+            pourStart = start
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(Pour.timeline(opening: open).duration))
+                guard pourStart == start else { return }
+                pourStart = nil
+                pourSettled = open
+            }
+        }
         .animation(Motion.swap, value: controller.isMiniPlayerShown)
         .animation(Motion.swap, value: controller.notification)
         .animation(Motion.track, value: media.trackToken)
@@ -117,6 +152,13 @@ struct NotchRootView: View {
         // departure is fully damped.
         .animation(media.hasTrack ? Motion.track : Motion.collapse, value: media.hasTrack)
         .opacity(controller.isVisible ? 1 : 0)
+    }
+
+    /// Where the one sleeve sits: the panel's, the mini player's, or nowhere.
+    private var coverSlot: CoverSlot? {
+        guard media.hasTrack, !controller.notification.isSome else { return nil }
+        if expanded { return .open }
+        return controller.isMiniPlayerShown ? .mini : nil
     }
 
     /// Whether the progress line is drawing the bottom edge, so the rim knows whether it
@@ -129,15 +171,41 @@ struct NotchRootView: View {
         expanded || controller.isMiniPlayerShown || controller.notification.isSome
     }
 
-    private var shape: NotchShape {
-        NotchShape(width: size.width,
-                   height: size.height,
-                   topCornerRadius: controller.topCornerRadius,
-                   bottomCornerRadius: controller.bottomCornerRadius,
-                   style: controller.style)
+    private var shape: NotchShape { shape(sag: 0) }
+
+    private func shape(sag: CGFloat) -> NotchShape {
+        var s = NotchShape(width: size.width,
+                           height: size.height,
+                           topCornerRadius: controller.topCornerRadius,
+                           bottomCornerRadius: controller.bottomCornerRadius,
+                           style: controller.style)
+        s.sag = sag
+        return s
     }
 
     private var tint: Color { media.palette.colors.first ?? .accentColor }
+
+    private func pour(at date: Date) -> Pour {
+        let timeline = Pour.timeline(opening: expanded)
+        guard let start = pourStart else {
+            return expanded == pourSettled ? .rest(open: expanded) : timeline.value(time: 0)
+        }
+        let t = date.timeIntervalSince(start)
+        return t >= timeline.duration ? .rest(open: expanded) : timeline.value(time: t)
+    }
+
+    /// How far down the colour reaches: the closed shell's height at rest, the open
+    /// panel's when filled. Feathered, so the colour floods down rather than wiping.
+    private func colourMask(_ pour: Pour) -> some View {
+        let closed = controller.retractedHeight
+        let height = closed + pour.fill * max(0, controller.expandedSize.height - closed)
+        return VStack(spacing: 0) {
+            Rectangle().frame(height: height)
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: pour.fill < 1 && pour.fill > 0 ? 28 : 0)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
 
 
     // MARK: Chrome
@@ -145,13 +213,14 @@ struct NotchRootView: View {
     /// Black at the cutout, tinted Liquid Glass elsewhere. Glass around the camera
     /// housing would catch the wallpaper either side of the bezel and expose the housing
     /// as a black bar, so a radial falloff keeps a black core at the cutout.
-    private var chrome: some View {
-        ZStack(alignment: .top) {
+    private func chrome(pour: Pour) -> some View {
+        let shape = shape(sag: pour.sag)
+        return ZStack(alignment: .top) {
             shape.fill(.black)
 
             // This frame establishes the coordinate space the masks resolve in; without it the
             // oversized `coverWash` frame becomes the reference.
-            glassLayer
+            glassLayer(shape)
                 .frame(width: size.width, height: size.height)
                 .allowsHitTesting(false)
                 // A bare notch is black: unscoped, the tint rides the spring's tail down to the
@@ -159,6 +228,7 @@ struct NotchRootView: View {
                 .animation(shellTinted ? .easeOut(duration: 0.12) : .easeOut(duration: 0.16)) {
                     $0.opacity(shellTinted ? 1 : 0)
                 }
+                .mask(alignment: .top) { colourMask(pour) }
 
             FerrofluidView(sim: fluid,
                            notchSize: controller.notchSize,
@@ -168,6 +238,7 @@ struct NotchRootView: View {
                            cornerRadius: controller.cutoutCornerRadius,
                            tint: tint)
                 .clipShape(shape)
+
         }
         .overlay(alignment: .top) {
             // The rim also acknowledges the pointer: for the whole hover delay the notch would
@@ -206,7 +277,7 @@ struct NotchRootView: View {
             || (controller.isMiniPlayerShown && media.hasTrack)
     }
 
-    private var glassLayer: some View {
+    private func glassLayer(_ shape: NotchShape) -> some View {
         Color.clear
             .glassEffect(.regular.tint(tint.opacity(0.65)), in: shape)
             .overlay { coverWash }
@@ -412,22 +483,53 @@ struct NotchRootView: View {
             .allowsHitTesting(false)
     }
 
-    private var progressEdge: some View {
+    private var traceEdge: NotchBottomEdge {
         NotchBottomEdge(width: size.width,
                         height: size.height,
                         bottomCornerRadius: controller.bottomCornerRadius,
                         inset: traceInset)
-            .trim(from: 0, to: max(0.0001, edgeTrim))
-            .stroke(
-                LinearGradient(colors: [tint, tint.opacity(0.75)],
-                               startPoint: .leading, endPoint: .trailing),
-                style: StrokeStyle(lineWidth: traceWidth, lineCap: .round))
-            // Expanded only: a 6 pt glow on a line at the bottom of the menu-bar band spills
-            // onto window chrome.
-            .shadow(color: tint.opacity(0.8), radius: expanded ? 6 : 0)
-            .animation(Motion.seek, value: scrubbing)
-            .animation(Motion.seek, value: seekHovering)
-            .allowsHitTesting(false)
+    }
+
+    /// The played line as a comet: thin and faint where the track began, full and hot at
+    /// the playhead. Open, the head blooms with the music and a bead of light runs down
+    /// the line into it every few seconds, so the line reads as something flowing rather
+    /// than a bar filling.
+    private func progressEdge(at date: Date) -> some View {
+        let e = max(0.0001, edgeTrim)
+        let segments = 14
+        return ZStack {
+            ForEach(0..<segments, id: \.self) { i in
+                let k = CGFloat(i + 1) / CGFloat(segments)
+                traceEdge
+                    .trim(from: e * CGFloat(i) / CGFloat(segments), to: e * k)
+                    .stroke(tint.opacity(0.28 + 0.72 * k * k),
+                            style: StrokeStyle(lineWidth: traceWidth * (0.5 + 0.5 * k),
+                                               lineCap: i == 0 ? .round : .butt))
+            }
+            // Expanded only: a glow on a line at the bottom of the menu-bar band spills onto
+            // window chrome.
+            if expanded {
+                traceEdge
+                    .trim(from: max(0, e - 0.07), to: e)
+                    .stroke(tint, style: StrokeStyle(lineWidth: traceWidth * 2.4, lineCap: .round))
+                    .blur(radius: 6 + 5 * fluid.brightness)
+                    .opacity(0.7 + 0.3 * fluid.brightness)
+                if media.isPlaying {
+                    let run = (date.timeIntervalSinceReferenceDate / 2.8)
+                        .truncatingRemainder(dividingBy: 1)
+                    let at = e * CGFloat(run)
+                    traceEdge
+                        .trim(from: max(0, at - 0.05 * e), to: at)
+                        .stroke(.white.opacity(0.7 * sin(.pi * run)),
+                                style: StrokeStyle(lineWidth: traceWidth * 0.7, lineCap: .round))
+                        .blur(radius: 1)
+                }
+            }
+        }
+        .compositingGroup()
+        .animation(Motion.seek, value: scrubbing)
+        .animation(Motion.seek, value: seekHovering)
+        .allowsHitTesting(false)
     }
 
     // MARK: Content
@@ -450,7 +552,7 @@ struct NotchRootView: View {
                     .transition(.asymmetric(
                         insertion: .opacity
                             .combined(with: .offset(y: 6 * Motion.travel))
-                            .animation(Motion.content.delay(0.07)),
+                            .animation(Motion.content.delay(Pour.contentLag)),
                         removal: .opacity
                             .combined(with: .offset(y: -10 * Motion.travel))
                             .animation(Motion.content.speed(1.6))))
@@ -459,7 +561,7 @@ struct NotchRootView: View {
                     .transition(.asymmetric(
                         insertion: .offset(y: 10 * Motion.travel)
                             .combined(with: .opacity)
-                            .animation(Motion.content.delay(0.10)),
+                            .animation(Motion.content.delay(Pour.contentLag + 0.03)),
                         removal: .offset(y: 6 * Motion.travel)
                             .combined(with: .opacity)
                             .animation(Motion.content.speed(1.7))))
@@ -703,11 +805,12 @@ private struct ExpandedPlayer: View {
             Spacer(minLength: Grid.bandGap)
 
             HStack(alignment: .top, spacing: Grid.gutter) {
-                Artwork(image: media.artwork, palette: media.palette,
-                        size: Grid.artwork, radius: 12)
-                    .matchedGeometryEffect(id: "artwork", in: glass)
+                // The sleeve's place and its gestures. The sleeve itself is `CoverLayer`, one
+                // view for the mini player and the panel, so it travels instead of cross-fading.
+                Color.clear
+                    .contentShape(.rect(cornerRadius: 12, style: .continuous))
+                    .matchedGeometryEffect(id: CoverSlot.open, in: glass)
                     .frame(width: Grid.artwork, height: Grid.art)
-                    .id(media.trackToken)
                     // The sleeve is the track, so pressing it opens the track in the player.
                     .onTapGesture {
                         media.openInPlayer()
@@ -737,14 +840,6 @@ private struct ExpandedPlayer: View {
                             }
                         }
                     }
-                    // A card lifted off a card: the old sleeve grows and dissolves while the new one
-                    // comes up. The removal runs faster, or the covers ghost through each other.
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 1 - 0.14 * Motion.travel)
-                            .combined(with: .opacity),
-                        removal: .scale(scale: 1 + 0.10 * Motion.travel)
-                            .combined(with: .opacity)
-                            .animation(Motion.track.speed(1.6))))
 
                 VStack(alignment: .leading, spacing: 0) {
                     trackLine
@@ -770,7 +865,7 @@ private struct ExpandedPlayer: View {
                     .padding(.top, ChromeRules.lyricsGap)
                     // Arrives as the shell grows to hold it, after the shell has started.
                     .transition(.asymmetric(
-                        insertion: .opacity.animation(Motion.content.delay(0.12)),
+                        insertion: .opacity.animation(Motion.content.delay(Pour.contentLag + 0.05)),
                         removal: .opacity.animation(Motion.content.speed(1.8))))
             }
         }
@@ -938,6 +1033,42 @@ private struct LyricsColumn: View, Equatable {
     }
 }
 
+// MARK: - Pour
+
+/// The ink leaving the cutout ahead of the shell. Drawn through the same blur and
+/// threshold as the pool and joined to the cutout, so it reads as the pool's own neck
+/// with a weight at its tip, never as a drop: the neck is wider than the blur can
+/// sever, and it shrinks back with the tip rather than letting go of it.
+enum CoverSlot: Hashable { case open, mini }
+
+/// The one sleeve, sized by whichever `CoverSlot` it follows. Its corner and shadow are
+/// read from the frame it has been given, so they grow with it.
+private struct CoverLayer: View {
+    var media: MediaManager
+
+    var body: some View {
+        GeometryReader { g in
+            let side = g.size.width
+            // 5.5 pt on the 19 pt mini sleeve, 12 on the panel's.
+            let t = min(1, max(0, (side - 19) / (Grid.artwork - 19)))
+            ZStack {
+                Artwork(image: media.artwork, palette: media.palette,
+                        size: side, radius: 5.5 + 6.5 * t)
+                    .id(media.trackToken)
+                    // A card lifted off a card: the old sleeve grows and dissolves while the new
+                    // one comes up. The removal runs faster, or the covers ghost through each other.
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 1 - 0.14 * Motion.travel)
+                            .combined(with: .opacity),
+                        removal: .scale(scale: 1 + 0.10 * Motion.travel)
+                            .combined(with: .opacity)
+                            .animation(Motion.track.speed(1.6))))
+            }
+            .frame(width: side, height: g.size.height)
+        }
+    }
+}
+
 // MARK: - Collapsed live activity
 
 /// Artwork and elapsed time either side of the cutout; nothing sits where the
@@ -956,8 +1087,8 @@ private struct CollapsedActivity: View {
         HStack(spacing: 0) {
             Group {
                 if layer == .artwork {
-                    Artwork(image: media.artwork, palette: media.palette, size: 19, radius: 5.5)
-                        .matchedGeometryEffect(id: "artwork", in: glass)
+                    Color.clear
+                        .matchedGeometryEffect(id: CoverSlot.mini, in: glass)
                         .frame(width: 19, height: 19)
                 } else {
                     Color.clear.frame(width: 19, height: 19)
@@ -1069,7 +1200,7 @@ private struct PanelClocks: View {
         // Arrives with the panel's content and leaves faster, in place. Scoped to the
         // opacity so the width above is not retimed; out inside the mini clock's 0.16 s
         // delay.
-        .animation(visible ? Motion.content.delay(0.07) : Motion.content.speed(2.4)) {
+        .animation(visible ? Motion.content.delay(Pour.contentLag) : Motion.content.speed(2.4)) {
             $0.opacity(visible ? 1 : 0)
         }
         .allowsHitTesting(false)
