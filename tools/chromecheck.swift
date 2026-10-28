@@ -712,7 +712,7 @@ enum ChromeCheck {
 
         // And the view asks for the schedule rather than writing one.
         let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
-        guard let chrome = section(code, from: "private var chrome: some View") else {
+        guard let chrome = section(code, from: "private func chrome(pour: Pour) -> some View") else {
             require(false, "cannot find the chrome to check its rim")
             return
         }
@@ -745,16 +745,21 @@ enum ChromeCheck {
         }
         require(art.contains("face\n            .frame(maxWidth: .infinity, maxHeight: .infinity)"),
                 "the print does not fill the tile's full footprint")
-        // The sleeve must be sized outside the matched geometry, or the effect
-        // can move it between mini player and panel but never resize it, leaving
-        // two covers, the 19pt one in the corner of the 88pt one.
+        // One sleeve follows two slots. Two sleeves cross-fade instead of travelling,
+        // and a slot sized inside its matched geometry hands the follower no size, so
+        // the 19pt cover would sit in the corner of the 88pt one.
         let code = strippedSource("Sources/NotchApp/UI/NotchView.swift")
-        let matched = code.components(separatedBy: ".matchedGeometryEffect(id: \"artwork\", in: glass)")
-        require(matched.count == 3, "expected the sleeve matched in exactly two places")
-        for after in matched.dropFirst() {
-            require(after.drop(while: \.isWhitespace).hasPrefix(".frame(width:"),
-                    "a sleeve is sized inside its matched geometry, so it cannot morph")
+        for slot in ["CoverSlot.open", "CoverSlot.mini"] {
+            let matched = code.components(separatedBy: ".matchedGeometryEffect(id: \(slot), in: glass)")
+            require(matched.count == 2, "expected the \(slot) slot matched exactly once")
+            require(matched.dropFirst().allSatisfy {
+                        $0.drop(while: \.isWhitespace).hasPrefix(".frame(width:") },
+                    "the \(slot) slot is sized inside its matched geometry, so the sleeve cannot morph")
         }
+        require(code.components(separatedBy: ".matchedGeometryEffect(id: slot, in: glass, isSource: false)").count == 2,
+                "expected one sleeve following the slots")
+        require(code.components(separatedBy: "Artwork(image:").count == 2,
+                "more than one sleeve is drawn, so mini and panel covers cross-fade")
         require(ChromeRules.sleeveShadow(size: 19).opacity == 0
                 && ChromeRules.sleeveShadow(size: 88).opacity > 0,
                 "only the large cover should cast a lift shadow")

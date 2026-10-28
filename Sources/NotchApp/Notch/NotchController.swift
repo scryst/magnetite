@@ -93,6 +93,8 @@ final class NotchController {
     var notchSize: CGSize { collapsedSize }
 
     var currentSize: CGSize { isExpanded ? expandedSize : collapsedSizeForContent }
+    /// The shell's height when closed, which is where the pour's colour starts and ends.
+    var retractedHeight: CGFloat { collapsedSizeForContent.height }
 
     /// Un-hovered, the player never leaves the menu bar: anything below it sits over
     /// tabs and toolbars, where people's hands are. Peeks and HUDs only widen. The rule

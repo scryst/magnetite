@@ -71,6 +71,15 @@ final class NotchController {
         : ChromeRules.retractedSize(collapsed: notchSize, band: menuBarHeight,
                                     hasContent: isMiniPlayerShown || notification.isSome)
     }
+    var retractedHeight: CGFloat {
+        ChromeRules.retractedSize(collapsed: notchSize, band: menuBarHeight,
+                                  hasContent: isMiniPlayerShown || notification.isSome).height
+    }
+    var expandedSize: CGSize {
+        CGSize(width: ChromeRules.panelWidth,
+               height: notchSize.height + ChromeRules.expandedBody
+                   + (hasLyrics ? ChromeRules.lyricsBody : 0))
+    }
     var topCornerRadius: CGFloat { isExpanded ? 0 : 9 }
     var bottomCornerRadius: CGFloat { isExpanded ? 24 : cutoutCornerRadius }
 }
