@@ -247,6 +247,31 @@ struct Pour: Equatable {
     }
 }
 
+/// A circle on `NotchBottomEdge` at a fraction of its length. Animates with the edge,
+/// so a dot riding a morphing silhouette stays on it.
+struct EdgeDot: Shape {
+    var edge: NotchBottomEdge
+    var at: CGFloat
+    var diameter: CGFloat
+
+    var animatableData: AnimatablePair<NotchBottomEdge.AnimatableData,
+                                       AnimatablePair<CGFloat, CGFloat>> {
+        get { .init(edge.animatableData, .init(at, diameter)) }
+        set {
+            edge.animatableData = newValue.first
+            at = newValue.second.first
+            diameter = newValue.second.second
+        }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let end = edge.path(in: rect).trimmedPath(from: 0, to: min(1, max(0.0001, at)))
+            .currentPoint ?? CGPoint(x: rect.midX, y: rect.maxY)
+        return Path(ellipseIn: CGRect(x: end.x - diameter / 2, y: end.y - diameter / 2,
+                                      width: diameter, height: diameter))
+    }
+}
+
 /// Just the bottom edge of `NotchShape` as an open path. Trimmed and stroked, it
 /// draws playback progress along the panel's own silhouette.
 /// on a separate track.
