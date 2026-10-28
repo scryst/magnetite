@@ -552,20 +552,6 @@ private struct ExpandedPlayer: View {
         modeStyle(on: media.repeating ?? false, blocked: media.repeatBlocked)
     }
 
-    /// Intrinsic widths of the two lines and the column they sit in, measured with a
-    /// hidden `fixedSize` mirror (the visible label is greedy). It is the intrinsic
-    /// width, never the scroller's position, so the heart does not jitter.
-    @ViewState private var titleWidth: CGFloat = 0
-    @ViewState private var artistWidth: CGFloat = 0
-    @ViewState private var textColumnWidth: CGFloat = 0
-
-    /// The heart trails the wider of the two lines; a 22 pt disc against a shorter
-    /// artist line would collide with the title's descenders.
-    private var heartSlack: CGFloat {
-        ChromeRules.heartSlack(textWidth: max(titleWidth, artistWidth),
-                               columnWidth: textColumnWidth)
-    }
-
     /// Title, artist and the library heart. The heart sits here, not in the transport
     /// row, which is centred on the panel: an extra disc there would shift the whole
     /// group.
@@ -600,23 +586,6 @@ private struct ExpandedPlayer: View {
                                 .combined(with: .opacity)))
                         .frame(height: Grid.artist)
                     }
-                    .background {
-                        ZStack(alignment: .leading) {
-                            Color.clear
-                                .onGeometryChange(for: CGFloat.self) { $0.size.width }
-                                    action: { textColumnWidth = $0 }
-                            Text(media.title)
-                                .font(.system(size: 15, weight: .semibold))
-                                .lineLimit(1).fixedSize().hidden()
-                                .onGeometryChange(for: CGFloat.self) { $0.size.width }
-                                    action: { titleWidth = $0 }
-                            Text(media.artistLine)
-                                .font(.system(size: 12.5, weight: .medium))
-                                .lineLimit(1).fixedSize().hidden()
-                                .onGeometryChange(for: CGFloat.self) { $0.size.width }
-                                    action: { artistWidth = $0 }
-                        }
-                    }
 
                     Spacer(minLength: 0)
 
@@ -633,9 +602,9 @@ private struct ExpandedPlayer: View {
                             strike(liked ? 0.7 : 1.15)
                         }
                         .transition(.scale(scale: 0.4).combined(with: .opacity))
-                        // Rendering and hit-testing move; layout does not, so the title keeps its full
-                        // width.
-                        .offset(x: -heartSlack)
+                        // One place on every track, in repeat's column: pushed out by its padding ring
+                        // so the disc, not the ring, meets the margin, as the mode cluster's does.
+                        .offset(x: ChromeRules.controlInset)
                     }
         }
         .frame(height: Grid.title + Grid.artist)

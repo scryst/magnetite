@@ -137,14 +137,6 @@ enum ChromeRules {
         art >= title + artist + row
     }
 
-    /// How far the library heart slides back toward the track it names. `MarqueeText`
-    /// claims the full width, so the heart would otherwise sit at the right margin,
-    /// far from a short title. Applied as an offset, which moves rendering and
-    /// hit-testing but not layout. A title that fills its column has no slack.
-    static func heartSlack(textWidth: CGFloat, columnWidth: CGFloat) -> CGFloat {
-        max(0, columnWidth - textWidth)
-    }
-
     /// A mode toggle's three states as glyph opacity, the white wash behind it and the
     /// share of the rim stroke that survives. Luminance alone cannot carry three
     /// legible steps (raising OFF far enough to read walks it into ON), so each state
