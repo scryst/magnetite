@@ -10,6 +10,8 @@ import Foundation
 @MainActor
 enum MediaCheck {
     static func main() {
+        // Lyrics are a network lookup; these managers stay off the network.
+        Settings.shared.showsLyrics = false
         aSkipRemembersItsDirectionBriefly()
         aPressHoldsUntilThePlayerAgrees()
         anUnansweredControlIsNotShown()

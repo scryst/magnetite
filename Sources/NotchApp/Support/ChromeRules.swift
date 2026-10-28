@@ -54,6 +54,13 @@ enum ChromeRules {
     /// Panel height BELOW the cutout band.
     static let expandedBody: CGFloat = bandGap + art + bottom
 
+    /// The lyrics stage under the artwork row, added to the body only while the track
+    /// has synced lyrics. Tall enough for the sung line and the next one; a wrapped line
+    /// pushes the next one into the bottom fade rather than growing the panel.
+    static let lyricsGap: CGFloat = 12
+    static let lyricsStage: CGFloat = 64
+    static let lyricsBody: CGFloat = lyricsGap + lyricsStage
+
     // MARK: The expanded panel's horizontal budget
 
     /// The invisible scrub strip along the panel's bottom edge. It is the last child of

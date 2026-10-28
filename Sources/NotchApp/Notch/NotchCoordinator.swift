@@ -478,8 +478,11 @@ final class NotchCoordinator {
             _ = media.hasTrack
             _ = media.trackToken
             _ = media.isPlaying
+            _ = media.lyrics
+            _ = media.lyricsSettled
             // Tracked so toggling the menu item takes effect at once.
             _ = settings.showsMiniPlayer
+            _ = settings.showsLyrics
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }
@@ -507,6 +510,16 @@ final class NotchCoordinator {
         broadcast { c in
             guard c.hasMedia != media.hasTrack else { return }
             withAnimation(c.isExpanded ? Motion.expand : nil) { c.hasMedia = media.hasTrack }
+        }
+
+        // Held while a new track's lyrics are looked up, so a skip between two songs with
+        // lyrics does not shrink the panel and grow it back.
+        if media.lyricsSettled || !media.hasTrack || !settings.showsLyrics {
+            let lyrics = settings.showsLyrics && media.hasTrack && media.lyrics != nil
+            broadcast { c in
+                guard c.hasLyrics != lyrics else { return }
+                withAnimation(c.isExpanded ? Motion.expand : nil) { c.hasLyrics = lyrics }
+            }
         }
 
         // Two gates, not one: the mini player and the visualiser are independent menu

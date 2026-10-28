@@ -443,7 +443,8 @@ struct NotchRootView: View {
                                notchWidth: controller.notchSize.width,
                                panelWidth: size.width,
                                glass: glass,
-                               fluid: fluid)
+                               fluid: fluid,
+                               showsLyrics: controller.hasLyrics)
                     // Staged behind the shell on the way in and unstaged on the way out, so the
                     // content leaves first and the shell closes on nothing.
                     .transition(.asymmetric(
@@ -522,6 +523,9 @@ private struct ExpandedPlayer: View {
     /// instead of crossfading.
     var glass: Namespace.ID
     var fluid: FerrofluidSim
+    /// Whether the panel was sized with the lyrics stage. The lines themselves may still
+    /// be on their way for a new track.
+    var showsLyrics: Bool
 
 
     /// A press is an event, so it goes in the same door as a drum hit: the surface
@@ -760,6 +764,15 @@ private struct ExpandedPlayer: View {
                 }
                 .frame(height: Grid.art)
             }
+
+            if showsLyrics {
+                LyricsStage(media: media, shownPosition: shownPosition, scrubbing: scrubbing)
+                    .padding(.top, ChromeRules.lyricsGap)
+                    // Arrives as the shell grows to hold it, after the shell has started.
+                    .transition(.asymmetric(
+                        insertion: .opacity.animation(Motion.content.delay(0.12)),
+                        removal: .opacity.animation(Motion.content.speed(1.8))))
+            }
         }
         .padding(.horizontal, Grid.margin)
         .padding(.bottom, Grid.bottom)
@@ -771,6 +784,157 @@ private struct ExpandedPlayer: View {
         return s >= 3600
             ? String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
             : String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+// MARK: - Lyrics
+
+/// The song's words under the player, in time with it. The sung line sits bright at the
+/// stage's top edge with the next one dim beneath; when the song reaches a line the
+/// whole column rolls up, each line a beat behind the one above, and the line that
+/// was sung dissolves into the top edge. Read from the same position as the clocks
+/// and the trace, so it follows seeks, scrubs, pauses and skips without its own state.
+private struct LyricsStage: View {
+    var media: MediaManager
+    var shownPosition: Double
+    var scrubbing: Bool
+
+    var body: some View {
+        // 20 Hz decides which line is up to a 50 ms step, inside the 0.25 s lead.
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0,
+                                paused: !media.isPlaying || scrubbing || media.lyrics == nil)) { _ in
+            let pos = scrubbing ? shownPosition : media.smoothPosition
+            ZStack(alignment: .topLeading) {
+                if let lyrics = media.lyrics {
+                    let index = lyrics.index(at: pos)
+                    LyricsColumn(lines: lyrics.lines,
+                                 current: index,
+                                 // Quantised so the column redraws only when a dot visibly moves.
+                                 countIn: lyrics.breakProgress(at: pos, index: index)
+                                     .map { ($0 * 60).rounded() / 60 },
+                                 playing: media.isPlaying || scrubbing)
+                        .equatable()
+                        .id(media.trackToken)
+                        .transition(.opacity.animation(Motion.content))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: ChromeRules.lyricsStage, alignment: .top)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Lyrics")
+            .accessibilityValue(media.lyrics.map { $0.lines[$0.index(at: pos)].text } ?? "")
+        }
+        // Lines enter and leave through soft edges, never a hard clip.
+        .mask {
+            LinearGradient(stops: [.init(color: .clear, location: 0),
+                                   .init(color: .black, location: LyricsColumn.anchor / ChromeRules.lyricsStage),
+                                   .init(color: .black, location: 0.78),
+                                   .init(color: .clear, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct LyricsColumn: View, Equatable {
+    var lines: [SyncedLyrics.Line]
+    var current: Int
+    var countIn: Double?
+    var playing: Bool
+
+    /// Measured line heights: lines wrap, so where the column must sit depends on them.
+    @ViewState private var heights: [Int: CGFloat] = [:]
+
+    /// Where the sung line's top sits in the stage: below the top fade.
+    static let anchor: CGFloat = 8
+    static let spacing: CGFloat = 7
+    static let font = Font.system(size: 17, weight: .bold)
+    /// One unwrapped line, for lines not yet measured.
+    static let estimate: CGFloat = 21
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.current == b.current && a.countIn == b.countIn && a.playing == b.playing
+            && a.lines == b.lines
+    }
+
+    private func top(of index: Int) -> CGFloat {
+        (0..<index).reduce(0) { $0 + (heights[$1] ?? Self.estimate) + Self.spacing }
+    }
+
+    /// The roll. Critically damped, so it never overshoots and never visibly springs;
+    /// each line further down leaves a beat later, so the column moves as a ribbon
+    /// rather than a block.
+    private func roll(_ i: Int) -> Animation {
+        if Motion.reduceMotion { return .easeOut(duration: 0.2) }
+        let beat = Double(min(max(i - current + 1, 0), 4)) * 0.045
+        return .spring(response: 0.62, dampingFraction: 1).delay(beat)
+    }
+
+    var body: some View {
+        let shift = Self.anchor - top(of: current)
+        VStack(alignment: .leading, spacing: Self.spacing) {
+            ForEach(lines.indices, id: \.self) { i in
+                row(i)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+                        if heights[i] != h { heights[i] = h }
+                    }
+                    .offset(y: shift)
+                    // Only a change of line rolls. A measurement landing moves the column
+                    // unanimated, and before every line is measured nothing is drawn: opened
+                    // mid-song, estimated heights would otherwise slide the column into place.
+                    .animation(roll(i), value: current)
+            }
+        }
+        .opacity(heights.count == lines.count ? 1 : 0)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: ChromeRules.lyricsStage, alignment: .top)
+    }
+
+    @ViewBuilder
+    private func row(_ i: Int) -> some View {
+        let d = i - current
+        // Sung: full white, dimmed only while paused so a pause reads here too. Next: a
+        // step down, then fading out of reach. Past: gone as it rolls into the top edge.
+        let opacity: Double = d == 0 ? (playing ? 1 : 0.62)
+            : d == 1 ? 0.34 : d == 2 ? 0.16 : 0
+        Group {
+            if lines[i].isBreak {
+                countInDots(lit: d == 0 ? (countIn ?? 0) : 0)
+                    .frame(height: Self.estimate, alignment: .leading)
+            } else {
+                Text(lines[i].text)
+                    .font(Self.font)
+                    .foregroundStyle(.white)
+                    // Two rows are all the stage shows above its bottom fade; a longer
+                    // line shrinks a little to fit them before it would truncate.
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .opacity(opacity)
+        .scaleEffect(d == 0 ? 1 : 0.94, anchor: .leading)
+        .blur(radius: d < 0 ? 3 : d >= 2 ? 1.2 : 0)
+        .animation(roll(i), value: playing)
+    }
+
+    /// An instrumental break as three dots that light in turn across the break's
+    /// length, so it reads as a count-in to the next line. Driven by the song's
+    /// position, never a clock, so it cannot pulse.
+    private func countInDots(lit: Double) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { k in
+                let f = min(max(lit * 3 - Double(k), 0), 1)
+                Circle()
+                    .fill(.white)
+                    .frame(width: 7, height: 7)
+                    .opacity(0.28 + 0.72 * f)
+                    .scaleEffect(0.8 + 0.2 * f)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: lit)
     }
 }
 

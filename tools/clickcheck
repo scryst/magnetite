@@ -19,7 +19,7 @@ merged.write_text((repo / "Sources/NotchApp/UI/NotchView.swift").read_text()
 sources = [repo / "Sources/NotchApp" / p for p in [
     "UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
     "Notch/NotchPanel.swift", "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift",
-    "Support/ViewState.swift", "Media/ArtworkPalette.swift"]]
+    "Support/ViewState.swift", "Media/ArtworkPalette.swift", "Media/Lyrics.swift"]]
 # Pure credit formatting only, as in tools/snapshot.
 credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
 pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]

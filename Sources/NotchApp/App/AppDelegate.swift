@@ -136,6 +136,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(toggle("Mini Player When Closed", value: settings.showsMiniPlayer) { on in
             Settings.shared.showsMiniPlayer = on
         })
+        menu.addItem(toggle("Lyrics in Player", value: settings.showsLyrics) { [weak self] on in
+            Settings.shared.showsLyrics = on
+            self?.coordinator?.media.loadLyrics()
+        })
         menu.addItem(toggle("Swipe to Skip and Pause", value: settings.enableGestures) { on in
             Settings.shared.enableGestures = on
         })
