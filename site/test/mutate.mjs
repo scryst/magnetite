@@ -207,19 +207,19 @@ const MUTANTS = {
   'the-card-steps-at-the-capture-rate': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.11);',
-    to: 'const CADENCE = replayCadence(30, 30, 0.11);',
+    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
+    to: 'const CADENCE = replayCadence(30, 30, 0.01);',
   },
   'the-card-holds-each-frame-once': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.11);',
-    to: 'const CADENCE = replayCadence(60, 60, 0.11);',
+    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
+    to: 'const CADENCE = replayCadence(60, 60, 0.01);',
   },
   'the-card-smooths-differently': {
     check: RATE,
     file: OG,
-    from: 'const CADENCE = replayCadence(60, 30, 0.11);',
+    from: 'const CADENCE = replayCadence(60, 30, 0.01);',
     to: 'const CADENCE = replayCadence(60, 30, 0.2);',
   },
   // The remainder thrown away instead of carried. Passes at 120Hz, where the
@@ -482,8 +482,30 @@ const MUTANTS = {
   'swell-gain-drift': {
     check: REPLAY,
     file: SIM,
-    from: '    const target = Math.min(1, bass * 0.8);',
-    to: '    const target = Math.min(1, bass * 0.82);',
+    from: '    const target = Math.min(1, this.pool + hit * 1.3);',
+    to: '    const target = Math.min(1, this.pool + hit * 1.32);',
+  },
+  // The bed the body rests on between hits, off by a hair.
+  'pool-gain-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: '    this.pool += (Math.min(1, bass * 0.3) - this.pool) * Math.min(1, poolRate * dt);',
+    to: '    this.pool += (Math.min(1, bass * 0.31) - this.pool) * Math.min(1, poolRate * dt);',
+  },
+  // How many swings a rise must clear to count as a hit. A copy that let
+  // slightly smaller rises through would kick between the beats again.
+  'onset-floor-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const ONSET_FLOOR = 1.4;',
+    to: 'const ONSET_FLOOR = 1.35;',
+  },
+  // The drift the sites follow between hits, at a slightly different pace.
+  'drift-rate-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: '(dev[i] - this.drift[i]) * Math.min(1, 2.0 * dt);',
+    to: '(dev[i] - this.drift[i]) * Math.min(1, 2.1 * dt);',
   },
   // Forward and back produce the identical heave, so the ink says a track
   // changed but never which way you went.
@@ -2763,8 +2785,8 @@ const MUTANTS = {
   'the-live-drive-reinherits-the-showcase-lag': {
     check: SOUNDTRACK,
     file: SITE_JS,
-    from: 'const LIVE_SMOOTH_TAU = 0.035;',
-    to: 'const LIVE_SMOOTH_TAU = 0.11;',
+    from: 'const LIVE_SMOOTH_TAU = 0.004;',
+    to: 'const LIVE_SMOOTH_TAU = 0.01;',
   },
   'the-live-drive-computes-the-replay-rate': {
     check: SOUNDTRACK,
