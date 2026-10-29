@@ -2583,8 +2583,8 @@ const MUTANTS = {
   'the-app-reads-a-vertical-swipe-as-a-skip': {
     check: HAND,
     file: SWIPE_SWIFT,
-    from: '            return Step(action: .togglePlayback)',
-    to: '            return Step(action: .skipForward)',
+    from: '            return Step(action: .togglePlayback,',
+    to: '            return Step(action: .skipForward,',
   },
   // The click drawn while the camera is out on the whole desktop.
   'a-touch-is-drawn-in-the-wide-shot': {

@@ -292,6 +292,15 @@ struct NotchRootView: View {
     /// and half the work; it runs all day, so that half is most of the app's idle cost.
     private var fieldRate: Double { expanded || pourStart != nil ? 60 : 30 }
 
+    /// The palette's brightest colour, which a hit throws across the card.
+    private var bloomColor: Color {
+        let p = media.palette.colors.isEmpty ? ArtworkPalette.fallback.colors : media.palette.colors
+        return p.max { a, b in
+            let x = NSColor(a).usingColorSpace(.sRGB), y = NSColor(b).usingColorSpace(.sRGB)
+            return (x?.brightnessComponent ?? 0) < (y?.brightnessComponent ?? 0)
+        } ?? p[0]
+    }
+
     private var meshColors: [Color] {
         let p = media.palette.colors.isEmpty
             ? ArtworkPalette.fallback.colors : media.palette.colors
@@ -333,6 +342,10 @@ struct NotchRootView: View {
                 // carries the sleeve's own light and is most of what shows.
                 MeshField(fluid: fluid, colors: meshColors, rate: fieldRate)
                     .opacity(media.artwork == nil ? 1 : media.palette.monochrome ? 0.9 : 0.42)
+
+                if expanded {
+                    HitBloom(fluid: fluid, color: bloomColor, size: size)
+                }
             }
             // A scrim keeps the colour rich but dark enough for white type; additive
             // blending blows the field out. See `ArtworkPalette.scrimAlpha`.
@@ -1605,6 +1618,33 @@ private struct CoverField: View {
             .rotationEffect(.degrees(turn))
             .scaleEffect(scale)
             .offset(x: x * size.width, y: y * size.width)
+    }
+}
+
+/// Light the ink strikes into the card. Each hit throws the palette's brightest colour
+/// out from under the cutout, where the ink meets the panel, and it drains down the card
+/// as the transient decays; the swell sets how far it reaches. Audio is the only cause:
+/// with nothing hitting it is gone. Open only: closed, it would be one more 30 Hz layer
+/// all day for a band the scrim mostly hides. Screen-blended under the scrim, so the
+/// type keeps its contrast however hard the hit.
+private struct HitBloom: View {
+    var fluid: FerrofluidSim
+    var color: Color
+    var size: CGSize
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60,
+                                paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
+            let hit = min(1, fluid.impact)
+            let swell = min(1, fluid.swell)
+            let reach = size.width * (0.22 + 0.38 * swell + 0.45 * hit)
+            RadialGradient(colors: [color, color.opacity(0.55), color.opacity(0)],
+                           center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: reach)
+                .scaleEffect(x: 1.6, y: 1, anchor: UnitPoint(x: 0.5, y: 0.28))
+                .blendMode(.screen)
+                .opacity(min(0.9, 0.12 * swell + 0.95 * hit))
+                .allowsHitTesting(false)
+        }
     }
 }
 

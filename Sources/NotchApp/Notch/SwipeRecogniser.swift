@@ -11,6 +11,11 @@ struct SwipeRecogniser {
         var action: Action = .none
         /// Index into `detents` when this delta crossed into a new one and the floor let it play.
         var detent: Int?
+        /// How long the commit's haptic waits. A flick commits a frame or two after its last
+        /// click, and the trackpad's engine merges taps inside `tickFloor`, so the commit
+        /// folded into that click and the swipe seemed to say nothing. The action itself
+        /// never waits; only its haptic is moved clear of the click.
+        var commitDelay: TimeInterval = 0
     }
 
     /// Where the ratchet clicks on the way to the threshold, evenly spaced with the
@@ -67,14 +72,19 @@ struct SwipeRecogniser {
             // Deltas arrive in finger direction, so this does not flip with natural scrolling.
             let action: Action = x > 0 ? .skipForward : .skipBackward
             x = 0; y = 0
-            return Step(action: action)
+            return Step(action: action, commitDelay: commitDelay(now: now))
         }
         if ay >= threshold, ay > ax * dominance {
             armed = false
             x = 0; y = 0
-            return Step(action: .togglePlayback)
+            return Step(action: .togglePlayback, commitDelay: commitDelay(now: now))
         }
         return Step(detent: climb(ax: ax, ay: ay, now: now))
+    }
+
+    private func commitDelay(now: TimeInterval) -> TimeInterval {
+        guard let last = lastTick else { return 0 }
+        return max(0, Self.tickFloor - (now - last))
     }
 
     /// The highest detent this delta crossed into, if the floor allows it. The commit

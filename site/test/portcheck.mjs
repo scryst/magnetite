@@ -3956,7 +3956,7 @@ function theHandInTheFilmGoesTheWayTheAppReadsIt() {
   require(/let action: Action = x > 0 \? \.skipForward : \.skipBackward/.test(swift),
     'SwipeRecogniser no longer states that fingers moving right skip forward — the drawn '
     + 'fingers in js/touches.js follow that rule, so check it again before trusting them');
-  require(/if ay >= threshold, ay > ax \* dominance \{[^}]*return Step\(action: \.togglePlayback\)/.test(swift),
+  require(/if ay >= threshold, ay > ax \* dominance \{[^}]*return Step\(action: \.togglePlayback[,)]/.test(swift),
     'SwipeRecogniser no longer states that a vertical swipe pauses and plays — the drawn '
     + 'fingers in js/touches.js follow that rule, so check it again before trusting them');
   const swipes = CUES.filter((c) => c.kind === 'swipe');
