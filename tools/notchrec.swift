@@ -2,7 +2,11 @@
 // includes only Magnetite's windows, so whatever is open under the notch never
 // reaches the file. The rest of the frame is black, like the notch itself.
 //
-// usage: notchrec OUT.mov SECONDS X Y W H   (points, top-left origin, built-in display)
+// With a player's bundle id, a second stream takes that app's sound alone, before
+// the system volume, and writes it into the same file on the same clock, so the
+// film carries the song exactly as the app heard it.
+//
+// usage: notchrec OUT.mov SECONDS X Y W H [AUDIO-BUNDLE-ID]   (points, top-left origin, built-in display)
 import AVFoundation
 import CoreMedia
 import ScreenCaptureKit
@@ -10,9 +14,11 @@ import ScreenCaptureKit
 final class Recorder: NSObject, SCStreamOutput {
     let writer: AVAssetWriter
     let input: AVAssetWriterInput
+    var sound: AVAssetWriterInput?
     var started = false
+    var start = CMTime.zero
 
-    init(url: URL, width: Int, height: Int) throws {
+    init(url: URL, width: Int, height: Int, withSound: Bool) throws {
         try? FileManager.default.removeItem(at: url)
         writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         input = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -21,17 +27,35 @@ final class Recorder: NSObject, SCStreamOutput {
         ])
         input.expectsMediaDataInRealTime = true
         writer.add(input)
+        if withSound {
+            let s = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
+                AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false,
+            ])
+            s.expectsMediaDataInRealTime = true
+            writer.add(s)
+            sound = s
+        }
         writer.startWriting()
     }
 
+    // Both streams deliver on one serial queue, so the sound never starts before the picture.
     func stream(_ stream: SCStream, didOutputSampleBuffer buffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen, buffer.isValid,
+        guard buffer.isValid else { return }
+        if type == .audio {
+            if started, let sound, sound.isReadyForMoreMediaData,
+               buffer.presentationTimeStamp >= start { sound.append(buffer) }
+            return
+        }
+        guard type == .screen,
               let info = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: false)
                 as? [[SCStreamFrameInfo: Any]],
               let raw = info.first?[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete
         else { return }
         if !started {
-            writer.startSession(atSourceTime: buffer.presentationTimeStamp)
+            start = buffer.presentationTimeStamp
+            writer.startSession(atSourceTime: start)
             started = true
             print("first-frame \(Date().timeIntervalSince1970)")
             fflush(stdout)
@@ -41,12 +65,13 @@ final class Recorder: NSObject, SCStreamOutput {
 }
 
 let a = CommandLine.arguments
-guard a.count == 7, let secs = Double(a[2]), let x = Double(a[3]), let y = Double(a[4]),
+guard a.count == 7 || a.count == 8, let secs = Double(a[2]), let x = Double(a[3]), let y = Double(a[4]),
       let w = Double(a[5]), let h = Double(a[6])
 else {
-    FileHandle.standardError.write(Data("usage: notchrec OUT.mov SECONDS X Y W H\n".utf8))
+    FileHandle.standardError.write(Data("usage: notchrec OUT.mov SECONDS X Y W H [AUDIO-BUNDLE-ID]\n".utf8))
     exit(1)
 }
+let soundOf = a.count == 8 ? a[7] : nil
 
 Task {
     do {
@@ -64,13 +89,36 @@ Task {
         config.backgroundColor = .black
         config.pixelFormat = kCVPixelFormatType_32BGRA
         config.queueDepth = 8
-        let rec = try Recorder(url: URL(fileURLWithPath: a[1]), width: config.width, height: config.height)
+        let rec = try Recorder(url: URL(fileURLWithPath: a[1]), width: config.width, height: config.height,
+                               withSound: soundOf != nil)
+        let queue = DispatchQueue(label: "rec")
         let stream = SCStream(filter: filter, configuration: config, delegate: nil)
-        try stream.addStreamOutput(rec, type: .screen, sampleHandlerQueue: DispatchQueue(label: "rec"))
+        try stream.addStreamOutput(rec, type: .screen, sampleHandlerQueue: queue)
+
+        var ear: SCStream?
+        if let soundOf {
+            guard let player = content.applications.first(where: { $0.bundleIdentifier == soundOf })
+            else { FileHandle.standardError.write(Data("no \(soundOf) running\n".utf8)); exit(2) }
+            let c = SCStreamConfiguration()
+            c.capturesAudio = true
+            c.sampleRate = 48_000
+            c.channelCount = 2
+            c.width = 2; c.height = 2
+            c.minimumFrameInterval = CMTime(value: 1, timescale: 1)
+            let s = SCStream(filter: SCContentFilter(display: display, including: [player], exceptingWindows: []),
+                             configuration: c, delegate: nil)
+            try s.addStreamOutput(rec, type: .audio, sampleHandlerQueue: queue)
+            try await s.startCapture()
+            ear = s
+        }
         try await stream.startCapture()
         try await Task.sleep(nanoseconds: UInt64(secs * 1e9))
         try await stream.stopCapture()
-        rec.input.markAsFinished()
+        try await ear?.stopCapture()
+        queue.sync {
+            rec.input.markAsFinished()
+            rec.sound?.markAsFinished()
+        }
         await rec.writer.finishWriting()
         print("done \(rec.writer.status.rawValue)")
         exit(rec.writer.status == .completed ? 0 : 3)

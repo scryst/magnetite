@@ -5,9 +5,9 @@
 <title>Magnetite share card</title>
 <!--
   The source of site/og.png, the picture every Slack, iMessage and X unfurl of
-  the site shows: the page's headline over a frame of the film. og-frame.webp
-  is the film at 9 s, where the liquid pulls hardest:
-    ffmpeg -ss 9 -i site/media/demo.mp4 -frames:v 1 frame.png && cwebp -q 90 frame.png -o site/test/og-frame.webp
+  the site shows: the page's headline over a frame of the film with lyrics on
+  screen. og-frame.webp is that frame:
+    ffmpeg -ss <t> -i site/media/demo.mp4 -frames:v 1 frame.png && cwebp -q 90 frame.png -o site/test/og-frame.webp
 
   Render it at the card's size, served (fonts do not load from file://):
     python3 site/serve.py 4174 &
@@ -18,30 +18,21 @@
 <link rel="stylesheet" href="../css/type.css">
 <style>
   html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #000; }
-  body { position: relative; color: #F3F4F8; -webkit-font-smoothing: antialiased; }
-  .glow {
-    position: absolute; left: 50%; top: 300px; width: 1100px; height: 520px;
-    transform: translateX(-50%);
-    background: radial-gradient(closest-side, rgb(143 174 255 / 0.32), rgb(169 139 255 / 0.14) 55%, transparent);
-    filter: blur(20px);
-  }
+  body { position: relative; color: #F2F0EB; -webkit-font-smoothing: antialiased; }
   h1 {
-    position: absolute; top: 66px; left: 0; right: 0; margin: 0;
+    position: absolute; top: 64px; left: 0; right: 0; margin: 0;
     text-align: center;
-    font: 800 88px/0.9 'Archivo', sans-serif;
-    font-stretch: 125%;
-    letter-spacing: -0.04em;
+    font: 600 64px/1 'Geist', sans-serif;
+    letter-spacing: -0.045em;
   }
   img {
-    position: absolute; left: 50%; bottom: -8px; width: 980px; height: auto;
+    position: absolute; left: 50%; top: 190px; width: 760px; height: auto;
     transform: translateX(-50%);
-    border-radius: 0 0 40px 40px;
   }
 </style>
 </head>
 <body>
-<div class="glow"></div>
-<h1>Music, magnetized.</h1>
-<img src="og-frame.webp" alt="" width="1600" height="700">
+<h1>Your MacBook’s notch,<br>now a music player.</h1>
+<img src="og-frame.webp" alt="" width="800" height="512">
 </body>
 </html>

@@ -171,21 +171,24 @@ const CHECKS = {
     return out;
   },
 
-  // CC BY 4.0 asks for the title, the artist and the license wherever the track
-  // plays: under the film and in the footer. A credit is never split mid-name.
+  // Every song heard in the film is named under it, title and artist, linked to
+  // the track. A credit is never split mid-name.
   credit() {
     const out = [];
-    for (const cls of ['demo__credit', 'foot__credit']) {
-      const tag = tags.find((t) => t.attrs.class === cls);
-      if (!tag) { out.push(`no .${cls}`); continue; }
-      const block = html.slice(tag.at, html.indexOf('</p>', tag.at));
-      for (const href of ['https://freemusicarchive.org/music/beat-mekanik/', 'https://freemusicarchive.org/music/beat-mekanik/single/encryption/', 'https://creativecommons.org/licenses/by/4.0/']) {
-        if (!block.includes(`href="${href}"`)) out.push(`.${cls} does not link ${href}`);
-      }
-      for (const words of ['Beat Mekanik', 'Encryption', 'CC BY 4.0']) if (!block.includes(words)) out.push(`.${cls} does not say ${words}`);
+    const tag = tags.find((t) => t.attrs.class === 'demo__credit');
+    if (!tag) return ['no .demo__credit'];
+    const block = html.slice(tag.at, html.indexOf('</p>', tag.at));
+    for (const [track, words] of [
+      ['1mre3HoVD50XwY02NvxKZZ', '“Pop” by ILLIT'],
+      ['0yuAWlxq59xT3agQ965OxE', '“Sunsetz” by Cigarettes After Sex'],
+      ['5jqNQZBwbZWQXPWfo0ygZF', '“Art Deco” by Lana Del Rey'],
+      ['4zXZ5Mq2L6jnsOsTssgRh8', '“Hush” by The Marías'],
+    ]) {
+      if (!block.includes(`href="https://open.spotify.com/track/${track}" rel="external">${words}</a>`)) out.push(`.demo__credit does not link ${words}`);
     }
+    if (/freemusicarchive|Beat Mekanik|Encryption/.test(html)) out.push('the old Encryption credit is still on the page');
     const nowrap = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/([^{}]*)\{\s*white-space:\s*nowrap;\s*\}/g) ?? [];
-    for (const sel of ['.foot__credit a', '.demo__credit a']) {
+    for (const sel of ['.demo__credit a']) {
       if (!nowrap.some((rule) => rule.split('{')[0].split(',').map((s) => s.trim()).includes(sel))) out.push(`${sel} can wrap`);
     }
     return out;

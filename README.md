@@ -2,9 +2,9 @@
 
 Free, open-source Spotify and Apple Music controls in your MacBook notch, with ferrofluid that moves to your music.
 
-[![Magnetite open under the MacBook notch, playing Encryption by Beat Mekanik, with black ferrofluid pulling down from the notch](docs/media/player.webp)](https://magnetite.app/media/demo.mp4)
+[![Magnetite open under the MacBook notch, with the song's lyrics scrolling under the controls and black ferrofluid pulling down from the notch](docs/media/player.webp)](https://magnetite.app/media/demo.mp4)
 
-The film on [magnetite.app](https://magnetite.app) is a screen recording of the running app, playing [“Encryption”](https://freemusicarchive.org/music/beat-mekanik/single/encryption/) by [Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+The film on [magnetite.app](https://magnetite.app) is a screen recording of the running app, playing “Pop” by ILLIT, “Sunsetz” by Cigarettes After Sex, “Art Deco” by Lana Del Rey and “Hush” by The Marías, with their lyrics.
 
 [![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
 
@@ -109,4 +109,4 @@ To build and install into Applications instead, use `./install.sh --from-source`
 
 ## License
 
-[MIT](LICENSE). The film's music, Beat Mekanik's “Encryption”, and its cover are credited under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the Archivo font uses the [SIL Open Font License](site/fonts/OFL-Archivo.txt). See [media provenance](docs/media/README.md).
+[MIT](LICENSE). The Geist font uses the [SIL Open Font License](site/fonts/OFL-Geist.txt). See [media provenance](docs/media/README.md) for the film.

@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Magnetite: a ferrofluid music player for the MacBook notch</title>
 <meta name="description" content="Free, open-source Spotify and Apple Music controls in your MacBook notch, with ferrofluid that moves to the song. macOS 26+, Apple silicon. Audio stays on your Mac.">
-<meta name="application-name" content="Magnetite">
-<meta name="author" content="scryst">
-<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#000000">
 
@@ -19,7 +16,6 @@
 
 <!-- Share card: og.png is rendered from test/og.html. -->
 <meta property="og:type" content="website">
-<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="Magnetite">
 <meta property="og:title" content="Magnetite: a ferrofluid music player for the MacBook notch">
 <meta property="og:description" content="Spotify and Apple Music in your MacBook notch. Free and open source, with ferrofluid that moves to the song. macOS 26+, Apple silicon.">
@@ -28,12 +24,12 @@
 <meta property="og:image" content="https://magnetite.app/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Magnetite's player open under a MacBook notch, playing Encryption by Beat Mekanik, with black ferrofluid around the notch.">
+<meta property="og:image:alt" content="Magnetite's player open under a MacBook notch, with the song's lyrics under the controls and black ferrofluid around the notch.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Magnetite: a ferrofluid music player for the MacBook notch">
 <meta name="twitter:description" content="Spotify and Apple Music in your MacBook notch. Free and open source, with ferrofluid that moves to the song. macOS 26+, Apple silicon.">
 <meta name="twitter:image" content="https://magnetite.app/og.png">
-<meta name="twitter:image:alt" content="Magnetite's player open under a MacBook notch, playing Encryption by Beat Mekanik, with black ferrofluid around the notch.">
+<meta name="twitter:image:alt" content="Magnetite's player open under a MacBook notch, with the song's lyrics under the controls and black ferrofluid around the notch.">
 
 <script type="application/ld+json">
 {
@@ -112,15 +108,6 @@
   </symbol>
 </svg>
 
-<!-- The two wings either side of the film's notch, like the menu bar the app lives in. -->
-<header class="wings">
-  <a class="wings__home" href="#top">
-    <svg class="wings__mark" aria-hidden="true"><use href="#mark" width="100%" height="100%"/></svg>
-    <span>Magnetite</span>
-  </a>
-  <a class="wings__get" href="#download">Download for Mac</a>
-</header>
-
 <main id="main">
   <!-- The journey: a drawn MacBook with the real recording on its screen. Scrolled
        through, the camera swings round to face it and pushes in until the screen's notch is the top of the
@@ -129,8 +116,8 @@
   <section class="hero journey" id="top" aria-labelledby="hero-title">
     <div class="journey__pin" data-render-check-allow="clipped">
       <div class="pitch">
-        <h1 class="hero__title" id="hero-title">Spotify and Apple Music, in&nbsp;your MacBook’s notch.</h1>
-        <p class="pitch__lede">Controls around the camera, and a black liquid that moves with what your Mac is playing.</p>
+        <h1 class="hero__title" id="hero-title">Your MacBook’s notch, now a music&nbsp;player.</h1>
+        <p class="pitch__lede">Hover it for Spotify or Apple Music controls, with black liquid that moves to the&nbsp;song.</p>
         <div class="pitch__actions">
           <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip"
              aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.12 ZIP from GitHub</span></a>
@@ -149,7 +136,7 @@
           <span class="mac__back" aria-hidden="true"></span>
           <div class="mac__screen">
             <video class="mac__film" data-demo muted loop playsinline autoplay preload="metadata"
-                   width="1600" height="700" poster="media/demo-poster.webp" aria-describedby="demo-description">
+                   width="800" height="512" poster="media/demo-poster.webp" aria-describedby="demo-description">
               <source src="media/demo.mp4" type="video/mp4">
             </video>
             <span class="mac__notch" aria-hidden="true"></span>
@@ -175,21 +162,23 @@
         </div>
       </div>
       <p class="visually-hidden" id="demo-description">A drawn MacBook. On its screen, a screen recording of
-        Magnetite open under the notch: the cover, title, controls and seek strip, while black liquid pulls
-        around the notch in time with the music. A two-finger swipe skips the track, a drag along the bottom
+        Magnetite open under the notch: the cover, title and controls, the song's lyrics scrolling in time
+        under them, and the seek strip, while black liquid pulls around the notch with the music. A two-finger swipe skips the track, a drag along the bottom
         edge seeks, and the panel folds into the notch and opens again.</p>
 
-      <ol class="moves" aria-label="How it works">
+      <!-- The moves share the pin with the headline and show only after it has faded. -->
+      <ol class="moves" aria-label="How it works" data-render-check-ignore>
         <li><b>Hover</b> the notch to open the player.</li>
         <li><b>Drag</b> its bottom edge to seek.</li>
         <li><b>Swipe</b> two fingers to skip or pause.</li>
       </ol>
 
       <div class="stage__foot">
-        <p class="demo__credit"><span>Real screen recording, drawn MacBook. Music:
-          <a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>
-          by <a href="https://freemusicarchive.org/music/beat-mekanik/" rel="external">Beat Mekanik</a>,
-          <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.</span></p>
+        <p class="demo__credit"><span>Real screen recording, drawn MacBook. Songs:
+          <a href="https://open.spotify.com/track/1mre3HoVD50XwY02NvxKZZ" rel="external">“Pop” by ILLIT</a>,
+          <a href="https://open.spotify.com/track/0yuAWlxq59xT3agQ965OxE" rel="external">“Sunsetz” by Cigarettes After Sex</a>,
+          <a href="https://open.spotify.com/track/5jqNQZBwbZWQXPWfo0ygZF" rel="external">“Art Deco” by Lana Del Rey</a>,
+          <a href="https://open.spotify.com/track/4zXZ5Mq2L6jnsOsTssgRh8" rel="external">“Hush” by The Marías</a>.</span></p>
         <div class="stage__controls">
           <button type="button" class="sound" data-demo-sound aria-pressed="false">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.6L8 3v10L4.6 10H2z"/><path class="sound__waves" d="M10.6 5.4a3.6 3.6 0 0 1 0 5.2M12.4 3.6a6.2 6.2 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -204,25 +193,14 @@
   <!-- Every line here is a shipped feature or a real limit (APP.md, README.md, the M menu). -->
   <section class="facts" aria-labelledby="facts-title">
     <h2 class="facts__title" id="facts-title">What’s in it</h2>
-    <div class="facts__cols">
-      <ul>
-        <li>Play, pause, skip and seek for Spotify and Apple Music</li>
-        <li>Time-synced lyrics from LRCLIB, if you want them</li>
-        <li>Favorites in Apple Music; Spotify likes, shuffle and repeat with your own free Spotify developer app</li>
-        <li>Volume and brightness shown in the notch</li>
-        <li>A floating pill on displays without a notch</li>
-        <li>Hides for fullscreen apps and the lock screen</li>
-      </ul>
-      <div class="facts__not">
-        <h3 class="facts__subtitle">What it doesn’t do</h3>
-        <ul>
-          <li>Other players: no browser tabs, YouTube or Podcasts</li>
-          <li>Intel Macs, or macOS before 26</li>
-          <li>Move the liquid without permission to record system audio (the player still works)</li>
-          <li>Open without one approval: Apple hasn’t notarized it</li>
-        </ul>
-      </div>
-    </div>
+    <ul>
+      <li>Spotify and Apple Music only: not browser tabs, YouTube or Podcasts</li>
+      <li>Time-synced lyrics from LRCLIB, if you want them</li>
+      <li>Favorites in Apple Music; likes, shuffle and repeat in Spotify</li>
+      <li>Volume and brightness shown in the notch</li>
+      <li>A floating pill on displays without a notch</li>
+      <li>Hides for fullscreen apps and the lock screen</li>
+    </ul>
   </section>
 
   <section class="get" id="download" aria-labelledby="get-title">
@@ -282,6 +260,7 @@
 <a class="dock" href="#download" data-dock hidden>Download for Mac</a>
 
 <footer class="foot">
+  <p class="foot__brand"><svg class="foot__mark" aria-hidden="true"><use href="#mark" width="100%" height="100%"/></svg>Magnetite</p>
   <nav class="foot__links" aria-label="About this project">
     <a href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
     <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT license</a>
@@ -290,11 +269,6 @@
     <a href="terms.html">Terms</a>
   </nav>
   <p class="foot__credit">
-    Music:
-    <a href="https://freemusicarchive.org/music/beat-mekanik/" rel="external">Beat Mekanik</a>,
-    <a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>,
-    from the Free Music Archive, under
-    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
     Type: Geist, under the <a href="fonts/OFL-Geist.txt">SIL Open Font License</a>.
     © 2026 scryst.
   </p>
