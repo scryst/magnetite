@@ -1,35 +1,41 @@
-/* Magnetite — after dark.
+/* Magnetite — night set.
  *
- * The page is the notch's own black. Colour comes only from the demo's cover,
- * "Encryption": its navy, its blue (the app's seek strip) and its red streaks.
- * Anything that floats is Liquid Glass: a translucent, blurred pane with a lit
- * top edge. Archivo, wide and heavy, is the display face; the rest is the Mac's
- * own system face.
- *
- * The bar at the top is the app retracted: a black notch between two glass
- * wings, with a seek strip along its bottom that follows the scroll. */
+ * The page is the notch's own black, and the film of the running app hangs from
+ * its top edge the way the panel hangs from the notch: the film's edges are
+ * pure black, so there is no frame. Everything else sits on the film's column.
+ * The liquid in the film is the only thing that moves on its own (the dock's
+ * fade answers a scroll). Pink appears once, as the headline's full stop.
+ * Archivo, wide and heavy, is the display face; the rest is the Mac's own face.
+ */
 
 :root {
   color-scheme: dark;
   --bg: #000;
-  --ink: #F3F4F8;
-  --ink-soft: #A2A7B5;
-  --blue: #8FAEFF;
-
-  --glass: rgb(255 255 255 / 0.06);
-  --glass-strong: rgb(255 255 255 / 0.1);
-  --glass-edge: rgb(255 255 255 / 0.14);
-  --glass-lit: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(255 255 255 / 0.04);
+  --ink: #F2F0EB;
+  --ink-soft: #A3A09A;
+  --line: rgb(242 240 235 / 0.28);
+  --pink: #FF4FA3;
 
   --display: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
 
-  --gutter: max(16px, 5vw);
+  --gutter: 20px;
+  /* The film's width, and the column everything below it keeps. */
+  --col: calc(100vw - 2 * var(--gutter));
+  --film: 100vw;
+  --gap: clamp(88px, 12vw, 168px);
+
+  /* Liquid timing (PRODUCT.md): out quickly, drain eased, never bounce. */
+  --pour: 140ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  --drain: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (min-width: 900px) {
+  :root { --gutter: 32px; --film: min(1040px, 100vw - 400px); --col: var(--film); }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; background: var(--bg); scroll-behavior: smooth; scroll-padding-top: 64px; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
@@ -41,17 +47,22 @@ body {
   overflow-x: clip;
 }
 
-a { color: inherit; text-underline-offset: 3px; text-decoration-color: rgb(255 255 255 / 0.35); }
-a:hover { text-decoration-color: currentColor; }
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+a { color: inherit; text-underline-offset: 3px; text-decoration-color: var(--line); transition: text-decoration-color var(--drain); }
+a:hover { text-decoration-color: currentColor; transition-duration: 140ms; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+img, video { display: block; max-width: 100%; }
+b { font-weight: 600; }
 
 .skip-link {
-  position: fixed; top: 56px; left: 12px; z-index: 100;
+  position: fixed; top: 12px; left: 12px; z-index: 100;
   padding: 12px 18px; border-radius: 12px;
   background: var(--ink); color: var(--bg);
   transform: translateY(-300%);
 }
 .skip-link:focus { transform: none; }
+
+/* The symbol sheet the mark is drawn from takes no room. */
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 .visually-hidden {
   position: absolute !important;
@@ -59,348 +70,148 @@ a:hover { text-decoration-color: currentColor; }
   margin: -1px; padding: 0;
   overflow: hidden;
   clip: rect(0 0 0 0);
-  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
 
-.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
-
-/* ---------- The retracted notch ---------- */
-
-.bar {
-  position: fixed;
-  top: 0;
-  left: 50%;
-  z-index: 50;
-  display: grid;
-  grid-template-columns: 1fr var(--notch, 190px) 1fr;
-  align-items: center;
-  width: min(600px, calc(100% - 16px));
-  height: 42px;
-  transform: translateX(-50%);
-  border: 1px solid var(--glass-edge);
-  border-top: 0;
-  border-radius: 0 0 18px 18px;
-  background: rgb(20 24 40 / 0.55);
-  box-shadow: var(--glass-lit), 0 10px 40px rgb(0 0 0 / 0.5);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  backdrop-filter: blur(22px) saturate(170%);
-  font: 600 14px/1 var(--sans);
+/* Buttons: one solid pill for the download, outlined for the soundtrack. */
+.button, .wings__get, .dock {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 48px; padding: 0 24px; border-radius: 999px;
+  background: var(--ink); color: var(--bg);
+  font: 600 16px/1 var(--sans); text-decoration: none; white-space: nowrap;
+  transition: background-color var(--drain), transform var(--drain);
 }
+.button:hover, .wings__get:hover, .dock:hover { background: #fff; transition-duration: 140ms; }
+.button:active, .wings__get:active, .dock:active { transform: scale(0.97); transition: transform var(--pour); }
+.button--big { min-height: 56px; padding: 0 30px; font-size: 18px; }
 
-/* The seek strip: how far down the page you are. */
-.bar::after {
-  content: "";
-  position: absolute;
-  left: 14px; right: 14px; bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--blue);
-  transform-origin: left;
-  transform: scaleX(0.04);
+/* Wings: the menu bar's two sides, either side of the film's notch. */
+.wings {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 64px; padding: 0 var(--gutter);
 }
-@supports (animation-timeline: scroll()) {
-  .bar::after { animation: seek linear both; animation-timeline: scroll(root); }
+.wings__home {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 44px;
+  font: 700 16px/1 var(--display); font-stretch: 112%; letter-spacing: -0.01em; text-decoration: none;
 }
-@keyframes seek { from { transform: scaleX(0.04); } to { transform: scaleX(1); } }
-
-.bar__notch {
-  align-self: stretch;
-  margin-bottom: 7px;
-  border-radius: 0 0 14px 14px;
-  background: #000;
+.wings__mark { width: 22px; height: 16px; color: var(--ink); }
+.wings__get { min-height: 40px; padding: 0 18px; font-size: 14px; }
+@media (min-width: 900px) {
+  .wings { position: absolute; inset: 0 0 auto; z-index: 2; height: 76px; }
 }
 
-.bar__home, .bar__get {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  text-decoration: none;
-  white-space: nowrap;
+/* The stage: the film, flush with the top of the page on a Mac-sized window. */
+.stage { width: var(--film); margin: 0 auto; }
+.stage__film { width: 100%; height: auto; aspect-ratio: 1600 / 700; background: #000; }
+.stage__foot {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px 24px;
+  width: var(--col); margin: 20px auto 0;
 }
-.bar__home { justify-self: start; margin-left: 6px; }
-.bar__mark { width: 20px; height: 14px; color: var(--ink); }
-.bar__get {
-  justify-self: end;
-  margin-right: 6px;
-  background: var(--ink);
-  color: #000;
-  transition: background-color .2s, box-shadow .2s, transform .2s;
-}
-.bar__get:hover { background: #fff; box-shadow: 0 0 22px rgb(143 174 255 / 0.55); }
-.bar__get:active { transform: scale(0.96); }
-.bar__home:hover { background: var(--glass-strong); }
-
-@media (max-width: 480px) {
-  .bar { --notch: 112px; font-size: 13px; }
-  .bar__home { padding: 0 8px; gap: 6px; }
-  .bar__get { padding: 0 11px; }
-}
-
-/* ---------- Hero ---------- */
-
-.hero {
-  padding: clamp(128px, 22vh, 220px) var(--gutter) clamp(48px, 8vh, 88px);
-  text-align: center;
-}
-
-.hero__title {
-  margin: 0 auto;
-  max-width: 13ch;
-  font: 800 clamp(40px, 11.5vw, 156px)/0.9 var(--display);
-  font-stretch: 125%;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
-}
-.hero__title span { display: inline-block; }
-@media (max-width: 480px) { .hero__title { font-stretch: 110%; } }
-
-.hero__lede {
-  max-width: 34ch;
-  margin: 28px auto 0;
-  color: var(--ink-soft);
-  font-size: clamp(18px, 2vw, 22px);
-  line-height: 1.45;
-  text-wrap: balance;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 36px;
-}
-
-.hero__meta { margin: 20px auto 0; max-width: 40ch; color: var(--ink-soft); font-size: 14px; text-wrap: balance; }
-
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50px;
-  padding: 0 26px;
-  border-radius: 999px;
-  font: 600 16px/1 var(--sans);
-  text-decoration: none;
-  transition: transform .2s, box-shadow .25s, background-color .2s;
-}
-.button:active { transform: scale(0.97); }
-.button--primary { background: var(--ink); color: #000; }
-.button--primary:hover { background: #fff; box-shadow: 0 0 0 6px rgb(143 174 255 / 0.14), 0 0 40px rgb(143 174 255 / 0.45); }
-.button--glass {
-  border: 1px solid var(--glass-edge);
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-}
-.button--glass:hover { background: var(--glass-strong); }
-.button--big { min-height: 60px; padding: 0 36px; font-size: 18px; }
-
-/* ---------- Demo ---------- */
-
-.demo {
-  padding: 0 var(--gutter) clamp(72px, 12vh, 140px);
-  text-align: center;
-}
-
-.demo__screen {
-  position: relative;
-  width: min(100%, 1200px);
-  margin: 0 auto;
-  aspect-ratio: 1600 / 700;
-}
-/* The light the cover throws, behind the panel. */
-.demo__screen::before {
-  content: "";
-  position: absolute;
-  inset: 4% 14% 18%;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(143 174 255 / 0.35), rgb(169 139 255 / 0.18) 55%, transparent);
-  filter: blur(50px);
-}
-/* The top of the display the notch is cut into. */
-.demo__screen::after {
-  content: "";
-  position: absolute;
-  top: 0; left: 4%; right: 4%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
-}
-.demo__video {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #000;
-}
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .demo__screen {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 0% cover 35%;
-    }
-  }
-}
-@keyframes rise {
-  from { transform: perspective(1200px) rotateX(14deg) scale(0.9); opacity: 0.3; }
-  to { transform: none; opacity: 1; }
-}
-
-.demo__controls {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.chip {
-  min-height: 40px;
-  padding: 0 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 999px;
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  color: var(--ink);
-  font: 600 14px/1 var(--sans);
-  cursor: pointer;
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  transition: background-color .2s, transform .2s;
-}
-.chip:hover { background: var(--glass-strong); }
-.chip:active { transform: scale(0.96); }
-.chip[aria-pressed="true"] { background: rgb(143 174 255 / 0.22); border-color: rgb(143 174 255 / 0.5); }
-
 .demo__credit {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  max-width: 640px;
-  margin: 20px auto 0;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.45;
-  text-align: left;
+  display: flex; align-items: center; gap: 12px; margin: 0;
+  color: var(--ink-soft); font-size: 14px; line-height: 1.4;
 }
 .demo__credit img { flex: none; border-radius: 6px; }
-
-.moves {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin: 44px 0 0;
-  padding: 0;
-  list-style: none;
+.demo__credit a, .foot__credit a { white-space: nowrap; }
+.stage__controls { display: flex; align-items: center; gap: 8px; }
+.sound {
+  display: inline-flex; align-items: center; gap: 9px;
+  min-height: 44px; padding: 0 18px 0 15px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: none; color: var(--ink);
+  font: 600 15px/1 var(--sans); cursor: pointer;
+  transition: border-color var(--drain), background-color var(--drain), color var(--drain);
 }
-.moves li {
-  padding: 12px 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 999px;
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  color: var(--ink-soft);
-  font-size: 15px;
+.sound svg { width: 16px; height: 16px; fill: currentColor; }
+.sound:hover { border-color: var(--ink); transition-duration: 140ms; }
+.sound[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.quiet {
+  min-height: 44px; padding: 0 12px; border: 0; border-radius: 999px; background: none;
+  color: var(--ink-soft); font: 500 15px/1 var(--sans); cursor: pointer;
+  transition: color var(--drain);
 }
-.moves b { color: var(--ink); font-weight: 650; }
+.quiet:hover { color: var(--ink); transition-duration: 140ms; }
 
-/* ---------- Download ---------- */
+/* The pitch: what it is, then the one thing to do. */
+.pitch { width: var(--col); margin: clamp(48px, 7vw, 88px) auto 0; }
+.hero__title {
+  margin: 0; max-width: 14ch;
+  font: 800 clamp(40px, 5vw, 68px)/0.95 var(--display); font-stretch: 112%;
+  letter-spacing: -0.035em; text-wrap: balance;
+}
+.dot { color: var(--pink); }
+.pitch__lede { margin: 24px 0 0; max-width: 34ch; color: var(--ink-soft); font-size: clamp(18px, 1.6vw, 21px); line-height: 1.45; }
+.pitch__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-top: 32px; }
+.pitch__source { min-height: 44px; display: inline-flex; align-items: center; font-weight: 500; }
+.pitch__meta { margin: 14px 0 0; color: var(--ink-soft); font-size: 14px; }
 
+/* Three moves, the same weight: none of them is the main one. */
+.moves { width: var(--col); margin: var(--gap) auto 0; }
+.moves ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 40px; }
+.moves li { color: var(--ink-soft); font-size: 17px; max-width: 30ch; }
+.moves li b {
+  display: block; margin-bottom: 10px; color: var(--ink);
+  font: 800 clamp(36px, 4vw, 56px)/0.95 var(--display); font-stretch: 112%; letter-spacing: -0.03em;
+}
+@media (min-width: 720px) { .moves ol { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; } }
+
+/* Download, with the honest part beside it. */
 .get {
-  width: min(calc(100% - 2 * var(--gutter)), 760px);
-  margin: 0 auto clamp(72px, 12vh, 140px);
-  padding: clamp(28px, 5vw, 56px);
-  border: 1px solid var(--glass-edge);
-  border-radius: 32px;
-  background: linear-gradient(180deg, rgb(27 36 64 / 0.55), rgb(255 255 255 / 0.03));
-  box-shadow: var(--glass-lit), 0 30px 80px rgb(0 0 0 / 0.5);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
-  text-align: center;
-  scroll-margin-top: 64px;
+  width: var(--col); margin: var(--gap) auto 0; scroll-margin-top: 40px;
+  display: grid; gap: 56px;
 }
-
-.get__title {
+@media (min-width: 900px) { .get { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; } }
+.get__title, .faq__title {
   margin: 0 0 28px;
-  font: 800 clamp(38px, 6vw, 64px)/0.95 var(--display);
-  font-stretch: 118%;
-  letter-spacing: -0.035em;
+  font: 800 clamp(36px, 4.4vw, 60px)/0.95 var(--display); font-stretch: 112%; letter-spacing: -0.035em;
 }
-
-.get__requires { max-width: 46ch; margin: 22px auto 0; color: var(--ink-soft); font-size: 15px; }
-.get__all { margin: 10px 0 0; font-size: 15px; }
-
-.get__install { margin-top: 36px; color: var(--ink-soft); font-size: 15px; }
-.get__install p { margin: 0; }
+.get__requires { margin: 18px 0 0; max-width: 40ch; color: var(--ink-soft); font-size: 15px; }
+.get__all { margin: 12px 0 0; font-size: 15px; }
+.get__install { margin-top: 40px; }
+.get__install p { margin: 0; color: var(--ink-soft); font-size: 15px; }
 .install {
-  display: block;
-  margin: 10px 0;
-  padding: 14px 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 14px;
-  background: rgb(0 0 0 / 0.45);
-  color: var(--ink);
-  font: 14px/1.4 var(--mono);
-  text-align: left;
-  overflow-wrap: anywhere;
-  user-select: all;
+  display: block; margin: 10px 0; padding: 14px 16px; border-radius: 12px;
+  background: #121212; color: var(--ink);
+  font: 400 14px/1.5 var(--mono); overflow-wrap: anywhere; user-select: all;
 }
-.get__aside { font-size: 14px; }
+.get__aside { max-width: 44ch; }
 
-.faq { margin-top: 36px; text-align: left; }
-.faq details { border-top: 1px solid var(--glass-edge); }
-.faq details:last-child { border-bottom: 1px solid var(--glass-edge); }
-.faq summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 2px;
-  font-weight: 600;
-  cursor: pointer;
-  list-style: none;
+.first { padding-top: 6px; }
+.first__title { margin: 0 0 20px; font: 700 21px/1.2 var(--sans); }
+.first ol { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 20px; }
+.first li {
+  counter-increment: step; position: relative; padding-left: 48px;
+  color: var(--ink-soft); font-size: 16px;
 }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: "+";
-  flex: none;
-  width: 1ch;
-  color: var(--blue);
-  font: 400 24px/1 var(--sans);
-  text-align: center;
+.first li::before {
+  content: counter(step); position: absolute; left: 0; top: -2px;
+  color: var(--ink); font: 800 24px/1 var(--display); font-stretch: 112%;
 }
-.faq details[open] summary::after { content: "−"; }
-.faq details > :not(summary) { margin: 0 2px 16px; color: var(--ink-soft); font-size: 15px; }
-.faq ol { padding-left: 1.3em; }
-.faq li + li { margin-top: 8px; }
-.faq b { color: var(--ink); }
+.first li b { color: var(--ink); }
+.first__once { margin: 24px 0 0 48px; color: var(--ink-soft); font-size: 15px; }
 
-/* ---------- Footer ---------- */
+/* Questions, all open: nothing to click to read an answer. */
+.faq { width: var(--col); margin: var(--gap) auto 0; scroll-margin-top: 40px; }
+.faq dl { margin: 0; display: grid; gap: 36px; }
+@media (min-width: 900px) { .faq dl { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px 64px; } }
+.faq dt { font-weight: 600; font-size: 17px; }
+.faq dd { margin: 8px 0 0; color: var(--ink-soft); font-size: 16px; }
+.faq dd p { margin: 0; }
+.faq dd p + p { margin-top: 10px; }
+
+/* The dock: the download from anywhere, out of the way while a Download button shows. */
+.dock {
+  position: fixed; right: var(--gutter); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10;
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity var(--drain), transform var(--drain), background-color var(--drain);
+}
+.dock[data-shown] { opacity: 1; transform: none; pointer-events: auto; transition: opacity var(--pour), transform var(--pour), background-color var(--drain); }
+@media (prefers-reduced-motion: reduce) { .dock, .dock[data-shown] { transform: none; } }
 
 .foot {
-  padding: 0 var(--gutter) 56px;
-  color: var(--ink-soft);
-  font-size: 14px;
-  text-align: center;
+  width: var(--col); margin: var(--gap) auto 0; padding-bottom: 96px;
+  color: var(--ink-soft); font-size: 14px;
 }
-.foot__links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 22px;
-}
-.foot__links a { display: inline-block; padding: 6px 0; }
-.foot__credit { max-width: 60ch; margin: 18px auto 0; line-height: 1.6; }
-/* Every name in a credit is a link, and a name is not a place to wrap. */
-.foot__credit a, .demo__credit a { white-space: nowrap; }
-
-@media (forced-colors: active) {
-  .bar__notch { background: CanvasText; }
-}
+.foot__links { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+.foot__links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
+.foot__credit { margin: 12px 0 0; max-width: 72ch; }

@@ -162,8 +162,8 @@ const CHECKS = {
   // that must stay on the page, and say Open Anyway, or the download is a dead end.
   firstlaunch() {
     const out = [];
-    const box = tags.find((t) => t.name === 'details' && 'data-firstlaunch' in t.attrs);
-    if (!box) return ['no details[data-firstlaunch]'];
+    const box = tags.find((t) => 'data-firstlaunch' in t.attrs);
+    if (!box) return ['no [data-firstlaunch]'];
     const text = textOf(box);
     for (const need of ['Applications', 'Privacy & Security', 'Open Anyway']) if (!text.includes(need)) out.push(`first-launch steps do not say ${need}`);
     if (box.attrs.id !== 'first-launch') out.push('first-launch steps lost their #first-launch anchor');

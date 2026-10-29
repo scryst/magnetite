@@ -36,10 +36,10 @@ const MUTATIONS = [
   ['floor', 'the page offers an older release', 'site/index.html', `"softwareVersion": "${VERSION}"`, `"softwareVersion": "${OLDER}"`],
   ['floor', 'the app is a version behind the pin', 'Resources/Info.plist', `<string>${VERSION}</string>`, `<string>${OLDER}</string>`],
   ['floor', 'llms.txt offers an older release', 'site/llms.txt', `Magnetite v${VERSION}`, `Magnetite v${OLDER}`],
-  ['download', 'a button links the releases page, not the zip', 'site/index.html', `href="https://github.com/scryst/magnetite-releases/${ZIP}"\n         aria-describedby="hero-requires"`, 'href="https://github.com/scryst/magnetite-releases/releases"\n         aria-describedby="hero-requires"'],
+  ['download', 'a button links the releases page, not the zip', 'site/index.html', `href="https://github.com/scryst/magnetite-releases/${ZIP}"\n           aria-describedby="hero-requires"`, 'href="https://github.com/scryst/magnetite-releases/releases"\n           aria-describedby="hero-requires"'],
   ['download', 'the size is from an older build', 'site/index.html', `Free and open source, ${KB} KB.`, `Free and open source, ${Number(KB) + 2} KB.`],
   ['download', 'install.sh pins other bytes', 'install.sh', `PIN_SHA256="${PIN}`, `PIN_SHA256="${OTHER_PIN}`],
-  ['requires', 'a download button lost its requirement', 'site/index.html', '\n       aria-describedby="requires"', ''],
+  ['requires', 'a download button lost its requirement', 'site/index.html', '\n         aria-describedby="requires"', ''],
   ['requires', 'the requirement drops Apple silicon', 'site/index.html', 'Needs macOS 26 on Apple silicon.', 'Needs macOS 26.'],
   ['crawlable', 'structured data stops parsing', 'site/index.html', '"isAccessibleForFree": true,', '"isAccessibleForFree": true,,'],
   ['crawlable', 'the screenshot points at a deleted file', 'site/index.html', 'media/demo-poster.webp",', 'media/desktop.webp",'],
@@ -47,7 +47,7 @@ const MUTATIONS = [
   ['type', 'the headline falls back to the old face', 'site/css/magnetite.css', "--display: 'Archivo'", "--display: 'Gloock'"],
   ['firstlaunch', 'the steps lose Open Anyway', 'site/index.html', 'Click <b>Open Anyway</b>', 'Click <b>Open</b>'],
   ['credit', 'the footer drops the licence link', 'site/index.html', 'from the Free Music Archive, under\n    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>', 'from the Free Music Archive'],
-  ['credit', 'credit names wrap', 'site/css/magnetite.css', '.foot__credit a, .demo__credit a { white-space: nowrap; }', ''],
+  ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a, .foot__credit a { white-space: nowrap; }', ''],
   ['mark', 'the inline glyph is edited by hand', 'site/index.html', '<path fill="currentColor" d="M272.5 283C', '<path fill="currentColor" d="M272.5 284C'],
   ['mark', 'the menu-bar icon is edited by hand', 'Sources/NotchApp/App/MagnetiteMark.swift', 'static let aspect: CGFloat = ', 'static let aspect: CGFloat = 1.0 * '],
   ['demo', 'the box is not the film size', 'site/index.html', 'width="1600" height="700"', 'width="1600" height="900"'],
@@ -55,7 +55,7 @@ const MUTATIONS = [
   ['script', 'a simulation script comes back', 'site/index.html', '<script type="module" src="js/site.js"></script>', '<script type="module" src="js/site.js"></script>\n<script type="module" src="js/sim.js"></script>'],
   ['script', 'site.js starts drawing', 'site/js/site.js', 'label();\n', 'label();\nrequestAnimationFrame(() => {});\n'],
   ['links', 'a link into test/', 'site/index.html', '<a href="privacy.html">Privacy</a>', '<a href="test/og.html">Privacy</a> <a href="privacy.html">Privacy</a>'],
-  ['links', 'an anchor no element carries', 'site/index.html', '<a class="bar__get" href="#download">', '<a class="bar__get" href="#get">'],
+  ['links', 'an anchor no element carries', 'site/index.html', '<a class="wings__get" href="#download">', '<a class="wings__get" href="#get">'],
 ];
 
 const checks = [...readFileSync(check, 'utf8').matchAll(/^  (?:async )?(\w+)\(\) \{$/gm)].map((m) => m[1]);
