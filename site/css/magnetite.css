@@ -1,406 +1,1175 @@
-/* Magnetite — after dark.
+/* Magnetite — printed.
  *
- * The page is the notch's own black. Colour comes only from the demo's cover,
- * "Encryption": its navy, its blue (the app's seek strip) and its red streaks.
- * Anything that floats is Liquid Glass: a translucent, blurred pane with a lit
- * top edge. Archivo, wide and heavy, is the display face; the rest is the Mac's
- * own system face.
+ * The page is a sheet of uncoated stock and every picture on it is a
+ * risograph print: black, fluorescent pink and blue, screened into dots and a
+ * hair out of register, multiplied onto the paper (js/press.js). The film is
+ * the one exception, shown in its own pixels on the desktop it was recorded
+ * on, because it is the proof of what the app looks like.
  *
- * The bar at the top is the app retracted: a black notch between two glass
- * wings, with a seek strip along its bottom that follows the scroll. */
+ * The type is a riso poster's: Archivo at its heaviest and widest for the
+ * headline, the titles and the name, printed in black and nothing else, and
+ * Archivo at text width for labels and controls. Running text is the Mac's
+ * own system face, because it describes a Mac app to someone at a Mac. The
+ * colour is the inks', and the inks only ever print flat: a plate, a screen
+ * of dots or a hair of misregistration, never a gradient, a glow or a word
+ * picked out in pink.
+ *
+ * Each print has three states, written by site.js on its `data-print-host`:
+ * none (no scripts, no WebGL, or forced colours: the plain words, laid out as
+ * a page), `press` (the press is running and the first sheet is not down yet)
+ * and `ready`. */
 
 :root {
-  color-scheme: dark;
-  --bg: #000;
-  --ink: #F3F4F8;
-  --ink-soft: #A2A7B5;
-  --blue: #8FAEFF;
+  --paper: #ECEBE6;
+  /* Uncoated stock's tooth, laid on the paper wherever paper is drawn. */
+  --tooth: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .13 0 0 0 0 .12 0 0 0 0 .13 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ink: #222022;
+  --ink-soft: #5B5860;
+  --blue: #0078BF;
+  --film-ground: #D7D8DF;
 
-  --glass: rgb(255 255 255 / 0.06);
-  --glass-strong: rgb(255 255 255 / 0.1);
-  --glass-edge: rgb(255 255 255 / 0.14);
-  --glass-lit: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(255 255 255 / 0.04);
-
-  --display: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --pink: #FF48B0;
+  --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
   --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
 
-  --gutter: max(16px, 5vw);
+  --gutter: max(16px, 5.5vw);
+  --print-h: max(100svh, 620px);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; background: var(--bg); scroll-behavior: smooth; scroll-padding-top: 64px; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+html { -webkit-text-size-adjust: 100%; background: var(--paper); }
+/* Reloaded mid-journey, nothing shows until the page has put itself back
+   (index.html, js/tunnel.js); if its script never comes, all of it shows
+   after a moment. */
+[data-restoring] { visibility: hidden; animation: restored 0s 1.5s forwards; }
+@keyframes restored { to { visibility: visible; } }
 
+/* Uncoated stock: a faint tooth under everything, so the prints sit in the
+   paper rather than on a flat fill. */
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--ink);
-  font: 400 17px/1.55 var(--sans);
+  background: var(--paper) var(--tooth);
+  font: 400 17px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
 }
 
-a { color: inherit; text-underline-offset: 3px; text-decoration-color: rgb(255 255 255 / 0.35); }
-a:hover { text-decoration-color: currentColor; }
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
-
-.skip-link {
-  position: fixed; top: 56px; left: 12px; z-index: 100;
-  padding: 12px 18px; border-radius: 12px;
-  background: var(--ink); color: var(--bg);
-  transform: translateY(-300%);
-}
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 100; padding: 12px 18px; background: var(--paper); transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
 
 .visually-hidden {
-  position: absolute !important;
+  position: absolute;
   width: 1px; height: 1px;
-  margin: -1px; padding: 0;
+  padding: 0; margin: -1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
-  border: 0;
 }
 
+/* Held back while the press starts, and shown anyway if it never answers. */
+@keyframes held { from { visibility: hidden; } }
+/* The words come in with the first sheet, as it settles into register. */
+@keyframes settle { from { opacity: 0; transform: translate(-6px, 4px); } }
+
+/* ── The masthead ───────────────────────────────────────────────────────── */
+
+/* The symbol's own sheet takes no room. Not display:none, which some engines
+   read as "nothing to <use>". */
 .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* ---------- The retracted notch ---------- */
-
-.bar {
-  position: fixed;
-  top: 0;
-  left: 50%;
-  z-index: 50;
-  display: grid;
-  grid-template-columns: 1fr var(--notch, 190px) 1fr;
-  align-items: center;
-  width: min(600px, calc(100% - 16px));
-  height: 42px;
-  transform: translateX(-50%);
-  border: 1px solid var(--glass-edge);
-  border-top: 0;
-  border-radius: 0 0 18px 18px;
-  background: rgb(20 24 40 / 0.55);
-  box-shadow: var(--glass-lit), 0 10px 40px rgb(0 0 0 / 0.5);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  backdrop-filter: blur(22px) saturate(170%);
-  font: 600 14px/1 var(--sans);
-}
-
-/* The seek strip: how far down the page you are. */
-.bar::after {
-  content: "";
+/* Laid over the print rather than above it, so the machine keeps its first
+   screen and the name sits on the paper's top edge. */
+.masthead {
   position: absolute;
-  left: 14px; right: 14px; bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--blue);
-  transform-origin: left;
-  transform: scaleX(0.04);
-}
-@supports (animation-timeline: scroll()) {
-  .bar::after { animation: seek linear both; animation-timeline: scroll(root); }
-}
-@keyframes seek { from { transform: scaleX(0.04); } to { transform: scaleX(1); } }
-
-.bar__notch {
-  align-self: stretch;
-  margin-bottom: 7px;
-  border-radius: 0 0 14px 14px;
-  background: #000;
-}
-
-.bar__home, .bar__get {
-  display: inline-flex;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  text-decoration: none;
-  white-space: nowrap;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px var(--gutter) 0;
 }
-.bar__home { justify-self: start; margin-left: 6px; }
-.bar__mark { width: 20px; height: 14px; color: var(--ink); }
-.bar__get {
-  justify-self: end;
-  margin-right: 6px;
-  background: var(--ink);
-  color: #000;
-  transition: background-color .2s, box-shadow .2s, transform .2s;
-}
-.bar__get:hover { background: #fff; box-shadow: 0 0 22px rgb(143 174 255 / 0.55); }
-.bar__get:active { transform: scale(0.96); }
-.bar__home:hover { background: var(--glass-strong); }
+.masthead__name { display: block; height: 22px; width: auto; }
+.masthead__source { padding: 8px 0; font: 600 14px/1 var(--display); font-stretch: 112%; text-decoration: none; white-space: nowrap; }
+.masthead__source:hover { text-decoration: underline; }
 
-@media (max-width: 480px) {
-  .bar { --notch: 112px; font-size: 13px; }
-  .bar__home { padding: 0 8px; gap: 6px; }
-  .bar__get { padding: 0 11px; }
+@media (max-width: 719px) {
+  .masthead { padding-top: 46px; }
+  .masthead__name { height: 17px; }
 }
 
-/* ---------- Hero ---------- */
+/* ── The print ──────────────────────────────────────────────────────────── */
 
 .hero {
-  padding: clamp(128px, 22vh, 220px) var(--gutter) clamp(48px, 8vh, 88px);
-  text-align: center;
+  position: relative;
+  display: flow-root;
+  padding: clamp(56px, 14vh, 150px) var(--gutter) 10vh;
 }
-
-.hero__title {
-  margin: 0 auto;
-  max-width: 13ch;
-  font: 800 clamp(40px, 11.5vw, 156px)/0.9 var(--display);
+.hero__print { display: none; }
+.headline {
+  margin: 0 0 32px;
+  font: 800 clamp(48px, 10vw, 140px)/0.92 var(--display);
   font-stretch: 125%;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
+  letter-spacing: -0.035em;
 }
-.hero__title span { display: inline-block; }
-@media (max-width: 480px) { .hero__title { font-stretch: 110%; } }
+.headline span { display: block; }
+.hero__copy { max-width: 440px; }
 
-.hero__lede {
-  max-width: 34ch;
-  margin: 28px auto 0;
-  color: var(--ink-soft);
-  font-size: clamp(18px, 2vw, 22px);
-  line-height: 1.45;
-  text-wrap: balance;
+/* Scripts on: the print's room is held from the first paint. */
+.js .hero:not([data-print="none"]) { min-height: var(--print-h); }
+.js .hero:not([data-print]) > * { animation: held 2.5s step-end both; }
+
+/* The press is running: the canvas takes the first screen and site.js places
+   the words beside or under the machine it drew. The copy stays in flow, so
+   a copy longer than the screen lengthens the section instead of being cut. */
+.hero[data-print]:not([data-print="none"]) { padding: 0 0 48px; }
+.hero[data-print]:not([data-print="none"]) .hero__print {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--print-h);
+  mix-blend-mode: multiply;
 }
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 36px;
+.hero[data-print]:not([data-print="none"]) .headline {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
+.hero[data-print]:not([data-print="none"]) .headline span { display: inline; }
+/* Never wider than the page: before site.js has measured the print, the
+   fallback alone once made a phone's page 420px wide, and the print, sized
+   to that page, then measured the copy back out to the same width. */
+.hero[data-print]:not([data-print="none"]) .hero__copy {
+  position: relative;
+  width: min(var(--copy-width, 420px), 100% - 2 * var(--copy-left, 5.5vw));
+  max-width: none;
+  margin: var(--copy-top, 40vh) 0 0 var(--copy-left, 5.5vw);
+  mix-blend-mode: multiply;
+}
+.hero[data-print="press"] .hero__copy { animation: held 2.5s step-end both; }
+.hero[data-print="ready"] .hero__copy { animation: settle 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
-.hero__meta { margin: 20px auto 0; max-width: 40ch; color: var(--ink-soft); font-size: 14px; text-wrap: balance; }
-
-.button {
+.hero__lede { margin: 0; font-size: 19px; line-height: 1.45; text-wrap: pretty; }
+.hero__get {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 50px;
-  padding: 0 26px;
-  border-radius: 999px;
-  font: 600 16px/1 var(--sans);
+  gap: 14px;
+  min-height: 52px;
+  margin-top: 28px;
+  padding: 0 22px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 700 15px/1 var(--display);
+  font-stretch: 112%;
   text-decoration: none;
-  transition: transform .2s, box-shadow .25s, background-color .2s;
+  /* Under the pointer the pink plate slips a hair out from under the black,
+     the way a riso drum lands it, and back into register on the press. */
+  box-shadow: 0 0 0 var(--pink);
+  transition: box-shadow 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.button:active { transform: scale(0.97); }
-.button--primary { background: var(--ink); color: #000; }
-.button--primary:hover { background: #fff; box-shadow: 0 0 0 6px rgb(143 174 255 / 0.14), 0 0 40px rgb(143 174 255 / 0.45); }
-.button--glass {
-  border: 1px solid var(--glass-edge);
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-}
-.button--glass:hover { background: var(--glass-strong); }
-.button--big { min-height: 60px; padding: 0 36px; font-size: 18px; }
-
-/* ---------- Demo ---------- */
-
-.demo {
-  padding: 0 var(--gutter) clamp(72px, 12vh, 140px);
-  text-align: center;
-}
-
-.demo__screen {
-  position: relative;
-  width: min(100%, 1200px);
-  margin: 0 auto;
-  aspect-ratio: 1600 / 700;
-}
-/* The light the cover throws, behind the panel. */
-.demo__screen::before {
-  content: "";
-  position: absolute;
-  inset: 4% 14% 18%;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(143 174 255 / 0.35), rgb(169 139 255 / 0.18) 55%, transparent);
-  filter: blur(50px);
-}
-/* The top of the display the notch is cut into. */
-.demo__screen::after {
-  content: "";
-  position: absolute;
-  top: 0; left: 4%; right: 4%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
-}
-.demo__video {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: #000;
-}
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .demo__screen {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 0% cover 35%;
-    }
-  }
-}
-@keyframes rise {
-  from { transform: perspective(1200px) rotateX(14deg) scale(0.9); opacity: 0.3; }
-  to { transform: none; opacity: 1; }
-}
-
-.demo__controls {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.chip {
-  min-height: 40px;
-  padding: 0 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 999px;
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  color: var(--ink);
-  font: 600 14px/1 var(--sans);
-  cursor: pointer;
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  transition: background-color .2s, transform .2s;
-}
-.chip:hover { background: var(--glass-strong); }
-.chip:active { transform: scale(0.96); }
-.chip[aria-pressed="true"] { background: rgb(143 174 255 / 0.22); border-color: rgb(143 174 255 / 0.5); }
-
-.demo__credit {
-  display: flex;
-  justify-content: center;
+.hero__get::after { content: "↓"; font-weight: 500; }
+.hero__get:hover { box-shadow: 4px 4px 0 var(--pink); }
+.hero__get:active { box-shadow: 1px 1px 0 var(--pink); }
+.hero__meta { margin: 16px 0 0; color: var(--ink-soft); font: 400 13px/1.6 var(--mono); text-wrap: pretty; }
+/* The page's score, credited where the ink it drives is. Names don't split. */
+.hero__score {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 12px;
   align-items: center;
-  gap: 10px;
-  max-width: 640px;
-  margin: 20px auto 0;
+  margin: 18px 0 0;
   color: var(--ink-soft);
   font-size: 14px;
-  line-height: 1.45;
-  text-align: left;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
-.demo__credit img { flex: none; border-radius: 6px; }
+.hero__score img { width: 32px; height: 32px; }
+.hero__score a {
+  color: var(--ink);
+  white-space: nowrap;
+  text-decoration-color: rgb(34 32 34 / 0.35);
+  text-underline-offset: 3px;
+}
+.hero__score a:hover { text-decoration-color: currentColor; }
+.hero__app { display: block; margin: 22px 0 0; max-width: 360px; text-decoration: none; }
+.hero__app img { display: block; width: 100%; height: auto; border-radius: 3px; }
+.hero__caption { display: block; margin-top: 10px; font: 600 14px/1.3 var(--display); text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+.hero__app:hover .hero__caption { text-decoration-color: var(--pink); }
 
-.moves {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  margin: 44px 0 0;
+@media (max-width: 719px) {
+  :root { --print-h: max(76svh, 600px); }
+  .hero__lede { font-size: 17px; }
+  .hero__get { margin-top: 18px; }
+  .hero__app { max-width: 310px; margin-top: 18px; }
+}
+
+/* ── The film ───────────────────────────────────────────────────────────── */
+
+.film { padding: 14vh var(--gutter) 0; }
+/* The film in its own pixels: a window on the top of the recorded desktop,
+   350 points either side of the notch and 440 down, never so wide that the
+   footage's 1140 source pixels are drawn past one to one at 2x. The desktop
+   is the take's first frame; the footage (1140 by 1320, 570 by 660 points)
+   lies on it where it was shot, 540 points in, and the window crops its foot. */
+.film__mac {
+  position: relative;
+  max-width: 700px;
+  margin: 0 auto;
+  aspect-ratio: 700 / 440;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--film-ground);
+}
+.film__desk {
+  position: absolute;
+  top: 0;
+  left: calc(-406 / 700 * 100%);
+  width: calc(1512 / 700 * 100%);
+  max-width: none;
+  height: auto;
+  display: block;
+}
+.film__stage {
+  position: absolute;
+  top: 0;
+  left: calc(134 / 700 * 100%);
+  width: calc(570 / 700 * 100%);
+  aspect-ratio: 570 / 660;
+}
+.film__video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.film__foot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px 40px;
+  align-items: start;
+  max-width: 768px;
+  margin: 22px auto 0;
+}
+.film__motion {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font: 600 14px/1 var(--display);
+  font-stretch: 112%;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.film__motion:hover { background: var(--ink); color: var(--paper); }
+.how {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
-.moves li {
-  padding: 12px 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 999px;
-  background: var(--glass);
-  box-shadow: var(--glass-lit);
-  color: var(--ink-soft);
-  font-size: 15px;
-}
-.moves b { color: var(--ink); font-weight: 650; }
+.how li { max-width: 24ch; color: var(--ink-soft); }
+.how b { color: var(--ink); font: 700 1em/1 var(--display); }
 
-/* ---------- Download ---------- */
+.film__title {
+  max-width: 768px;
+  margin: 0 auto 5vh;
+  font: 800 clamp(28px, 4vw, 52px)/0.98 var(--display);
+  font-stretch: 125%;
+  letter-spacing: -0.035em;
+  text-align: center;
+  text-wrap: balance;
+}
+/* Breaks between its two sentences, never inside the second. */
+.film__phrase { white-space: nowrap; }
+
+@media (max-width: 719px) {
+  /* A phone's window is 440 points round the player, so its type stays legible. */
+  .film { padding-top: 10vh; }
+  .film__mac { aspect-ratio: 440 / 300; }
+  .film__desk { left: calc(-536 / 440 * 100%); width: calc(1512 / 440 * 100%); }
+  .film__stage { left: calc(4 / 440 * 100%); width: calc(570 / 440 * 100%); }
+  .film__foot { grid-template-columns: 1fr; }
+  .how { grid-template-columns: 1fr; gap: 8px; }
+  .how li { max-width: none; }
+}
+
+/* The journey (js/tunnel.js). The hero's print stays where it is while its
+   words fade away and the camera dives until its screen is the window; over
+   the last of the push the recorded desktop comes on (--on), laid on the
+   printed screen. It holds, filling the window, while the camera follows the
+   footage in and out; its title and then its how-to come up over a dark foot
+   ([data-title], [data-words]); then they go, the player goes back into the notch
+   (--live), the camera lands on the band's notch standing under the desktop,
+   and the desktop goes back to print (--on) the way it came. */
+/* The journey keeps its own place through a resize (js/tunnel.js); the
+   browser's scroll anchoring, nudging after it, left the dive off by a step. */
+html[data-journey="on"] { overflow-anchor: none; }
+[data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__print { position: fixed; }
+/* The words beside the print go as the dive begins, before the machine
+   turning toward the window can run into them. */
+[data-journey="on"] .hero[data-print]:not([data-print="none"]) .hero__copy > * {
+  opacity: calc(1 - var(--dive, 0) * 10);
+  translate: 0 calc(var(--dive, 0) * -80px);
+}
+[data-journey="on"][data-dived] .hero__copy { visibility: hidden; }
+.film[data-tunnel="on"] {
+  --on: 0;
+  --gone: 0;
+  --reach: 1239px;
+  --live: 1;
+  position: relative;
+  z-index: 2;
+  height: 300vh;
+  margin-top: 40vh;
+  padding: 0;
+  /* A picture over the download's first screen, so it lets the clicks meant
+     for the band through; only its words take them, while they are up. */
+  pointer-events: none;
+}
+/* Fixed rather than stuck: the desktop comes on over the print before the
+   film's own screen has arrived to stick. Its words stand at the foot of the
+   window, the title over the how-to, clear of the soundtrack's circles. */
+.film[data-tunnel="on"] .film__pin {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100vh;
+  height: 100svh;
+  padding: 0 var(--gutter) max(96px, 7vh);
+  overflow: hidden;
+}
+/* The words over the film are printed on it, as a label is: each on its own
+   slab of the black plate, so they read over the wallpaper's pink and blue
+   alike without darkening the picture. Up or down, each on its own short
+   fade as the scroll passes its mark (js/tunnel.js's data-title and
+   data-words), never held half way. */
+.film[data-tunnel="on"] .film__title {
+  position: relative;
+  z-index: 3;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 14px;
+  padding: 0.16em 0.32em 0.2em;
+  background: var(--ink);
+  color: var(--paper);
+  opacity: 0;
+  translate: 0 28px;
+  transition: opacity 0.45s, translate 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.film[data-tunnel="on"][data-title] .film__title { opacity: 1; translate: none; }
+/* The display the take was recorded on, 1512 by 982 points like the printed
+   one: the still of its first frame, with the footage where it was shot. */
+.film[data-tunnel="on"] .film__mac {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1512px;
+  max-width: none;
+  height: 982px;
+  margin: 0;
+  aspect-ratio: auto;
+  overflow: visible;
+  border-radius: 0;
+  will-change: transform;
+}
+/* A film grain on the desktop, so its wallpaper's gradient, stretched past
+   the recording's pixels, does not step into bands. Its tile is a number of
+   the halftone's pitches (--dot, in the desktop's points), so it stays the
+   same size on screen however close the camera is. */
+.film[data-tunnel="on"] .film__mac::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")
+    0 0 / calc(var(--dot, 4px) * 36) auto;
+  /* Overlay is even about the noise's middle grey, so the grain moves no
+     tone of the recording, only breaks its steps; the filter works in sRGB,
+     or its middle grey comes out light and the whole desktop with it. */
+  mix-blend-mode: overlay;
+  opacity: 0.22;
+  pointer-events: none;
+}
+/* The screen comes on through a halftone at the print's own pitch (--dot, in
+   the desktop's points): its dots swell from nothing until they close, with a
+   solid bloom spreading from the notch ahead of them, so the printed screen
+   turns into the lit one rather than fading under it. It goes off the same
+   way back, the dots shrinking. How far the bloom reaches (--reach) is
+   js/tunnel.js's: the whole desktop coming on, nowhere going off. A dot's
+   soft edge is an eighth of the pitch, a screen pixel's antialiasing at any
+   scale rather than a blur that holds the dots closed when the camera is
+   close, and never wider than the dot, so at nothing there is none. */
+.film[data-tunnel="on"] .film__mac[data-dots] {
+  --r: calc(var(--on) * var(--on) * 0.75 * var(--dot));
+  --dots: radial-gradient(circle, #000 var(--r), transparent calc(var(--r) + min(var(--dot) / 8, var(--r))));
+  mask-image:
+    radial-gradient(circle at 50% 0, #000 calc((var(--on) * 1.3 - 0.4) * var(--reach)),
+      transparent calc((var(--on) * 1.3 - 0.1) * var(--reach))),
+    var(--dots);
+  mask-size: 100% 100%, var(--dot) var(--dot);
+  mask-repeat: no-repeat, repeat;
+  mask-composite: add;
+}
+/* Going off, landed on the band, the other way about: the dots go from the
+   notch out, along the menu bar twice as fast as down the screen, so the
+   link is clear first, then the bar, and the window's lower corners last. A
+   band of halftone travels out ahead of the clearing (the dots, less a
+   clearing that grows from the notch), solid beyond it, while the dots in it
+   shrink with --on to nothing; --gone takes the clearing out to the
+   window's farthest corner, --reach down and twice that across, just as the
+   page has the download, and not before, or the last of the scroll moves
+   nothing. At --gone 0 it is solid all over, as the lit desktop was. */
+.film[data-tunnel="on"] .film__mac[data-dots][data-going] {
+  mask-image:
+    radial-gradient(calc(var(--reach) * 2) var(--reach) at 50% 0,
+      transparent calc((var(--gone) * 1.3 + 0.1) * 100%), #000 calc((var(--gone) * 1.3 + 0.3) * 100%)),
+    var(--dots),
+    radial-gradient(calc(var(--reach) * 2) var(--reach) at 50% 0,
+      transparent calc((var(--gone) * 1.3 - 0.3) * 100%), #000 calc(var(--gone) * 1.3 * 100%));
+  mask-size: 100% 100%, var(--dot) var(--dot), 100% 100%;
+  mask-repeat: no-repeat, repeat, no-repeat;
+  mask-composite: add, intersect, add;
+}
+.film[data-tunnel="on"] .film__desk { left: 0; width: 100%; height: 100%; }
+.film[data-tunnel="on"] .film__stage {
+  left: 540px;
+  width: 570px;
+  height: 660px;
+  aspect-ratio: auto;
+  /* As the handover begins (--live 1 to 0), the player goes back into the
+     notch the way the app puts it away (see [data-retract] below), leaving
+     the still's idle notch to land on the band's. */
+  opacity: calc(var(--live) / 0.35);
+  /* Its sides and foot feathered into the still, which is the same wallpaper
+     there; its top edge is the display's. */
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent),
+    linear-gradient(#000 calc(100% - 16px), transparent);
+  mask-composite: intersect;
+}
+/* Put away as the app puts it away (the take, 20.9 to 21.5s): the panel, 30
+   to 402pt along the footage and 160pt deep, draws up into the idle pill,
+   73.5 to 358.5pt and 33pt deep, its content dimming as it goes, and the
+   pill in the still takes over from it. The panel is the pill's shape, and
+   dimmed nearly to black, by the time --live is down to 0.35, and only then
+   fades (above), so the two never show at once, nor their clocks, which do
+   not agree. It dims over the first half of the gesture, before the clip's
+   foot comes up through the artwork, so nothing bright is sliced. Scaled about the notch's top centre by the pill's
+   width over the panel's, 285 / 372, while the clip, in the stage's own
+   unscaled points, lets go of the shadow over the first quarter (14 to
+   418pt, 175pt deep) and draws the foot up to the pill's depth. */
+.film[data-tunnel="on"][data-retract] .film__stage {
+  --in: clamp(0, (1 - var(--live)) / 0.65, 1);
+  --shadow: clamp(0, var(--in) * 4, 1);
+  transform-origin: 216px 0;
+  scale: calc(1 - var(--in) * 0.234);
+  filter: brightness(calc(1 - min(1, var(--in) * 2) * 0.92));
+  clip-path: inset(0 calc(152px + var(--shadow) * 16px) calc(485px + var(--shadow) * 15px + var(--in) * 117px)
+    calc(14px + var(--shadow) * 16px) round 0 0 calc(26px - var(--in) * 13px) calc(26px - var(--in) * 13px));
+}
+/* Once the page has the download in hand, the pinned film is gone, words and
+   all, rather than showing again below the download as the page goes on. */
+.film[data-tunnel="on"][data-covered] .film__pin { visibility: hidden; }
+/* The hand in the film (js/touches.js), in the desktop's own points: two
+   fingertips on the desktop under the player, index and middle, and a ring
+   where the pointer clicks or holds the seek strip, each rimmed in paper so
+   it reads over the wallpaper and the player alike. */
+.touch {
+  position: absolute;
+  width: 46px;
+  height: 24px;
+  margin: -12px 0 0 -23px;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* A fingertip's pad, a little longer than wide; the middle one reaches further. */
+.touch__tip {
+  position: absolute;
+  top: 3px;
+  left: 1px;
+  width: 19px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 34%, #4A474C, var(--ink) 72%);
+  box-shadow: 0 0 0 2px var(--paper), 0 4px 10px rgb(34 32 34 / 0.28);
+}
+.touch__tip + .touch__tip { top: -2px; left: 26px; }
+.touch__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgb(34 32 34 / 0.5), inset 0 0 0 1.5px rgb(34 32 34 / 0.35);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* The line of the how-to the footage is doing, while it does it. */
+.how li { transition: opacity 0.3s; }
+/* The others step back, but stay words to read, not a disabled list. */
+.how[data-doing] li { opacity: 0.6; }
+.how[data-doing="hover"] [data-how="hover"],
+.how[data-doing="swipe"] [data-how="swipe"],
+.how[data-doing="scrub"] [data-how="scrub"] { opacity: 1; }
+/* On the desktop's darkened foot, in paper. */
+.film[data-tunnel="on"] .film__foot {
+  position: relative;
+  z-index: 3;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 16px 22px;
+  background: var(--ink);
+  opacity: 0;
+  translate: 0 20px;
+  transition: opacity 0.45s, translate 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+.film[data-tunnel="on"][data-words] .film__foot { opacity: 1; translate: none; pointer-events: auto; }
+.film[data-tunnel="on"] .how li { color: rgb(236 235 230 / 0.78); }
+.film[data-tunnel="on"] .how b { color: var(--paper); }
+.film[data-tunnel="on"] .film__motion { border-color: var(--paper); color: var(--paper); }
+.film[data-tunnel="on"] .film__motion:hover { background: var(--paper); color: var(--ink); }
+.film[data-tunnel="on"] .film__motion:focus-visible { outline-color: var(--paper); }
+/* The download overlaps the film's last screen, on paper: its first screen is
+   the display's top edge seen close, across the middle of the window, with
+   the notch — the link — at the window's centre and the heading over it. It
+   is drawn up under the desktop through the handover (js/tunnel.js), held
+   wherever the camera has the desktop's notch, so above the desktop's edge
+   is its own bezel and heading, and the desktop, landed, goes back to print
+   over it notch on notch.
+   Held by the page, not by script: the section is a runway reaching --ahead
+   up the film from where the page lets it go, and its sheet sticks to the
+   window at --held (the camera's notch less its own depth) until the
+   runway's foot brings it away. A scroll moves the window before a script
+   hears of it, so a sheet a script held against it jumped on every fast
+   one; stuck, it only moves when the camera does. */
+[data-journey="on"] .get {
+  --ahead: 200svh;
+  /* Never narrower than the notch of a display filling the window, so the
+     desktop landed on it still fills the window below its edge, nor than the
+     notch in the close shot (js/tunnel.js's shots(): 1.8 CSS pixels a point
+     at most, the 372 by 290pt player clear of the window's sides and of the
+     300px of words), so the camera always pushes in to land. Its idle pill,
+     284 of the notch's 185 points, keeps inside the page's gutters. */
+  --notch-w: max(min(clamp(240px, 36vw, 560px), (100vw - 2 * var(--gutter)) * 185 / 284),
+    100vw * 185 / 1512, 100svh * 185 / 982,
+    min(333px, (100vw - 32px) * 185 / 372, (100svh - 300px) * 185 / 290));
+  position: relative;
+  z-index: 1;
+  margin-top: calc(-100svh - var(--ahead));
+  padding-top: 0;
+}
+[data-journey="on"] .get::after { content: ""; display: block; height: var(--ahead); }
+[data-journey="on"] .get__mark { top: var(--ahead); }
+[data-journey="on"] .get__sheet {
+  position: sticky;
+  top: var(--held, 0px);
+  display: flex;
+  flex-direction: column;
+  background: var(--paper) var(--tooth);
+  /* A window tall at least, so once landed it covers all of the film's last
+     screen, not the top of it with the pinned words showing under it. */
+  min-height: 100vh;
+  min-height: 100svh;
+}
+/* Up the runway it stands under the desktop before the handover draws it,
+   where the clicks the film lets through would find its link. Kept in the
+   tab order: a key can still reach the download. */
+[data-journey="on"] .get:not([data-drawn]) .get__sheet { opacity: 0; pointer-events: none; }
+/* The words under the band come up once the desktop's dots going off
+   (js/tunnel.js's --gone) have cleared past each one's foot (its --clear),
+   not through the dots. */
+[data-journey="on"] .get__sheet > :not(.get__title, .band) {
+  opacity: clamp(0, (var(--gone, 1) - var(--clear, 0)) / 0.06, 1);
+}
+/* The heading fills the window above the bezel, so the notch under it is at
+   the window's centre. */
+[data-journey="on"] .get__title {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-height: calc(50vh - var(--bezel) - var(--notch-h) / 2);
+  min-height: calc(50svh - var(--bezel) - var(--notch-h) / 2);
+  margin-bottom: 0;
+  padding: 2vh 0;
+}
+[data-journey="on"] .get .notch-link { font-size: max(15px, var(--notch-h) * 0.34); }
+@media (max-width: 719px) {
+  .film[data-tunnel="on"] .film__foot { font-size: 15px; }
+}
+
+/* ── The menu bar ───────────────────────────────────────────────────────── */
 
 .get {
-  width: min(calc(100% - 2 * var(--gutter)), 760px);
-  margin: 0 auto clamp(72px, 12vh, 140px);
-  padding: clamp(28px, 5vw, 56px);
-  border: 1px solid var(--glass-edge);
-  border-radius: 32px;
-  background: linear-gradient(180deg, rgb(27 36 64 / 0.55), rgb(255 255 255 / 0.03));
-  box-shadow: var(--glass-lit), 0 30px 80px rgb(0 0 0 / 0.5);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
+  /* 180 at the narrowest leaves a phone room for the time beside the notch. */
+  --notch-w: clamp(180px, 23vw, 320px);
+  --notch-h: calc(var(--notch-w) * 32 / 185);
+  --bezel: calc(var(--notch-h) * 0.42);
+  position: relative;
+  padding-top: 20vh;
   text-align: center;
-  scroll-margin-top: 64px;
 }
-
+.get__mark { position: absolute; top: 0; }
 .get__title {
-  margin: 0 0 28px;
-  font: 800 clamp(38px, 6vw, 64px)/0.95 var(--display);
-  font-stretch: 118%;
+  margin: 0 var(--gutter) 7vh;
+  font: 800 clamp(32px, 5vw, 68px)/0.95 var(--display);
+  font-stretch: 125%;
   letter-spacing: -0.035em;
+  text-wrap: balance;
 }
+.band {
+  position: relative;
+  height: calc(var(--bezel) + var(--notch-h) * 1.16 + clamp(90px, 10vw, 150px));
+}
+.band__print { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mix-blend-mode: multiply; }
+/* The notch, drawn by the print to this box. Unprinted it is its own black. */
+.notch-link {
+  position: absolute;
+  top: var(--bezel);
+  left: calc(50% - var(--notch-w) / 2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--notch-w);
+  height: var(--notch-h);
+  border-radius: 0 0 calc(var(--notch-w) * 10 / 185) calc(var(--notch-w) * 10 / 185);
+  background: var(--ink);
+  color: var(--paper);
+  font: 700 clamp(15px, 1.4vw, 18px)/1 var(--display);
+  font-stretch: 112%;
+  text-decoration: none;
+}
+.band[data-print="ready"] .notch-link { background: transparent; }
+/* The idle pill's sleeve, laid over the print where js/band.js puts it, and
+   only on a print that is down. */
+.band__sleeve { position: absolute; object-fit: cover; pointer-events: none; }
+.band:not([data-print="ready"]) .band__sleeve { display: none; }
+.band:not([data-print]) .band__print,
+.band[data-print="none"] .band__print { display: none; }
+/* Unprinted, the bezel is a plain black edge and the link hangs from it. */
+.band[data-print="none"] {
+  height: calc(var(--bezel) + var(--notch-h));
+  border-top: var(--bezel) solid var(--ink);
+}
+.band[data-print="none"] .notch-link { top: 0; }
 
-.get__requires { max-width: 46ch; margin: 22px auto 0; color: var(--ink-soft); font-size: 15px; }
-.get__all { margin: 10px 0 0; font-size: 15px; }
-
-.get__install { margin-top: 36px; color: var(--ink-soft); font-size: 15px; }
-.get__install p { margin: 0; }
-.install {
-  display: block;
-  margin: 10px 0;
-  padding: 14px 18px;
-  border: 1px solid var(--glass-edge);
-  border-radius: 14px;
-  background: rgb(0 0 0 / 0.45);
-  color: var(--ink);
-  font: 14px/1.4 var(--mono);
+.get__requires { max-width: 60ch; margin: 4vh auto 0; padding: 0 var(--gutter); color: var(--ink-soft); font-size: 15px; text-wrap: balance; }
+.get__all { margin: 6px var(--gutter) 0; font-size: 14px; }
+.get__all a { text-underline-offset: 3px; }
+/* The first-launch steps, numbered the way a print's instructions are: the
+   numeral in the display face, hung in its own column, and no box. */
+.get__first {
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--gutter));
+  max-width: 600px;
+  margin: 44px auto 0;
   text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.get__first h3 { margin: 0 0 18px; font: 800 22px/1.1 var(--display); font-stretch: 125%; letter-spacing: -0.02em; }
+.get__first ol { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.get__first li {
+  position: relative;
+  margin: 0 0 14px;
+  padding-left: 40px;
+  counter-increment: step;
+  text-wrap: pretty;
+}
+.get__first li::before { content: counter(step); position: absolute; left: 0; top: 0; font: 800 22px/1.05 var(--display); font-stretch: 125%; }
+.get__first p { margin: 16px 0 0 40px; color: var(--ink-soft); font-size: 14px; }
+.get__install { margin: 36px var(--gutter) 0; }
+.get__install p { margin: 0 0 10px; color: var(--ink-soft); font-size: 15px; }
+.get__install .get__aside { max-width: 52ch; margin: 12px auto 0; font-size: 14px; text-wrap: pretty; }
+.install {
+  display: inline-block;
+  max-width: 100%;
+  padding: 14px 20px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 400 clamp(11.5px, 3.1vw, 14px)/1.5 var(--mono);
   overflow-wrap: anywhere;
   user-select: all;
 }
-.get__aside { font-size: 14px; }
+/* Breaks only after -fsSL. Real spaces, so a copied command still runs. */
+.install__tail { white-space: nowrap; }
+.get__help { margin: 18px var(--gutter) 0; font-size: 14px; }
+.get__help a { text-underline-offset: 3px; }
 
-.faq { margin-top: 36px; text-align: left; }
-.faq details { border-top: 1px solid var(--glass-edge); }
-.faq details:last-child { border-bottom: 1px solid var(--glass-edge); }
-.faq summary {
+/* Setup stays in ordinary document flow after the filmed journey. */
+.setup {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: clamp(32px, 7vw, 100px);
+  max-width: 1120px;
+  margin: 12vh auto 0;
+  padding: 0 var(--gutter);
+  scroll-margin-top: 32px;
+}
+.setup h2 { margin: 0 0 24px; font: 800 clamp(34px, 4.4vw, 60px)/0.95 var(--display); font-stretch: 125%; letter-spacing: -0.035em; }
+.setup p { max-width: 60ch; color: var(--ink-soft); }
+.setup h3 { margin: 0 0 10px; font: 800 22px/1.1 var(--display); font-stretch: 125%; letter-spacing: -0.02em; }
+.setup details { border-bottom: 1.5px solid var(--ink); }
+.setup summary {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 2px;
-  font-weight: 600;
+  gap: 24px;
+  padding: 18px 0;
   cursor: pointer;
   list-style: none;
+  font: 600 17px/1.3 var(--display);
 }
-.faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: "+";
-  flex: none;
-  width: 1ch;
-  color: var(--blue);
-  font: 400 24px/1 var(--sans);
-  text-align: center;
+.setup summary::-webkit-details-marker { display: none; }
+.setup summary::after { content: "+"; flex: none; font: 400 22px/1 var(--mono); transition: rotate 0.2s; }
+.setup details[open] > summary::after { rotate: 45deg; }
+.setup summary:hover { text-decoration: underline; text-decoration-color: var(--pink); text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.setup details p { font-size: 16px; margin: 0 0 18px; }
+.setup details ol { max-width: 60ch; margin: 0 0 18px; padding-left: 1.4em; color: var(--ink-soft); font-size: 16px; }
+.setup details li { margin: 0 0 6px; }
+.setup a { text-underline-offset: 3px; }
+@media (max-width: 719px) {
+  .setup { grid-template-columns: 1fr; gap: 24px; margin-top: 8vh; }
 }
-.faq details[open] summary::after { content: "−"; }
-.faq details > :not(summary) { margin: 0 2px 16px; color: var(--ink-soft); font-size: 15px; }
-.faq ol { padding-left: 1.3em; }
-.faq li + li { margin-top: 8px; }
-.faq b { color: var(--ink); }
 
-/* ---------- Footer ---------- */
+/* ── The lyrics ─────────────────────────────────────────────────────────── */
+
+/* The open player printed in three plates: the panel in black, with the
+   fluorescent pink and the blue each printed a little off it and multiplied
+   on the paper, the way the hero's machine is. They start well out of
+   register and come in once, the first time the print is seen (js/lyrics.js
+   sets [data-inked]); the panel's words are the paper left unprinted. */
+.lyrics {
+  --lyric: clamp(28px, 5.4vw, 84px);
+  max-width: 1280px;
+  margin: 18vh auto 0;
+  padding: 0 var(--gutter);
+}
+/* The poster's head: the title big on the left, two lines of copy hung off
+   its baseline on the right. */
+.lyrics__copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px clamp(24px, 5vw, 80px);
+  align-items: end;
+  margin-bottom: clamp(36px, 6vw, 72px);
+}
+.lyrics__copy > :not(.lyrics__title) { grid-column: 2; }
+.lyrics__title { grid-row: 1 / span 2; margin: 0; font: 800 clamp(56px, 11vw, 168px)/0.86 var(--display); font-stretch: 125%; letter-spacing: -0.045em; }
+.lyrics__copy p { max-width: 40ch; margin: 0; color: var(--ink-soft); font-size: 17px; line-height: 1.5; text-wrap: pretty; }
+.lyrics__copy b { color: var(--ink); font-weight: 600; }
+.lyrics__copy .lyrics__aside { font-size: 15px; }
+.lyrics__copy a { color: inherit; text-underline-offset: 3px; }
+
+.lyrics__figure { margin: 0; }
+.lyrics__print {
+  --pink-x: -9px; --pink-y: 6px; --blue-x: 8px; --blue-y: -7px;
+  position: relative;
+  isolation: isolate;
+}
+[data-inked] .lyrics__print { --pink-x: 1.1px; --pink-y: -0.7px; --blue-x: -0.8px; --blue-y: 0.9px; }
+/* Under the panel, its two colour plates printed as flat screens of dots in
+   the panel's own shape, each dropped well off the black: pink low and right,
+   blue high and left, the way a sheet comes off the drum before the run is
+   in register. They close up with the panel when it is seen. */
+.lyrics__print::before,
+.lyrics__print::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 0 0 34px 34px;
+  mix-blend-mode: multiply;
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.lyrics__print::before {
+  background: radial-gradient(circle, var(--pink) 46%, transparent 50%) 0 0 / 5px 5px;
+  transform: translate(calc(18px + var(--pink-x) * 2), calc(18px + var(--pink-y) * 2));
+}
+.lyrics__print::after {
+  background: radial-gradient(circle, #0078BF 42%, transparent 46%) 2.5px 2.5px / 5px 5px;
+  transform: translate(calc(-14px + var(--blue-x) * 2), calc(-14px + var(--blue-y) * 2));
+}
+/* The panel's own two plates, a hair off the black: the fringe a riso
+   print leaves at an edge. */
+.lyrics__panel { box-shadow: var(--pink-x) var(--pink-y) 0 #FF48B0, var(--blue-x) var(--blue-y) 0 #0078BF; transition: box-shadow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.lyrics__panel {
+  position: relative;
+  padding: clamp(64px, 8vw, 104px) clamp(24px, 6vw, 88px) clamp(40px, 5vw, 64px);
+  border-radius: 0 0 clamp(28px, 4vw, 56px) clamp(28px, 4vw, 56px);
+  background: var(--ink);
+  color: var(--paper);
+  transform: translate(0, 0);
+  overflow: hidden;
+}
+/* The paper's tooth over the ink, so the black reads printed, not lit. */
+.lyrics__panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--tooth);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.lyrics__notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 22%;
+  height: clamp(30px, 3.4vw, 44px);
+  translate: -50% 0;
+  border-radius: 0 0 20px 20px;
+  background: #000;
+}
+.lyrics__clock { position: absolute; top: clamp(10px, 1.2vw, 16px); left: clamp(24px, 6vw, 88px); font: 600 clamp(14px, 1.3vw, 18px)/1 var(--sans); font-variant-numeric: tabular-nums; opacity: 0.55; }
+.lyrics__clock--left { left: auto; right: clamp(24px, 6vw, 88px); }
+.lyrics__track { display: flex; align-items: center; gap: 16px; }
+.lyrics__cover {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  /* A sleeve in the two inks' halftone. */
+  background:
+    radial-gradient(circle, #FF48B0 34%, transparent 36%) 0 0 / 7px 7px,
+    radial-gradient(circle, #0078BF 34%, transparent 36%) 3.5px 3.5px / 7px 7px,
+    #3a2035;
+}
+.lyrics__meta { display: grid; gap: 4px; min-width: 0; }
+.lyrics__meta b { font: 700 21px/1.1 var(--sans); letter-spacing: -0.01em; }
+.lyrics__meta span { font-size: 15px; opacity: 0.6; }
+
+/* LyricsStage: the column under the artwork row, entering and leaving through
+   soft edges, never a hard clip. */
+.lyrics__stage {
+  height: calc(var(--lyric) * 1.06 * 2.5 + 28px);
+  margin-top: clamp(24px, 4vw, 48px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 78%, transparent 100%);
+}
+.lyrics__column { margin: 0; padding: 12px 0 0; list-style: none; }
+.lyrics__column li {
+  margin: 0 0 0.22em;
+  font: 800 var(--lyric)/1.06 var(--display);
+  font-stretch: 112%;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  transform-origin: left center;
+  /* Critically damped: it eases to a stop and never springs past. */
+  transition: transform 0.62s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.62s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.lyrics__column li:not([data-state="sung"]) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lyrics__break { display: flex; gap: 0.3em; height: 1.06em; align-items: center; }
+.lyrics__break i { width: 0.32em; height: 0.32em; border-radius: 50%; background: currentColor; transition: opacity 0.25s ease-out, transform 0.25s ease-out; }
+.lyrics__trace { position: absolute; left: clamp(24px, 6vw, 88px); right: clamp(24px, 6vw, 88px); bottom: clamp(16px, 2vw, 26px); height: 3px; border-radius: 2px; background: rgb(236 235 230 / 0.18); overflow: hidden; }
+.lyrics__trace span { display: block; height: 100%; background: var(--paper); transform-origin: left; transform: scaleX(0); }
+
+.lyrics__caption { display: flex; justify-content: flex-end; margin: 20px 0 0; }
+
+@media (max-width: 859px) {
+  .lyrics { margin-top: 12vh; }
+  .lyrics__copy { grid-template-columns: 1fr; }
+  .lyrics__copy > :not(.lyrics__title) { grid-column: 1; }
+  .lyrics__title { grid-row: auto; margin-bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lyrics__print::before, .lyrics__print::after, .lyrics__column li { transition: none; }
+}
+
+/* ── The name ───────────────────────────────────────────────────────────── */
+
+/* The still and the pour are fitted the same way — 90% of the width or 62%
+   of the height, whichever is tighter, centred — so the swap is invisible. */
+.finale {
+  position: relative;
+  height: clamp(260px, 38vw, 540px);
+  margin-top: 16vh;
+}
+.finale__still { position: absolute; inset: 0; width: 90%; height: 62%; margin: auto; }
+.finale canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.finale__filings { mix-blend-mode: multiply; }
+
+@media (max-width: 719px) {
+  .finale { margin-top: 6vh; }
+}
+.finale[data-pour="ready"] .finale__still { visibility: hidden; }
+
+/* ── The notch ─────────────────────────────────────────────────────── */
+
+/* The page's one control, fixed at the top of the window where a MacBook's
+   notch is, and printed in the same black. Opening, it pours down into the
+   player (js/notch.js measures how far, as --open-h); its pink and blue plates
+   swing in from well out of register and land a hair off the black. Its foot
+   is the page's playhead. */
+.notch { display: none; }
+.js .notch {
+  --w: 196px;
+  --h: 34px;
+  --r: 14px;
+  --pink-at: 0 0; --blue-at: 0 0;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 30;
+  display: block;
+  width: var(--w);
+  height: var(--h);
+  translate: -50% 0;
+  border-radius: 0 0 var(--r) var(--r);
+  background: #0B0A0B;
+  color: var(--paper);
+  box-shadow: var(--pink-at) 0 var(--pink), var(--blue-at) 0 var(--blue);
+  transition:
+    width 0.52s cubic-bezier(0.25, 1, 0.5, 1),
+    height 0.52s cubic-bezier(0.25, 1, 0.5, 1),
+    border-radius 0.52s cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.js .notch[data-open="true"] {
+  --w: min(452px, calc(100vw - 24px));
+  --h: var(--open-h, 300px);
+  --r: 30px;
+  --pink-at: 1.5px 1px; --blue-at: -1.2px 1.4px;
+  animation: notch-register 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes notch-register {
+  from { box-shadow: -10px 9px 0 var(--pink), 9px -2px 0 var(--blue); }
+}
+/* Ink on the pill, the paper's tooth over it, so it reads printed. */
+.js .notch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--tooth);
+  pointer-events: none;
+}
+.notch__pill {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 14px 14px;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.notch__pill:focus-visible { outline-offset: 2px; }
+/* The playhead: a pink trace along the foot, and the strip it sits in is
+   where a drag seeks. */
+.notch__edge {
+  position: absolute;
+  z-index: 2;
+  left: calc(var(--r) * 0.7);
+  right: calc(var(--r) * 0.7);
+  bottom: 0;
+  height: 11px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.notch__edge::before,
+.notch__edge span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5px;
+  height: 2px;
+}
+.notch__edge::before { content: ''; background: rgb(236 235 230 / 0.16); }
+.notch__edge span { display: block; background: var(--pink); transform-origin: left; transform: scaleX(0); }
+.notch[data-open="true"] .notch__edge { left: 26px; right: 26px; bottom: 6px; }
+.notch[data-scrubbing] .notch__edge span { height: 4px; bottom: 4px; }
+
+.notch__player {
+  position: relative;
+  z-index: 1;
+  padding: 0 26px 30px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s, visibility 0s 0.18s;
+}
+.notch[data-open="true"] .notch__player { opacity: 1; visibility: visible; transition: opacity 0.3s 0.16s, visibility 0s; }
+.notch__head { display: flex; justify-content: space-between; align-items: center; height: 34px; }
+.notch__clock { font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; opacity: 0.6; }
+.notch:not([data-timed="true"]) .notch__clock { visibility: hidden; }
+.notch__track { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+
+.player__toggle,
+.player__track {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.player__toggle { flex: none; display: grid; place-items: center; width: 52px; height: 52px; color: var(--ink); transition: transform 0.15s; }
+.player__toggle::before { content: ''; grid-area: 1 / 1; width: 40px; height: 40px; background: var(--paper); }
+.player__toggle:active { transform: scale(0.94); }
+.player__toggle svg:not(.player__ring) { position: relative; grid-area: 1 / 1; width: 14px; height: 14px; fill: currentColor; }
+.player__pause,
+.player__toggle[data-playing="true"] .player__play { display: none; }
+.player__toggle[data-playing="true"] .player__pause { display: block; }
+.player__ring {
+  position: absolute;
+  inset: 0;
+  fill: none;
+  stroke: var(--pink);
+  stroke-width: 3.5;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pointer-events: none;
+  transition: stroke-dashoffset 0.25s linear;
+}
+.player__tracks { display: flex; flex: 1; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.player__tracks li { flex: 1; min-width: 0; }
+.player__track { display: flex; align-items: center; gap: 10px; width: 100%; padding: 4px; text-align: left; }
+.player__track img { flex: none; width: 36px; height: 36px; object-fit: cover; }
+.player__track[aria-pressed="false"] { opacity: 0.45; }
+.player__track[aria-pressed="false"] img { filter: grayscale(1) contrast(1.1); }
+.player__track:hover { opacity: 1; }
+.player__track[aria-pressed="true"] img { box-shadow: 0 0 0 2px var(--pink); }
+.player__name { display: grid; min-width: 0; font: 700 14px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player__name small { font-weight: 400; font-size: 12px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; }
+
+/* The sections, as the open player's lyric column: the one in view sung at
+   the top, the next waiting under it. */
+.notch__column {
+  height: 104px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+.notch__column ol { margin: 0; padding: 0; list-style: none; }
+.notch__column li {
+  transition: transform 0.62s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.62s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.notch__column a {
+  display: block;
+  padding: 3px 0;
+  font: 800 25px/1.1 var(--display);
+  font-stretch: 112%;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notch__column a:hover { color: var(--pink); }
+.notch__column li[data-state="past"] { opacity: 0; }
+.notch__column li[data-state="next"] { opacity: 0.38; }
+.notch__column li[data-state="later"] { opacity: 0.16; }
+
+@media (max-width: 719px) {
+  .js .notch { --w: 132px; --h: 30px; --r: 12px; }
+  .notch__pill { height: 30px; }
+  .notch__head { height: 30px; }
+  .notch__player { padding: 0 18px 26px; }
+  .notch[data-open="true"] .notch__edge { left: 18px; right: 18px; }
+  .notch__track { gap: 8px; }
+  .player__track { gap: 8px; padding: 4px 2px; }
+  .player__track img { width: 32px; height: 32px; }
+  .player__name { font-size: 13px; }
+  .notch__column a { font-size: 21px; }
+  .notch__column { height: 90px; }
+}
+
+/* ── Titles, printed ────────────────────────────────────────────────── */
+
+/* Each section's title is printed in three plates: the black on top, the
+   pink and the blue under it, multiplied on the paper. The first time a title
+   is seen its colour plates come in from well out of register, the way the
+   first sheet comes off the drum, and stay a hair off (js/notch.js). */
+.js [data-plates-text] { position: relative; display: inline-block; isolation: isolate; }
+.js [data-plates-text]::before,
+.js [data-plates-text]::after {
+  content: attr(data-plates-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: translate 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.js [data-plates-text]::before { color: var(--pink); translate: -0.11em 0.07em; }
+.js [data-plates-text]::after { color: var(--blue); translate: 0.09em -0.08em; transition-delay: 0.06s; }
+.js [data-plates-text][data-inked]::before { translate: 0.022em -0.012em; }
+.js [data-plates-text][data-inked]::after { translate: -0.016em 0.018em; }
+@media (prefers-reduced-motion: reduce) {
+  .js [data-plates-text]::before, .js [data-plates-text]::after { transition: none; }
+}
+@media (forced-colors: active) {
+  .js [data-plates-text]::before, .js [data-plates-text]::after { content: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .notch, .notch__column li, .notch__player { transition: none; }
+  .js .notch[data-open="true"] { animation: none; }
+}
+@media (forced-colors: active) {
+  .js .notch { border: 1px solid CanvasText; }
+}
+@media print { .notch { display: none !important; } }
+
+/* ── Foot ───────────────────────────────────────────────────────────────── */
 
 .foot {
-  padding: 0 var(--gutter) 56px;
-  color: var(--ink-soft);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px 40px;
+  align-items: baseline;
+  margin-top: 4vh;
+  padding: 0 var(--gutter) 40px;
   font-size: 14px;
-  text-align: center;
 }
-.foot__links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 22px;
+.mark, .foot__formula { margin: 0; font: 800 16px/1 var(--display); font-stretch: 125%; letter-spacing: -0.02em; }
+.mark { display: flex; align-items: center; gap: 9px; }
+.mark__glyph { width: 20px; height: auto; }
+.foot__links { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.foot__links a { padding: 6px 0; font: 600 14px/1.3 var(--display); text-decoration: none; }
+.foot__links a:hover { text-decoration: underline; }
+.foot__credit { grid-column: 1 / -1; margin: 0; color: var(--ink-soft); font-size: 13px; }
+/* Every link in the credit is a name, and a name does not split. */
+.foot__credit a { white-space: nowrap; }
+
+@media (max-width: 859px) {
+  .foot { grid-template-columns: 1fr auto; }
+  .foot__links { grid-column: 1 / -1; grid-row: 2; }
 }
-.foot__links a { display: inline-block; padding: 6px 0; }
-.foot__credit { max-width: 60ch; margin: 18px auto 0; line-height: 1.6; }
-/* Every name in a credit is a link, and a name is not a place to wrap. */
-.foot__credit a, .demo__credit a { white-space: nowrap; }
 
 @media (forced-colors: active) {
-  .bar__notch { background: CanvasText; }
+  .hero__get, .film__motion, .notch-link {
+    background: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+  .finale canvas { display: none; }
+  .player__toggle::before, .player__track { border: 2px solid ButtonText; }
+  .player__ring { stroke: Highlight; }
+  .player__track[aria-pressed="true"] { outline: 3px solid Highlight; outline-offset: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film__motion { display: none; }
+  .player, .player__ring, .player__name, .player__toggle { transition: none; }
+  .how li { transition: none; }
+  .hero[data-print="ready"] .hero__copy { animation: none; }
 }

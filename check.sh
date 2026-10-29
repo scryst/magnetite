@@ -113,14 +113,18 @@ set -e
 .build/checks/lyricscheck </dev/null
 .build/checks/clickcheck </dev/null
 
-# The product page's promises: the pinned release, its size and requirements,
-# the music credit, the film's dimensions, and links that ship. Unconditional on
+# The site's port of the fluid, against dumps from the Swift above. It belongs
+# in this gate rather than in someone's memory: its whole job is to notice when
+# the app moves out from under the page, and a check you have to remember to run
+# by hand reports nothing on the day the app actually moves. Unconditional on
 # purpose — a missing node must fail here, not quietly skip.
 echo "==> site"
-node site/test/sitecheck.mjs </dev/null
+node site/test/portcheck.mjs </dev/null
+node site/test/bandscheck.mjs </dev/null
+node site/test/setupcheck.mjs </dev/null
 
 # Prove the site's checks still reject their named regressions. The harness
 # changes temporary copies only; stale mutation targets must fail this gate too.
-echo "==> site mutations"
-node site/test/sitemutate.mjs </dev/null
+echo "==> site mutations (results print after all runs)"
+node site/test/mutate.mjs </dev/null
 CHECK_RUNTIME

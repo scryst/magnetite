@@ -1,11 +1,10 @@
-/* The legal pages: the product page's black and faces, set as plain reading. */
+/* The legal pages: the product page's paper and faces, set as plain reading. */
 
 :root {
-  color-scheme: dark;
-  --paper: #000;
-  --ink: #F3F4F8;
-  --ink-soft: #A2A7B5;
-  --blue: #8FAEFF;
+  --paper: #ECEBE6;
+  --ink: #222022;
+  --ink-soft: #5B5860;
+  --blue: #0078BF;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -22,10 +21,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
 
 .legal {
-  width: min(calc(100% - 48px), 35em);
+  width: min(calc(100% - 48px), 680px);
   margin-inline: auto;
   padding-block: clamp(48px, 10vw, 120px) 96px;
 }
@@ -37,9 +36,10 @@ body {
 
 h1 {
   margin: 0 0 12px;
-  font: 800 clamp(44px, 9vw, 80px)/0.95 'Archivo', -apple-system, system-ui, sans-serif;
-  font-stretch: 118%;
+  font: 800 clamp(44px, 9vw, 84px)/0.95 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  font-stretch: 125%;
   letter-spacing: -0.035em;
+  letter-spacing: -0.01em;
 }
 
 h2 {
@@ -66,7 +66,7 @@ code {
 }
 
 @media (max-width: 480px) {
-  .legal { width: min(calc(100% - 32px), 35em); padding-top: 40px; }
+  .legal { width: min(calc(100% - 32px), 680px); padding-top: 40px; }
 }
 
 @media (forced-colors: active) {
