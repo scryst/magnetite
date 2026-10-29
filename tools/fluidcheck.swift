@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Headless checks on the ferrofluid's physics. Each encodes a behaviour that
 /// can only be diagnosed by measuring, so it cannot regress quietly.
@@ -21,45 +21,82 @@ enum FluidCheck {
         aFinishedScrubReleasesTheInk()
         theGlowNeverSwitchesOnOrOff()
         realMusicDoesNotSaturateIt()
+        realMusicIsChoreographed()
         resumingIsNotAnEvent()
+        flashesStayUnderTheCeiling()
+        aHitPeaksQuickly()
         noTwoBandsCarryTheSameBin()
         aSkipHasADirection()
         theInkWashesInBehindTheShell()
         theGateNeverOutlivesTheClock()
+        theClockStepsWithTheDisplay()
+        kicksStillLandAfterADrop()
         theIOProcNeverSharesTheLifecycleQueue()
         print("fluidcheck: all checks passed")
     }
 
+    /// The beat coming back after a breakdown is the loudest moment of a song, and the
+    /// ink went flat on it (defsharp, "common courtesy", 1:55). The bass held as a wall,
+    /// dropped out for two seconds and slammed back; measured as distance from a slow
+    /// average, that read as one huge swing, and the bar it set hid every kick after the
+    /// drop for seconds. Here the wall pumps 0.15 on each beat, as kicks on a held bass
+    /// do, and most beats after the drop must still strike.
+    @MainActor
+    private static func kicksStillLandAfterADrop() {
+        let sim = FerrofluidSim()
+        sim.setOpen(true)
+        var frame = 0
+        func step(bass: Float, beat: Bool) -> Bool {
+            var levels = [Float](repeating: 0.35, count: 12)
+            let pumped: Float = beat ? bass - 0.15 : bass
+            for band in 0..<3 { levels[band] = max(0, pumped) }
+            let before = sim.impact
+            sim.advance(levels: levels, dt: 1.0 / 60)
+            frame += 1
+            return sim.impact - before > 0.2
+        }
+        // A beat every 22 frames (164 BPM, the song's double time): three frames of dip,
+        // and the strike is the climb back to the wall.
+        func play(seconds: Double, bass: Float) -> (beats: Int, struck: Int) {
+            var beats = 0, struck = 0, sinceDip = 99
+            for _ in 0..<Int(seconds * 60) {
+                let inDip = frame % 22 < 3
+                if frame % 22 == 3 { beats += 1; sinceDip = 0 }
+                let hit = step(bass: bass, beat: inDip)
+                if sinceDip < 3, hit { struck += 1; sinceDip = 99 } else { sinceDip += 1 }
+            }
+            return (beats, struck)
+        }
+        _ = play(seconds: 6, bass: 0.9)
+        _ = play(seconds: 2, bass: 0.02)
+        let after = play(seconds: 4, bass: 0.9)
+        require(after.struck * 4 >= after.beats * 3,
+                "after the drop only \(after.struck) of \(after.beats) beats struck the ink")
+    }
+
     /// Drive must measure change, not volume. Music sits at 0.5-0.8 for long
-    /// stretches, and keying off absolute level would pin 16 of 17 peaks up as a
-    /// static jagged wall.
+    /// stretches, and keying off absolute level would pin most peaks up as a static
+    /// jagged wall.
     ///
-    /// Held at 0.8 so the first assertion can fail. A site's drive is
-    /// `dev * 0.5 + kick * 0.8` and a held level decays `kick` to nothing, so a
-    /// level-reading drive is half the level: 0.35 at 0.7, just under the 0.36
-    /// critical field, which leaves no site rising and the count vacuous. At 0.8
-    /// the drive is 0.40. The margin is only 0.04, so a `criticalField` raised
-    /// past 0.40 would make the count vacuous again; the margin is therefore
-    /// asserted first and that change fails by name.
+    /// Four bands step up, not all twelve: a step in every band at once is a whole-mix
+    /// hit, which heaves the body and raises no peaks (the common-hit subtraction), and
+    /// would leave the count below vacuous. So the
+    /// step must first raise a crown, asserted by name, and only then may holding it
+    /// let the crown drain.
     @MainActor
     private static func heldLoudnessDoesNotPinTheCrown() {
         let sim = FerrofluidSim()
-        let level: Float = 0.8
-        // The check's premise, held rather than hoped. `0.5` restates the dev
-        // weight in `updateSites` (`dev * 0.5 + kick * 0.8`); if that weight
-        // moves, this fails red, the safe direction for a guard.
-        let levelReadingDrive = Double(level) * 0.5
-        let margin = levelReadingDrive - sim.criticalField
-        require(margin >= 0.01,
-                "held level \(level) gives a level-reading drive of "
-                + "\(String(format: "%.3f", levelReadingDrive)), only "
-                + "\(String(format: "%.3f", margin)) above the critical field "
-                + "\(sim.criticalField) — below 0.01 the count below cannot fail")
-        let loud = [Float](repeating: level, count: 12)
+        let quiet = [Float](repeating: 0.1, count: 12)
+        for _ in 0..<(60 * 3) { sim.advance(levels: quiet, dt: 1.0 / 60) }
+        let loud: [Float] = (0..<12).map { $0 % 3 == 0 ? 0.85 : 0.1 }
+        for _ in 0..<12 { sim.advance(levels: loud, dt: 1.0 / 60) }
+        let struck = sim.sites.filter { $0.height > 0.05 }.count
+        require(struck >= 2, "the step into loudness raised only \(struck) peaks, so the "
+                + "held count below cannot fail")
         for _ in 0..<(60 * 8) { sim.advance(levels: loud, dt: 1.0 / 60) }
 
         let standing = sim.sites.filter { $0.height > 0.05 }.count
-        require(standing <= 4,
+        require(standing <= 1,
                 "held loudness left \(standing) of \(sim.sites.count) peaks standing")
         require(sim.swell < 0.15, "held loudness kept the pool swollen (\(sim.swell))")
     }
@@ -264,6 +301,31 @@ enum FluidCheck {
         require(scrub.isDriven, "the pointer cleared the gate with no clock")
     }
 
+    /// One step per frame of the display, so no frame shows the ink unchanged and the
+    /// next one jumps. A 16 ms sleep on the main actor ran at about 56 Hz with gaps up to
+    /// 24 ms; against a 60 Hz screen that was the judder that made the liquid read as
+    /// stiff and late.
+    @MainActor
+    private static func theClockStepsWithTheDisplay() {
+        guard !NSScreen.screens.isEmpty else {
+            print("fluidcheck: no display, so the display clock was not checked")
+            return
+        }
+        let sim = FerrofluidSim()
+        let floor = [Float](repeating: 0.2, count: 12)
+        for _ in 0..<30 { sim.advance(levels: floor, dt: 1.0 / 60) }
+        // A held pointer keeps the ink unsettled, so the clock runs for the whole window.
+        sim.setPointer(rim: 0.5)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.25))
+        let from = sim.frame
+        RunLoop.main.run(until: Date().addingTimeInterval(2))
+        let steps = sim.frame - from
+        require(steps >= 117 && steps <= 123,
+                "the ink stepped \(steps) times in 2 s; the display shows 120 frames, so "
+                + "some frames repeat a step or skip one")
+        sim.stop()
+    }
+
     /// The ink arrives behind the shell and brings no beat with it. The follower
     /// is asymmetric: slow to fill, quick to drain. Opening must move the shape
     /// and nothing else; injecting into the kick, swell or glow would manufacture
@@ -343,17 +405,21 @@ enum FluidCheck {
     /// direction `next()` runs the progress trace.
     @MainActor
     private static func aSkipHasADirection() {
-        func lean(_ direction: Double, frames: Int = 10)
-            -> (low: Double, high: Double, centroid: Double, crestLow: Double, crestHigh: Double) {
+        func lean(_ direction: Double, seed: UInt64, frames: Int = 10)
+            -> (low: Double, high: Double, centroid: Double, crestLow: Double, crestHigh: Double,
+                standing: Int) {
             let sim = FerrofluidSim()
+            sim.random = seeded(seed)
             let floor = [Float](repeating: 0.2, count: 12)
             for _ in 0..<180 { sim.advance(levels: floor, dt: 1.0 / 60) }
             sim.surge(0.9, direction: direction)
-            var crestLow = 0.0, crestHigh = 0.0
+            var crestLow = 0.0, crestHigh = 0.0, standing = 0
             for _ in 0..<frames {
                 sim.advance(levels: floor, dt: 1.0 / 60)
                 crestLow = max(crestLow, sim.sites.filter { $0.rim < 0.4 }.map(\.height).max() ?? 0)
                 crestHigh = max(crestHigh, sim.sites.filter { $0.rim > 0.6 }.map(\.height).max() ?? 0)
+                let side = sim.sites.filter { direction > 0 ? $0.rim > 0.6 : $0.rim < 0.4 }
+                standing = max(standing, side.filter { $0.height > 0.3 }.count)
             }
             let low = sim.sites.filter { $0.rim < 0.4 }.map(\.height).max() ?? 0
             let high = sim.sites.filter { $0.rim > 0.6 }.map(\.height).max() ?? 0
@@ -361,10 +427,25 @@ enum FluidCheck {
             let centroid = mass > 0
                 ? sim.sites.reduce(0.0) { $0 + $1.rim * $1.height } / mass
                 : 0.5
-            return (low, high, centroid, crestLow, crestHigh)
+            return (low, high, centroid, crestLow, crestHigh, standing)
         }
 
-        let f = lean(1), b = lean(-1)
+        let f = lean(1, seed: 1), b = lean(-1, seed: 1)
+        // A skip throws a whole crowd of lobes up on its side, and the surge, not the
+        // lobes' random offsets, decides how tall it stands: with the body's kick leaned
+        // as well, the end bands slip past the common-hit subtraction and the crest
+        // wanders from 0.93 to 1.20 between offsets.
+        let runs = (UInt64(1)...6).map { (lean(1, seed: $0), lean(-1, seed: $0)) }
+        let crowds = runs.flatMap { [$0.0.standing, $0.1.standing] }
+        require(crowds.allSatisfy { $0 >= 4 },
+                "a skip stood only \(crowds.min() ?? 0) lobes up on its side — it must throw "
+                + "a crowd there, past the limit on how many stand for ordinary hits")
+        for crests in [runs.map(\.0.crestHigh), runs.map(\.1.crestLow)] {
+            let spread = (crests.max() ?? 0) - (crests.min() ?? 0)
+            require(spread < 0.05,
+                    "a skip's crest changes by \(spread) with the lobes' random offsets — "
+                    + "the surge must decide it, not the spread")
+        }
         require(f.high > f.low + 0.05,
                 "a skip forward did not lean right (low \(f.low), high \(f.high))")
         require(b.low > b.high + 0.05,
@@ -431,7 +512,7 @@ enum FluidCheck {
     /// outline lifts uniformly, tanh compresses it to the ceiling and the
     /// silhouette becomes a smooth wall with no crowns, with no crash or hang to
     /// reveal it. On this capture the swell has mean 0.35, sd 0.23, never above
-    /// 0.95, and the site budget is reached only 2% of the time.
+    /// 0.95, no frame is a wall, and three crowns stand at once 94% of the time.
     @MainActor
     private static func realMusicDoesNotSaturateIt() {
         let path = "Resources/real-levels.txt"
@@ -445,7 +526,7 @@ enum FluidCheck {
         require(frames.count > 200, "the capture has only \(frames.count) frames")
 
         let sim = FerrofluidSim()
-        var swells: [Double] = [], ups: [Int] = []
+        var swells: [Double] = [], heights: [[Double]] = []
         var last = frames[0]
         for (i, f) in frames.enumerated() {
             // The capture is 30 Hz and the app reads and steps at 60, so the step
@@ -455,7 +536,7 @@ enum FluidCheck {
             last = f
             guard i > frames.count / 4 else { continue }      // let the baseline settle
             swells.append(sim.swell)
-            ups.append(sim.sites.filter(\.isUp).count)
+            heights.append(sim.sites.map(\.height))
         }
         let mean = swells.reduce(0, +) / Double(swells.count)
         let pinned = swells.filter { $0 > 0.95 }.count * 100 / swells.count
@@ -466,9 +547,148 @@ enum FluidCheck {
                 "the swell averages \(mean) on real music, outside its working range")
         // The surface must also be doing something: a fluid that never raises a
         // site on real music is as wrong as one that raises all of them.
-        let atCap = ups.filter { $0 >= 9 }.count * 100 / ups.count
-        require(atCap < 25, "the site budget is exhausted \(atCap)% of the time")
-        require(ups.contains { $0 >= 3 }, "real music never raised three crowns at once")
+        // A wall is every lobe up together, the lowest at least half the tallest: the
+        // outline lifts as one block and no crown stands out of it.
+        let walls = heights.filter { h in
+            let top = h.max() ?? 0
+            return top > 0.2 && (h.min() ?? 0) > 0.5 * top
+        }.count * 100 / heights.count
+        require(walls < 10, "the lobes rise as one wall \(walls)% of the time")
+        require(heights.contains { $0.filter { $0 > 0.3 }.count >= 3 },
+                "real music never raised three crowns at once")
+    }
+
+    /// Each hit is its own move and quiet passages stay calm (Laks, 2026-10-28: keep
+    /// 0.1.8's tight choreography). On the capture, replayed with fixed offsets: a few
+    /// crowns stand at once (6.6 on average here, 7.1 with no gate under small hits, 7.7
+    /// with no limit on how many stand), the lobes travel 1.4 of a full height per
+    /// frame across the rim (2.0 for a follower that overshoots its target), and once
+    /// the music drops to a third the tallest lobe stands 0.08 as tall as before (0.17
+    /// or more when quiet passages are not scaled down).
+    @MainActor
+    private static func realMusicIsChoreographed() {
+        guard let text = try? String(contentsOfFile: "Resources/real-levels.txt", encoding: .utf8) else {
+            require(false, "cannot read Resources/real-levels.txt — run check.sh from the repo root")
+            return
+        }
+        let frames: [[Float]] = text.split(separator: "\n").map {
+            $0.split(separator: " ").compactMap { Float($0) }
+        }.filter { $0.count == 12 }
+        let sim = FerrofluidSim()
+        sim.random = seeded(1)
+        var last = frames[0], previous = [Double]()
+        var crowns = 0, travel = 0.0, loudTop = 0.0, quietTop = 0.0, loud = 0, quiet = 0
+        for (i, captured) in frames.enumerated() {
+            let dropped = i > frames.count * 3 / 4
+            let f = dropped ? captured.map { $0 * 0.35 } : captured
+            sim.advance(levels: zip(last, f).map { ($0 + $1) / 2 }, dt: 1.0 / 60)
+            sim.advance(levels: f, dt: 1.0 / 60)
+            last = f
+            let h = sim.sites.map(\.height)
+            defer { previous = h }
+            guard i > frames.count / 4 else { continue }      // let the baseline settle
+            if dropped {
+                quietTop += h.max() ?? 0; quiet += 1
+            } else {
+                loudTop += h.max() ?? 0; loud += 1
+                crowns += h.filter { $0 > 0.3 }.count
+                travel += zip(h, previous).map { abs($0 - $1) }.reduce(0, +)
+            }
+        }
+        let standing = Double(crowns) / Double(loud)
+        require(standing < 6.85,
+                "\(standing) crowns stand at once on real music — the rim breathes as one "
+                + "instead of each hit making its own move")
+        let perFrame = travel / Double(loud)
+        require(perFrame < 1.7,
+                "the lobes travel \(perFrame) per frame on real music — more than a follower "
+                + "that eases onto its target")
+        let calm = (quietTop / Double(quiet)) / (loudTop / Double(loud))
+        require(calm < 0.12,
+                "after the music drops to a third the lobes still stand \(calm) as tall — "
+                + "a quiet passage must stay calm under a loud one")
+    }
+
+    /// The ink must feel responsive: a hit brings the crown and the body to nine tenths
+    /// of their peak within seven frames, about 115 ms, or the motion reads as sluggish
+    /// however smooth it is (Laks, 2026-10-28, of a follower that took 130 ms to peak on
+    /// real music and held a big hit for 230 ms). Measured from the frame the hit lands,
+    /// on one strong bass hit out of a steady floor, the slowest case.
+    @MainActor
+    private static func aHitPeaksQuickly() {
+        let sim = FerrofluidSim()
+        let floor = [Float](repeating: 0.2, count: 12)
+        for _ in 0..<180 { sim.advance(levels: floor, dt: 1.0 / 60) }
+        var hit = floor
+        hit[0] = 0.9; hit[1] = 0.8
+        var crown: [Double] = [], body: [Double] = []
+        for frame in 0..<30 {
+            sim.advance(levels: frame < 3 ? hit : floor, dt: 1.0 / 60)
+            crown.append(sim.sites.map(\.height).max() ?? 0)
+            body.append(sim.swell)
+        }
+        // Ninety percent of the peak, not the peak: a critically damped follower spends
+        // its last few percent easing in, which reads as settling, not as lag.
+        func arrival(_ trace: [Double]) -> Int {
+            let top = trace.max() ?? 0
+            return (trace.firstIndex { $0 >= 0.9 * top } ?? trace.count) + 1
+        }
+        require((crown.max() ?? 0) > 0.2, "a bass hit raised no crown (\(crown.max() ?? 0))")
+        require(arrival(crown) <= 7,
+                "the crown took \(arrival(crown)) frames to arrive after the hit — sluggish")
+        // The body's held charge decays while it travels, so a slower heave also peaks
+        // lower and arrives at nine tenths just as soon; how far it gets in the first
+        // 50 ms is what tells the two apart (0.71 of its peak here, 0.53 at 20 rad/s).
+        let early = body[2] / max(1e-9, body.max() ?? 0)
+        require(early >= 0.65,
+                "the body reached only \(early) of its heave in 50 ms — sluggish")
+    }
+
+    /// The light is what flashes: the rim halo and the card's bloom. WCAG 2.3.1 allows
+    /// at most three flashes a second, and a drum roll is far faster than that, so a
+    /// new flash may start only `flashGap` after the last one began; under Dim Flashing
+    /// Lights only once a second, at a third of the strength. The ink itself still
+    /// answers every hit. Counted on a 12 Hz roll of full-band hits.
+    @MainActor
+    private static func flashesStayUnderTheCeiling() {
+        func flashes(dim: Bool) -> (starts: [Int], brightest: Double, inkMoves: Int) {
+            let sim = FerrofluidSim()
+            sim.dimFlashingLights = dim
+            let floor = [Float](repeating: 0.2, count: 12)
+            for _ in 0..<180 { sim.advance(levels: floor, dt: 1.0 / 60) }
+            var starts: [Int] = [], brightest = 0.0, inkMoves = 0
+            var lastLight = sim.light, lastImpact = sim.impact
+            for frame in 0..<(60 * 4) {
+                var levels = floor
+                if frame % 5 == 0 { for i in levels.indices { levels[i] = i % 2 == 0 ? 0.9 : 0.6 } }
+                sim.advance(levels: levels, dt: 1.0 / 60)
+                // A start is a rise of more than a tenth: the first 50 ms of a flash may
+                // climb over two or three frames, and those are one flash.
+                if sim.light > lastLight + 0.1, starts.last.map({ frame - $0 > 3 }) ?? true {
+                    starts.append(frame)
+                }
+                if sim.impact > lastImpact + 0.05 { inkMoves += 1 }
+                brightest = max(brightest, sim.light)
+                lastLight = sim.light
+                lastImpact = sim.impact
+            }
+            return (starts, brightest, inkMoves)
+        }
+        func shortestGap(_ starts: [Int]) -> Int {
+            zip(starts, starts.dropFirst()).map { $1 - $0 }.min() ?? Int.max
+        }
+        let plain = flashes(dim: false)
+        require(plain.starts.count >= 6,
+                "a 12 Hz roll lit only \(plain.starts.count) flashes in 4 s — the light stopped answering")
+        require(shortestGap(plain.starts) >= 20,
+                "two flashes started \(shortestGap(plain.starts)) frames apart, over three a second")
+        require(plain.inkMoves > plain.starts.count * 2,
+                "\(plain.inkMoves) hits for \(plain.starts.count) flashes — the ceiling must hold the light, not the hits")
+        let dim = flashes(dim: true)
+        require(shortestGap(dim.starts) >= 60,
+                "under Dim Flashing Lights two flashes started \(shortestGap(dim.starts)) frames apart")
+        require(dim.brightest <= 0.36,
+                "under Dim Flashing Lights a flash reached \(dim.brightest)")
     }
 
     /// Coming back from a pause must not hit the fluid harder than the music
@@ -494,10 +714,11 @@ enum FluidCheck {
         require(music.count > 200, "the capture has only \(music.count) frames")
         let silence = [Float](repeating: 0, count: 12)
 
-        // Site height rises with a 1/24 s time constant, so twelve frames at 60 Hz
-        // is several of them: past that the surface answers the music, not the
-        // resume.
-        let window = 12
+        // Site height rises at 32 rad/s, so eight frames at 60 Hz is over four time
+        // constants: past that the surface answers the music, not the resume. Twelve
+        // reached the capture's own drum at frame 11, which moves the ink as much on a
+        // cold start.
+        let window = 8
         let sim = FerrofluidSim()
         var musicSwell = 0.0, musicMove = 0.0
         var resumeSwell = 0.0, resumeMove = 0.0
@@ -568,23 +789,23 @@ enum FluidCheck {
         sim.advance(levels: silence, dt: 1.0 / 60)
         sim.surge(1.0)
 
-        var previous = FerrofluidSim.glowAlpha(impact: sim.impact, openness: 1)
+        var previous = FerrofluidSim.glowAlpha(light: sim.light, openness: 1)
         var worst = 0.0
         for _ in 0..<240 {
             sim.advance(levels: silence, dt: 1.0 / 60)
-            let now = FerrofluidSim.glowAlpha(impact: sim.impact, openness: 1)
+            let now = FerrofluidSim.glowAlpha(light: sim.light, openness: 1)
             worst = max(worst, abs(now - previous))
             previous = now
         }
         require(worst < 0.05,
                 "the halo steps \(worst) in one frame — it is switching, not fading")
 
-        require(FerrofluidSim.glowAlpha(impact: FerrofluidSim.glowGate, openness: 1) == 0,
+        require(FerrofluidSim.glowAlpha(light: FerrofluidSim.glowGate, openness: 1) == 0,
                 "the halo has brightness left at the gate, so it still cuts off")
         // The tuned peak is untouched: the ease only reshapes the bottom.
-        require(abs(FerrofluidSim.glowAlpha(impact: 1, openness: 1) - 0.72) < 1e-9,
+        require(abs(FerrofluidSim.glowAlpha(light: 1, openness: 1) - 0.72) < 1e-9,
                 "the ease moved the halo's peak")
-        require(FerrofluidSim.glowAlpha(impact: 1, openness: 0) == 0,
+        require(FerrofluidSim.glowAlpha(light: 1, openness: 0) == 0,
                 "the halo survives a retracted panel")
     }
 
@@ -781,6 +1002,15 @@ enum FluidCheck {
             i = previous
         }
         return name.isEmpty ? nil : name
+    }
+
+    /// A repeatable stand-in for the lobes' random offsets, so a check replays exactly.
+    private static func seeded(_ start: UInt64) -> (ClosedRange<Double>) -> Double {
+        var state = start
+        return { range in
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return range.lowerBound + (range.upperBound - range.lowerBound) * Double(state >> 11) / Double(1 << 53)
+        }
     }
 
     private static func require(_ ok: @autoclosure () -> Bool, _ message: String) {

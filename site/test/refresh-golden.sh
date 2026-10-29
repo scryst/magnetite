@@ -26,7 +26,7 @@ swiftc -O -parse-as-library site/test/portprobe.swift \
 # list while its golden existed, so that file was hand-made once and nothing
 # here would ever have noticed it going stale — a golden outside this loop is a
 # gate that quietly stops tracking the app.
-for mode in sim sim-held surge-forward surge-back open pointer geom; do
+for mode in sim sim-held sim-drop sim-resume surge-forward surge-back open pointer geom; do
   .build/checks/portprobe "$mode" > "site/test/golden/$mode.txt"
   echo "  $mode -> $(wc -l < "site/test/golden/$mode.txt" | tr -d ' ') lines"
 done

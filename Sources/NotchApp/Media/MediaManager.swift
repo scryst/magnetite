@@ -641,12 +641,24 @@ final class MediaManager {
         lyricsSettled = false
         let id = key
         lyricsTask = Task { @MainActor [weak self] in
-            let answer = await LyricsSource.lyrics(title: snap.title, artist: snap.artist,
-                                                   album: snap.album, duration: snap.duration)
-            guard let self, !Task.isCancelled, self.lyricsIdentity == id else { return }
-            if case .synced(let found) = answer { self.lyrics = found }
-            self.lyricsHold?.cancel()
-            if !self.lyricsSettled { self.lyricsSettled = true }
+            var attempt = 0
+            while true {
+                let answer = await LyricsSource.lyrics(title: snap.title, artist: snap.artist,
+                                                       album: snap.album, duration: snap.duration)
+                guard let self, !Task.isCancelled, self.lyricsIdentity == id else { return }
+                if case .synced(let found) = answer { self.lyrics = found }
+                if answer != nil || attempt == 0 {
+                    self.lyricsHold?.cancel()
+                    if !self.lyricsSettled { self.lyricsSettled = true }
+                }
+                // A failed question is asked again while the song plays. Waiting for its
+                // next play left a song LRCLIB was still fetching upstream (a timeout on
+                // its first request) without lyrics until the setting was toggled.
+                attempt += 1
+                guard answer == nil, let delay = Self.lyricsRetryDelay(attempt: attempt)
+                else { return }
+                try? await Task.sleep(for: .seconds(delay))
+            }
         }
         lyricsHold = Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.lyricsPatience)
@@ -889,6 +901,18 @@ final class MediaManager {
         switch attempt {
         case 1: 3
         case 2: 9
+        default: nil
+        }
+    }
+
+    /// Seconds before a failed lyrics lookup is asked again, or nil to stop. Widening,
+    /// since LRCLIB answers a song it has to fetch upstream only after a while, and
+    /// bounded so an offline Mac does not ask for as long as the track plays.
+    static func lyricsRetryDelay(attempt: Int) -> TimeInterval? {
+        switch attempt {
+        case 1: 5
+        case 2: 15
+        case 3: 40
         default: nil
         }
     }

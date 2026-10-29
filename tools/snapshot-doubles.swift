@@ -99,17 +99,19 @@ final class FerrofluidSim {
              fan: Double((i * 7) % 13) / 13 * 2 - 1,
              height: Double(i % 5) / 4, field: 0.7, isUp: true)
     }
+    var frame = 0
     var isSettled = true
     var hasSound = false
     var swell: Double = 0.7
     var raised: Double = 0.2
     var impact: Double = 0
+    var light: Double = 0
     var inkOpen: Double = 1
     var pointerRim: Double = 0.5
     var pointerPull: Double = 0
     var flowPhase: Double = 0
     var brightness: Double = 0.7
-    static func glowAlpha(impact: Double, openness: Double) -> Double { 0 }
+    static func glowAlpha(light: Double, openness: Double) -> Double { 0 }
     func setPointer(rim: Double?, strength: Double = 1) {}
     func surge(_ strength: Double, direction: Double = 0) {}
 }

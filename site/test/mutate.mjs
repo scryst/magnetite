@@ -30,8 +30,9 @@ const POINTER = 'theSwellTrailsTheCursor';
 const FIELD_NOTES = 'theFooterFormulaStaysAQuietMark';
 const OUTLINE = 'theOutlineIsTheShippingOutline';
 const NORMAL = 'theSurfaceNormalTurnsWithTheSurface';
-const HYSTERESIS = 'aPeakHoldsBelowTheFieldThatRaisedIt';
-const CROWN = 'theCrownIsCapped';
+const HYSTERESIS = 'aPeakStandsOnTheHitAndDrainsWithoutRinging';
+const CROWN = 'aFullMixHitRaisesNoWall';
+const FLASH = 'theLightFlashesNoMoreThanThreeTimesASecond';
 const HALO = 'theHaloEasesRatherThanSwitching';
 const AUDIO = 'theCapturedAudioIsTheAppsOwn';
 
@@ -45,6 +46,8 @@ const STILL = 'theStillIsAFrameOfTheFluid';
 const STILLFILM = 'theStillIsAFrameOfTheFilm';
 const EXPONENTIAL = 'theDriveIsTheExponentialItClaims';
 const HELD = 'theReplayIsSteppedLikeTheApp';
+const DROP = 'theBeatAfterADropMatches';
+const RESUME = 'theMusicComingBackIsNotAHit';
 const CLOCKED = 'theReplayClockIsTheAppsClock';
 const RATE = 'theCaptureIsReplayedAtItsOwnRate';
 const PIGMENT = 'theInkIsOneInkAndThePaperOnePaper';
@@ -95,8 +98,7 @@ const DELEGATE = 'Sources/NotchApp/App/AppDelegate.swift';
 const CONTOUR = 'theMarkIsTheIconsOwnContour';
 const CAMERAS = 'eachCameraIsPaintedWithTheFluidItIsAimedAt';
 const SCALED = 'theCameraIsResizedIntoItsNewScale';
-const LEVELS_SWIFT = 'Sources/NotchApp/Audio/AudioLevels.swift';
-const VIEW_SWIFT = 'Sources/NotchApp/UI/FerrofluidView.swift';
+const LINK_SWIFT = 'Sources/NotchApp/Audio/FerrofluidSim.swift';
 const BANDS_JS = 'site/js/bands.js';
 const BANDS_WORKLET = 'site/js/bands-worklet.js';
 const BAND_PORT = 'thePortAgreesWithTheTap';
@@ -163,14 +165,14 @@ const MUTANTS = {
     from: 'const CAPTURE_HZ = 60;',
     to: 'const CAPTURE_HZ = 30;',
   },
-  // The same 2x from the other end: the app's pump retimed and the site left
-  // where it was. The rate is a fact about the app, so the check has to fail
-  // when the APP moves, not only when the page does.
-  'the-app-republishes-half-as-often': {
+  // The same 2x from the other end: the app's display link retimed and the
+  // site left where it was. The rate is a fact about the app, so the check has
+  // to fail when the APP moves, not only when the page does.
+  'the-app-reads-half-as-often': {
     check: RATE,
-    file: LEVELS_SWIFT,
-    from: 'try? await Task.sleep(for: .milliseconds(16))',
-    to: 'try? await Task.sleep(for: .milliseconds(33))',
+    file: LINK_SWIFT,
+    from: 'CAFrameRateRange(minimum: 60, maximum: 60, preferred: 60)',
+    to: 'CAFrameRateRange(minimum: 30, maximum: 30, preferred: 30)',
   },
   // A step rate that is not the app's render clock. `SIM_HZ` is a multiple of
   // `CAPTURE_HZ` here, so the arithmetic still works and every frame still gets
@@ -447,24 +449,21 @@ const MUTANTS = {
     from: '  for (let i = 0; i < drive.length; i++) drive[i] += (target[i] - drive[i]) * k;',
     to: '  for (let i = 0; i < drive.length; i++) drive[i] += (target[i] - drive[i]) * k * 1.5;',
   },
-  // The drive reads loudness again — the original defect, which left 16 of 17
+  // The onset reads loudness again: the original defect, which left 16 of 17
   // peaks standing permanently on a surface that had become a static wall.
-  'drive-reads-level': {
+  'onset-reads-level': {
     check: CROWN,
     file: SIM,
-    from: '      result[i] = Math.max(0, delta) / Math.max(0.035, this.spread[i] * 1.6);',
-    to: '      result[i] = value;',
+    from: '      const rise = Math.max(0, f32(levels[i] - Math.min(this.previousLevels[i], this.olderLevels[i])));',
+    to: '      const rise = levels[i];',
   },
-  // The critical field raised past the held check's level-reading drive
-  // (0.8 * 0.5 = 0.40). Above that, `drive-reads-level` stands no peaks and
-  // the held-loudness count passes against the very defect it names. In a full
-  // run the hysteresis pair above kills this first; solo is where the crown
-  // check has to hold its own premise, and does, by the margin's name.
-  'critical-field-above-the-held-drive': {
+  // What every band hit together is no longer taken off each one, so a
+  // full-mix crash raises all seventeen peaks as one wall.
+  'common-hit-not-subtracted': {
     check: CROWN,
     file: SIM,
-    from: 'const CRITICAL_FIELD = 0.36;',
-    to: 'const CRITICAL_FIELD = 0.41;',
+    from: 'Math.max(0, this.kick[band] - 1.3 * common)',
+    to: 'this.kick[band]',
   },
   // Band levels carried at double width. This is the one the build spec could
   // never have caught, because it is invisible without the real Swift to
@@ -487,21 +486,21 @@ const MUTANTS = {
   'swell-gain-drift': {
     check: REPLAY,
     file: SIM,
-    from: 'const SWELL_BLOW = 22.0;',
-    to: 'const SWELL_BLOW = 22.4;',
+    from: 'const SWELL_BLOW = 0.5;',
+    to: 'const SWELL_BLOW = 0.51;',
   },
   // The body's spring a little stiffer, and the spike's a little softer.
   'swell-spring-drift': {
     check: REPLAY,
     file: SIM,
-    from: 'const omega = this.quietFor > 0 ? 20.0 : 15.0;',
-    to: 'const omega = this.quietFor > 0 ? 20.0 : 15.3;',
+    from: 'const omega = target > this.swell ? 30.0 : 18.0;',
+    to: 'const omega = target > this.swell ? 30.0 : 18.3;',
   },
   'spike-spring-drift': {
     check: REPLAY,
     file: SIM,
-    from: 'const omega = rising ? 52.0 :',
-    to: 'const omega = rising ? 51.0 :',
+    from: 'const omega = target > site.height ? 80.0 * weight : 20.0 * weight;',
+    to: 'const omega = target > site.height ? 79.0 * weight : 20.0 * weight;',
   },
   // An onset measured against one frame back again: a hit that straddles two
   // 16ms frames has each half fall under the bar.
@@ -515,16 +514,24 @@ const MUTANTS = {
   'pool-gain-drift': {
     check: REPLAY,
     file: SIM,
-    from: '    this.pool += (Math.min(1, bass * 0.3) - this.pool) * Math.min(1, poolRate * dt);',
-    to: '    this.pool += (Math.min(1, bass * 0.31) - this.pool) * Math.min(1, poolRate * dt);',
+    from: '    this.pool += (Math.min(1, bass * 0.03) - this.pool) * Math.min(1, poolRate * dt);',
+    to: '    this.pool += (Math.min(1, bass * 0.031) - this.pool) * Math.min(1, poolRate * dt);',
   },
   // How many swings a rise must clear to count as a hit. A copy that let
   // slightly smaller rises through would kick between the beats again.
   'onset-floor-drift': {
     check: REPLAY,
     file: SIM,
-    from: 'const ONSET_FLOOR = 0.9;',
-    to: 'const ONSET_FLOOR = 0.85;',
+    from: 'const ONSET_FLOOR = 1.1;',
+    to: 'const ONSET_FLOOR = 1.05;',
+  },
+  // The second onset yardstick dropped: the beat after a drop stays flat on the
+  // page while the app strikes on it. Only the drop golden can see this.
+  'flux-onset-dropped': {
+    check: DROP,
+    file: SIM,
+    from: 'rise / Math.max(0.02, this.flux[i] * FLUX_ONSET_SCALE));',
+    to: '0);',
   },
   // The drift the sites follow between hits, at a slightly different pace.
   'drift-rate-drift': {
@@ -538,8 +545,8 @@ const MUTANTS = {
   'surge-not-mirrored': {
     check: SKIP,
     file: SIM,
-    from: '      const w = direction > 0 ? (0.45 + 0.55 * t) : (1 - 0.55 * t);',
-    to: '      const w = 1;',
+    from: '      return direction > 0 ? (0.3 + 0.7 * t) : (1 - 0.7 * t);',
+    to: '      return 1;',
   },
   // The ink fills and drains at one rate, so it neither trails the opening
   // shell nor beats the closing one home.
@@ -558,41 +565,189 @@ const MUTANTS = {
     from: '    this.pointerRim += (this.pointerRimTarget - this.pointerRim) * Math.min(1, 5.0 * dt);',
     to: '    this.pointerRim = this.pointerRimTarget;',
   },
-  // The hysteresis pair collapsed to one value: peaks chatter on every band
-  // sitting near threshold.
-  'no-hysteresis': {
+  // The lobe's damping loosened, so the height shoots past its charge and rings
+  // on the way home instead of flowing: the follower is meant to be critically
+  // damped, and an underdamped one turns back up after it has begun to fall.
+  'the-lobe-rings': {
     check: HYSTERESIS,
     file: SIM,
-    from: 'const COLLAPSE_FIELD = 0.16;',
-    to: 'const COLLAPSE_FIELD = 0.36;',
+    from: '      let h = target + (c1 + c2 * dt) * decay;\n      v = (c2 - omega * (c1 + c2 * dt)) * decay;',
+    to: '      v += (omega * omega * (target - site.height) - 1.2 * omega * v) * dt;\n      let h = site.height + v * dt; void c1, c2, decay;',
   },
-  // The OTHER half of the pair, which had no mutant at all and needed none to
-  // survive: `CRITICAL_FIELD` could be moved anywhere on [0.26, 0.42] with all
-  // thirty-nine checks and every run in this harness green. Both directions are
-  // mutated because the straddled pair that now holds it is two assertions —
-  // one that nothing stands below the threshold, one that something stands
-  // above it — and a single mutant would leave whichever it missed unwatched.
-  // The values are just outside the band the check now permits, [0.3432,
-  // 0.3752): far enough to be unambiguous, near enough that they would both
-  // have passed before.
-  'the-surface-breaks-at-a-smaller-field-than-the-page-is-built-on': {
+  // The standing line moved either way. Both directions are mutated because the
+  // straddled pair that holds it is two assertions, one that nothing stands
+  // under the line and one that something stands over it, and a single mutant
+  // would leave whichever it missed unwatched. The values are just outside the
+  // band the pair permits, 0.073 to 0.087.
+  'the-standing-line-moves-down': {
     check: HYSTERESIS,
     file: SIM,
-    from: 'const CRITICAL_FIELD = 0.36;',
-    to: 'const CRITICAL_FIELD = 0.32;',
+    from: 'export const STANDING_HEIGHT = 0.08;',
+    to: 'export const STANDING_HEIGHT = 0.07;',
   },
-  'the-surface-needs-a-bigger-field-than-the-page-is-built-on': {
+  'the-standing-line-moves-up': {
     check: HYSTERESIS,
     file: SIM,
-    from: 'const CRITICAL_FIELD = 0.36;',
-    to: 'const CRITICAL_FIELD = 0.40;',
+    from: 'export const STANDING_HEIGHT = 0.08;',
+    to: 'export const STANDING_HEIGHT = 0.09;',
   },
-  // No cap on the crown, so every band near threshold stands at once.
-  'crown-uncapped': {
-    check: CROWN,
+  // A hit no longer holds: the charge follows the newest hit alone, with no
+  // decay of its own to keep the lobe up, so the peak is a blip.
+  'the-charge-holds-no-time': {
+    check: REPLAY,
     file: SIM,
-    from: '    const allowed = 2 + Math.round(Math.min(1, energy) * 7);',
-    to: '    const allowed = SITE_COUNT;',
+    from: 'site.field = Math.max(site.field * Math.exp(-dt / tau), 1.2 * gated);',
+    to: 'site.field = 1.2 * gated;',
+  },
+  // A hit that never drains: the lobe's charge decays a hundred times slower.
+  'the-charge-never-drains': {
+    check: HYSTERESIS,
+    file: SIM,
+    from: 'site.field = Math.max(site.field * Math.exp(-dt / tau), 1.2 * gated);',
+    to: 'site.field = Math.max(site.field * Math.exp(-dt / (tau * 100)), 1.2 * gated);',
+  },
+  // Treble answers and drains exactly like bass, so the whole crown breathes as
+  // one object.
+  'treble-weighs-what-bass-does': {
+    check: REPLAY,
+    file: SIM,
+    from: '      const weight = 0.8 + 0.4 * bandT;',
+    to: '      const weight = 1;',
+  },
+  'site-blow-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const SITE_BLOW = 12.0;',
+    to: 'const SITE_BLOW = 12.2;',
+  },
+  // Small hits charge the lobes again: the gate under which a hit raises
+  // nothing moved down a hair.
+  'site-gate-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const SITE_GATE = 0.35;',
+    to: 'const SITE_GATE = 0.34;',
+  },
+  // One more lobe may always stand, so the rim breathes more as one.
+  'standing-budget-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const FEWEST_STANDING = 2;',
+    to: 'const FEWEST_STANDING = 3;',
+  },
+  // A quiet passage scaled down less steeply under a loud one.
+  'loud-curve-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const LOUD_CURVE = 6.0;',
+    to: 'const LOUD_CURVE = 5.5;',
+  },
+  // The budget read from the slow drift rather than this frame's deviation:
+  // the Swift hands updateSites `dev`, and a port that passed `drift` (as this
+  // one did while updateSites ignored it) opens the budget late on every hit.
+  'budget-reads-the-drift': {
+    check: REPLAY,
+    file: SIM,
+    from: '    this.updateSites(levels, dev, dt);',
+    to: '    this.updateSites(levels, this.drift, dt);',
+  },
+  // A track change that leaves the budget shut, so two lobes stand on the side
+  // it leans to instead of the whole side.
+  'surge-leaves-the-budget-shut': {
+    check: SKIP,
+    file: SIM,
+    from: '    this.surgeOpen = Math.max(this.surgeOpen, strength);',
+    to: '    void this.surgeOpen;',
+  },
+  // The surge's kick leaned like its charge, which lets the end bands' random
+  // spread decide the crown.
+  'surge-kick-leans': {
+    check: SKIP,
+    file: SIM,
+    from: '      this.kick[i] = Math.max(this.kick[i], strength);',
+    to: '      this.kick[i] = Math.max(this.kick[i], strength * weight(i));',
+  },
+  // The swell's held charge lingers longer than the Swift's. (Dropping the hold
+  // outright is not a mutant: the kick it follows decays at nearly the same rate,
+  // so that edit changes nothing the sim can show. The hold's own time constant
+  // is what the golden sees.)
+  'the-swell-charge-lingers': {
+    check: REPLAY,
+    file: SIM,
+    from: 'const chargeTau = 0.08 / (this.quietFor > 0 ? 1.6 : 1);',
+    to: 'const chargeTau = 0.12 / (this.quietFor > 0 ? 1.6 : 1);',
+  },
+  // The onset's soft knee is a hard clamp again, so every drum is a full blow.
+  'onset-knee-hardened': {
+    check: REPLAY,
+    file: SIM,
+    from: 'wake * Math.pow(over / (over + ONSET_KNEE), 1.5)',
+    to: 'wake * Math.min(1, over)',
+  },
+  // A track change charges the kick but not the peaks, which the common-hit
+  // subtraction then reads as a whole-mix hit and cancels: no crown.
+  'surge-does-not-charge-the-peaks': {
+    check: SKIP,
+    file: SIM,
+    from: '      site.field = Math.max(site.field, 1.7 * strength * weight(site.band));',
+    to: '      void site;',
+  },
+  // A track change that moves the ink and lights nothing.
+  'surge-does-not-flash': {
+    check: SKIP,
+    file: SIM,
+    from: '    this.flash(strength);\n',
+    to: '',
+  },
+  // The flash ceiling gone: every hit lights the halo, up to a dozen times a
+  // second.
+  'flash-gap-dropped': {
+    check: FLASH,
+    file: SIM,
+    from: 'this.sinceFlash >= (this.dimFlashingLights ? 1 : FLASH_GAP) &&',
+    to: 'this.sinceFlash >= (this.dimFlashingLights ? 1 : 0) &&',
+  },
+  'flash-gap-drift': {
+    check: FLASH,
+    file: SIM,
+    from: 'export const FLASH_GAP = 1.0 / 3;',
+    to: 'export const FLASH_GAP = 1.0 / 4;',
+  },
+  // Dim Flashing Lights flashes as often as the plain light, and at full strength.
+  'dim-flashes-as-often': {
+    check: FLASH,
+    file: SIM,
+    from: 'this.sinceFlash >= (this.dimFlashingLights ? 1 : FLASH_GAP) &&',
+    to: 'this.sinceFlash >= FLASH_GAP &&',
+  },
+  'dim-flashes-at-full-strength': {
+    check: FLASH,
+    file: SIM,
+    from: 'const strength = hit * (this.dimFlashingLights ? 0.35 : 1);',
+    to: 'const strength = hit;',
+  },
+  // Coming back from a pause is an onset: the ramp that lets hits in over
+  // 150ms is dropped, so the analyser waking reads as a drum in every band.
+  'resuming-skips-the-ramp': {
+    check: RESUME,
+    file: SIM,
+    from: '    const wake = Math.min(1, this.reentry / 0.15);',
+    to: '    const wake = 1;',
+  },
+  // The rise yardstick keeps learning through silence, so its bar shrinks to
+  // nothing and the first frame back is a hit in every band.
+  'the-yardstick-learns-through-silence': {
+    check: RESUME,
+    file: SIM,
+    from: '      if (this.quietFor === 0) {',
+    to: '      if (true) {',
+  },
+  // A resume that keeps the memory the pause poisoned instead of re-seeding it.
+  'resuming-keeps-the-poisoned-memory': {
+    check: RESUME,
+    file: SIM,
+    from: '    this.previousLevels = levels.slice();\n    this.olderLevels = levels.slice();\n    this.baseline',
+    to: '    this.baseline',
   },
   // The halo switches at the gate instead of easing across it — the largest
   // per-frame change in the whole effect being the moment it turns off.
@@ -690,8 +845,8 @@ const MUTANTS = {
   'floor-stale-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 688 KB.',
-    to: '>Needs macOS 15 on Apple silicon. Free and open source, 688 KB.',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 741 KB.',
+    to: '>Needs macOS 15 on Apple silicon. Free and open source, 741 KB.',
   },
   // A download button that carries no floor at all. Only the count assertion
   // can see this one — every line still present is still correct.
@@ -705,8 +860,8 @@ const MUTANTS = {
   'floor-unstated-under-the-button': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 688 KB.',
-    to: '>Needs Apple silicon. Free and open source, 688 KB.',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 741 KB.',
+    to: '>Needs Apple silicon. Free and open source, 741 KB.',
   },
   // The machine dropped instead. The floor is still right, so only the rule
   // that the line names hardware at all can see it — without that rule the
@@ -714,8 +869,8 @@ const MUTANTS = {
   'floor-line-names-no-machine': {
     check: FLOOR,
     file: PAGE,
-    from: '>Needs macOS 26 on Apple silicon. Free and open source, 688 KB.',
-    to: '>Needs macOS 26. Free and open source, 688 KB.',
+    from: '>Needs macOS 26 on Apple silicon. Free and open source, 741 KB.',
+    to: '>Needs macOS 26. Free and open source, 741 KB.',
   },
   // The notch stops being a download button, and every per-button assertion
   // after it would go quiet against a page that still ships one.
@@ -758,7 +913,7 @@ const MUTANTS = {
     check: DOWNLOAD,
     file: PAGE,
     all: true,
-    from: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.8/Magnetite-0.1.8.zip',
+    from: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.9/Magnetite-0.1.9.zip',
     to: 'https://github.com/scryst/magnetite-releases/releases/download/v9.9.9/Magnetite-9.9.9.zip',
   },
   // The button falls back to the release page, which is a page to decode
@@ -766,8 +921,8 @@ const MUTANTS = {
   'download-link-reverts-to-release-page': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.8/Magnetite-0.1.8.zip"',
-    to: 'href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.8"',
+    from: 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.9/Magnetite-0.1.9.zip"',
+    to: 'href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.9"',
   },
   // The way to older versions and the checksum files goes missing.
   'all-versions-link-dropped': {
@@ -791,8 +946,8 @@ const MUTANTS = {
   'download-copy-reverts-to-release': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Download<span class="visually-hidden">, Magnetite v0.1.8 ZIP from GitHub</span>',
-    to: 'Release<span class="visually-hidden">, Magnetite v0.1.8 ZIP from GitHub</span>',
+    from: 'Download<span class="visually-hidden">, Magnetite v0.1.9 ZIP from GitHub</span>',
+    to: 'Release<span class="visually-hidden">, Magnetite v0.1.9 ZIP from GitHub</span>',
   },
   'structured-release-names-someone-else': {
     check: DOWNLOAD,
@@ -823,7 +978,7 @@ const MUTANTS = {
   'download-version-drift': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.8</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.9</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>0.2.0</string>',
   },
   // The same drift, in the one direction the check used to be blind to. The
@@ -834,14 +989,14 @@ const MUTANTS = {
   'download-version-bumped-into-a-substring': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.8</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.9</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>1.4</string>',
   },
   // The size under the button is left over from an older, smaller build.
   'download-size-stale': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Free and open source, 688 KB.',
+    from: 'Free and open source, 741 KB.',
     to: 'Free and open source, 210 KB.',
   },
   // Consistent, and false: a notch is not a requirement while ScreenMetrics
@@ -2877,12 +3032,27 @@ const MUTANTS = {
   'the-lowest-sine-lights-the-next-band': {
     check: BAND_SINES,
     file: 'site/test/golden/bands-band-00.txt',
-    from: '7 9.99998271e-01 9.12312806e-01',
-    to: '7 9.12312806e-01 9.99998271e-01',
+    from: '7 8.03596556e-01 7.63222098e-01',
+    to: '7 7.63222098e-01 8.03596556e-01',
+  },
+  // The analyser's window tilts down toward the treble, as music does. A tilt
+  // a little off slides every band but the first, and a window that starts at
+  // the wrong level moves all of them; either is whole percent against the dump.
+  'the-tilt-is-a-little-off': {
+    check: BAND_PORT,
+    file: BANDS_JS,
+    from: 'Math.fround(3.8)',
+    to: 'Math.fround(3.6)',
+  },
+  'the-window-starts-lower': {
+    check: BAND_PORT,
+    file: BANDS_JS,
+    from: 'const top = Math.fround(-3 - ',
+    to: 'const top = Math.fround(-6 - ',
   },
 };
 
-const ALL_CHECKS = [REPLAY, HELD, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, HAND, ...BAND_CHECKS];
+const ALL_CHECKS = [REPLAY, HELD, DROP, RESUME, CLOCKED, RATE, SIZE, SKIP, INK, POINTER, FIELD_NOTES, OUTLINE, NORMAL, HYSTERESIS, CROWN, FLASH, HALO, AUDIO, FLOOR, DOWNLOAD, CRAWLABLE, POLICIES, LOCAL_TYPE, FIRSTLAUNCH, LOOP, SOUNDTRACK, FILM, CREDIT, BORROWED, UNBROKEN, STILL, STILLFILM, EXPONENTIAL, PIGMENT, BLANK, TRANSPORT, PREFERENCE, SPENDS, CONTOUR, CAMERAS, SCALED, JOURNEY, HAND, ...BAND_CHECKS];
 
 /**
  * Every check portcheck runs is a check this harness has watched fail.
@@ -2963,15 +3133,11 @@ function fresh(work) {
   // check reads out of the recogniser.
   cpSync(join(repo, SWIPE_SWIFT), join(work, SWIPE_SWIFT));
   // The rate the capture was taken at is a fact about the APP, so the check
-  // that holds site.js to it reads the pump interval out of this file — and a
-  // mutant has to be able to move the app's end of that comparison, not only
-  // the page's.
-  mkdirSync(join(work, dirname(LEVELS_SWIFT)), { recursive: true });
-  cpSync(join(repo, LEVELS_SWIFT), join(work, LEVELS_SWIFT));
-  // Same reason, second constant: the site's step rate is checked against the
-  // app's TimelineView interval.
-  mkdirSync(join(work, dirname(VIEW_SWIFT)), { recursive: true });
-  cpSync(join(repo, VIEW_SWIFT), join(work, VIEW_SWIFT));
+  // that holds site.js to it reads the display link's rate out of this file —
+  // and a mutant has to be able to move the app's end of that comparison, not
+  // only the page's. The site's step rate is checked against the same link.
+  mkdirSync(join(work, dirname(LINK_SWIFT)), { recursive: true });
+  cpSync(join(repo, LINK_SWIFT), join(work, LINK_SWIFT));
   // The mark check reads the app's generated copy of the contour, and the one
   // line that decides whether the menu bar draws it.
   mkdirSync(join(work, dirname(MARK_SWIFT)), { recursive: true });

@@ -10,10 +10,10 @@ import SwiftUI
 /// inherits the prose's mistakes; a port verified against a dump from the
 /// shipping physics does not.
 ///
-/// The sim's state evolution is deterministic even though `seed` randomises
-/// `rim` and `fan`: `updateSites` reads only `band`, which is a pure function
-/// of the site index. `rim` and `fan` are read by the RENDERER, so the geometry
-/// mode below supplies them explicitly instead of seeding them.
+/// `seed` randomises `rim` and `fan`. `rim` is read only by the RENDERER, but a
+/// lobe's charge scales with its `fan`, so the sim modes below lead with the
+/// fans the run drew and the port is handed the same ones. The geometry mode
+/// supplies `rim` and `fan` explicitly instead of seeding them.
 @main
 enum PortProbe {
 
@@ -23,6 +23,8 @@ enum PortProbe {
         switch mode {
         case "sim": replay()
         case "sim-held": replayHeld()
+        case "sim-drop": drop()
+        case "sim-resume": resume()
         case "surge-forward": surge(direction: 1)
         case "surge-back": surge(direction: -1)
         case "open": openClose()
@@ -41,6 +43,13 @@ enum PortProbe {
 
     @MainActor
     private static func frame(_ sim: FerrofluidSim, _ index: Int) {
+        // A lobe's charge scales with its `fan`, which `seed` draws from the system RNG, so
+        // the dump leads with the fans this run drew and the port is handed the same ones.
+        // They are drawn once, on the first step, and never change, so printing them with
+        // frame 0 prints the ones every frame used.
+        if index == 0 {
+            print((["fan"] + sim.sites.map { f($0.fan) }).joined(separator: " "))
+        }
         var parts = [String(index), f(sim.swell), f(sim.raised), f(sim.impact),
                      f(sim.brightness), f(sim.flowPhase), f(sim.inkOpen),
                      f(sim.pointerPull), f(sim.pointerRim),
@@ -48,6 +57,7 @@ enum PortProbe {
         for site in sim.sites { parts.append(f(site.field)) }
         for site in sim.sites { parts.append(f(site.height)) }
         for site in sim.sites { parts.append(site.isUp ? "1" : "0") }
+        parts.append(f(sim.light))
         print(parts.joined(separator: " "))
     }
 
@@ -129,6 +139,48 @@ enum PortProbe {
         for (index, levels) in frames.enumerated() {
             sim.advance(levels: levels, dt: 1.0 / 60)
             frame(sim, index)
+        }
+    }
+
+    /// A beat that drops out and slams back, as in fluidcheck's
+    /// `kicksStillLandAfterADrop`: a bass wall pumping on each beat, two seconds
+    /// gone, then back. The captured audio has no such drop, so on it the two
+    /// onset yardsticks never disagree and a port missing one still matches.
+    @MainActor
+    private static func drop() {
+        let sim = FerrofluidSim()
+        var index = 0
+        for (seconds, bass) in [(6.0, Float(0.9)), (2.0, 0.02), (4.0, 0.9)] {
+            for _ in 0..<Int(seconds * 60) {
+                var levels = [Float](repeating: 0.35, count: 12)
+                let pumped: Float = index % 22 < 3 ? bass - 0.15 : bass
+                for band in 0..<3 { levels[band] = max(0, pumped) }
+                sim.advance(levels: levels, dt: 1.0 / 60)
+                frame(sim, index)
+                index += 1
+            }
+        }
+    }
+
+    /// The music, four seconds of silence, then the same music again waking over four steps, as in fluidcheck's
+    /// `resumingIsNotAnEvent`. Coming back from a pause is the one path through `reenter`
+    /// and the ramp that lets onsets in over 150 ms, and the capture never goes quiet
+    /// long enough to take it, so no other golden reaches either.
+    @MainActor
+    private static func resume() {
+        let sim = FerrofluidSim()
+        let music = Array(resampled().prefix(120))
+        let silence = [Float](repeating: 0, count: AudioTap.bandCount)
+        var index = 0
+        // The analyser wakes over the first callbacks back rather than arriving at full
+        // level, which is the rise the ramp exists to keep from reading as a drum.
+        let back = music.enumerated().map { pair in
+            pair.element.map { $0 * Float(min(4, pair.offset + 1)) / 4 }
+        }
+        for levels in music + [[Float]](repeating: silence, count: 240) + back {
+            sim.advance(levels: levels, dt: 1.0 / 60)
+            frame(sim, index)
+            index += 1
         }
     }
 

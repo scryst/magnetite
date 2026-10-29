@@ -25,6 +25,7 @@ enum MediaCheck {
         aParkedThreadReturnsExactlyOneSeat()
         aStalledPanelHoldsItsLastFrame()
         aPromisedCoverIsAskedForAgain()
+        aFailedLyricsLookupIsAskedAgain()
         aResumeStartsFromWhereItPaused()
         aPauseKeepsThePlayerOnScreen()
         aShortItemDoesNotFreezeThePanel()
@@ -671,11 +672,25 @@ enum MediaCheck {
                 "a cover that failed to download was never asked for again, so a "
                 + "single dropped request costs the track its artwork and its "
                 + "whole colour field")
+        isABoundedWideningRetry(MediaManager.artworkRetryDelay)
+    }
+
+    /// A lyrics lookup that could not be answered is asked again while the song
+    /// plays. LRCLIB times out on a song it is still fetching upstream, and a fresh
+    /// install showed no lyrics for it until the setting was toggled.
+    static func aFailedLyricsLookupIsAskedAgain() {
+        require(MediaManager.lyricsRetryDelay(attempt: 1) != nil,
+                "a lyrics lookup that timed out was never asked again, so the song "
+                + "shows none until its next play or a toggle of the setting")
+        isABoundedWideningRetry(MediaManager.lyricsRetryDelay)
+    }
+
+    static func isABoundedWideningRetry(_ rule: (Int) -> TimeInterval?) {
 
         // Bounded. Walk far past any plausible count rather than probing the one
         // attempt the rule happens to stop at.
         let attempts = 1...64
-        guard let last = attempts.last(where: { MediaManager.artworkRetryDelay(attempt: $0) != nil })
+        guard let last = attempts.last(where: { rule($0) != nil })
         else {
             require(false, "no attempt was allowed at all")
             return
@@ -692,7 +707,7 @@ enum MediaCheck {
         // runs out.
         var previous: TimeInterval = 0
         for attempt in 1...last {
-            guard let delay = MediaManager.artworkRetryDelay(attempt: attempt) else {
+            guard let delay = rule(attempt) else {
                 require(false, "the rule had nothing to say about attempt "
                         + "\(attempt) and then answered again at \(last), so a "
                         + "retry resumes after it has given up — a task kept "

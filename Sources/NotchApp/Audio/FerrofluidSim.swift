@@ -1,5 +1,6 @@
-import Foundation
+import AppKit
 import Observation
+import QuartzCore
 
 /// Ferrofluid physics, modelled on the Rosensweig (normal-field) instability.
 ///
@@ -22,7 +23,8 @@ final class FerrofluidSim {
         /// Small fixed jitter keeps the lobes from reading as a comb.
         let fan: Double
         var height: Double
-        /// How fast `height` is moving; the spike is a spring, so it can overshoot.
+        /// How fast `height` is moving. The follower is critically damped, so a lobe flows
+        /// out and drains home without overshoot.
         var velocity: Double = 0
         var field: Double
         var isUp: Bool
@@ -32,9 +34,18 @@ final class FerrofluidSim {
     /// Bass energy displaces the whole continuous reservoir.
     @ObservationIgnored private(set) var swell: Double = 0
     private var swellVelocity = 0.0
-    private var lastBassHit = 0.0
-    /// How hard a full kick throws the body, in swell per second.
-    static let swellBlow = 22.0
+    /// The body's charge from the last hit, held at the larger of its decay and the newest
+    /// hit, so the swell has a target to flow toward rather than a blow to absorb.
+    private var swellCharge = 0.0
+    // The loudest the music has been lately, and how near it is to that now.
+    private var loudMemory = 0.0
+    private var loudGain = 1.0
+    // A track change opens the lobe budget for a moment, so the whole side it leans to
+    // stands rather than whichever two lobes happen to rise first.
+    private var surgeOpen = 0.0
+    /// How far a full hit throws the body, and a band's lobe, as a share of full travel.
+    static let swellBlow = 0.5
+    static let siteBlow = 12.0
     /// Ink standing in peaks; the shared pool sinks by this amount.
     @ObservationIgnored private(set) var raised: Double = 0
 
@@ -44,6 +55,17 @@ final class FerrofluidSim {
     /// per-band transient, so it is an event measure that spikes and decays, never a
     /// level.
     @ObservationIgnored private(set) var impact: Double = 0
+
+    /// The hit as light: what the rim halo and the card's bloom show. `impact` may climb
+    /// on every drum; this starts a new flash only `flashGap` after the last one began,
+    /// so nothing it lights flashes more than three times a second (the WCAG 2.3.1
+    /// ceiling). Under Dim Flashing Lights it is once a second at a third of the strength.
+    /// A hit inside the gap still moves the ink; only the light skips it.
+    @ObservationIgnored private(set) var light: Double = 0
+    private var sinceFlash = Double.infinity
+    /// Mirrors the system's Dim Flashing Lights setting, kept current by the coordinator.
+    var dimFlashingLights = false
+    nonisolated static let flashGap = 1.0 / 3
 
     /// How open the ink is, which is not how open the shell is. Driving the ink
     /// straight from the shell's spring would make opening in silence move nothing,
@@ -56,11 +78,10 @@ final class FerrofluidSim {
     /// shell sooner.
     var reduceMotion = false
 
-    /// True while something is driving `advance`. `isSettled` is what pauses the
-    /// renderer, so clearing it without a clock leaves `TimelineView` redrawing a
-    /// picture that cannot change. Every writer that clears the gate must guarantee
-    /// this.
-    var isDriven: Bool { running != nil }
+    /// True while something is driving `advance`. The ink redraws only when a step
+    /// publishes, so clearing `isSettled` without a clock leaves it frozen mid-motion.
+    /// Every writer that clears the gate must guarantee this.
+    var isDriven: Bool { link != nil || fallback != nil }
 
     /// Clears the settled gate and guarantees something will recompute it.
     private func wake() {
@@ -92,10 +113,10 @@ final class FerrofluidSim {
     ///
     /// `nonisolated` because it is a pure function and the renderer needs it off the
     /// observation path.
-    nonisolated static func glowAlpha(impact: Double, openness: Double) -> Double {
-        let t = min(1, max(0, (impact - glowGate) / glowFade))
+    nonisolated static func glowAlpha(light: Double, openness: Double) -> Double {
+        let t = min(1, max(0, (light - glowGate) / glowFade))
         let ease = t * t * (3 - 2 * t)
-        return (0.10 + 0.62 * impact) * ease * min(1, max(0, openness))
+        return (0.10 + 0.62 * light) * ease * min(1, max(0, openness))
     }
     /// Phase for the colour field behind the ink, advanced only by audio. Integrating
     /// loudness means the field moves as far as the music moves it and stalls when it
@@ -113,10 +134,15 @@ final class FerrofluidSim {
     private(set) var isSettled = true
     /// True while there is sound. Gates the colour field's timeline.
     private(set) var hasSound = false
+    /// Bumped once per published step. The ink view reads it and so redraws exactly when
+    /// the picture changed; a timeline of its own at 1/60 s on a 120 Hz screen drew at
+    /// uneven 17 and 25 ms gaps and could show one step twice.
+    private(set) var frame = 0
 
     private func publishGates() {
+        frame &+= 1
         let e = Self.settledEpsilon
-        let settled = swell < e && abs(swellVelocity) < 0.02 && impact < e && pointerPull < e
+        let settled = swell < e && abs(swellVelocity) < 0.02 && impact < e && light < e && pointerPull < e
             && inkOpen == openTarget
             && !sites.contains { $0.height > 0.003 || abs($0.velocity) > 0.05 }
         if settled != isSettled { isSettled = settled }
@@ -134,20 +160,37 @@ final class FerrofluidSim {
     static let settledEpsilon = 0.004
 
     nonisolated static let siteCount = 17
-    /// Raised so fewer sites break at once: eight middling lobes read as a ripple,
-    /// three decisive ones as ferrofluid answering the music. Internal so fluidcheck
-    /// can hold its margins against the real value.
-    let criticalField = 0.36
-    private let collapseField = 0.16
+    /// A lobe at this height counts as standing, for the debug log and the checks.
+    static let standingHeight = 0.08
+    static let siteGate = 0.35
+    static let fewestStanding = 2
+    static let extraStanding = 7.0
+    static let loudMemorySeconds = 12.0
+    static let loudCurve = 6.0
 
 
-    private var running: Task<Void, Never>?
+    private var link: CADisplayLink?
+    /// Steps the ink where there is no screen to sync to, as in the headless checks.
+    private var fallback: Task<Void, Never>?
+    private var lastFrame: CFTimeInterval = 0
     private weak var audio: AudioLevels?
     private var previousLevels: [Float] = []
     /// The frame before `previousLevels`. A hit's rise straddles two 16 ms frames, so
     /// measured against one frame back each half can fall under the onset bar.
     private var olderLevels: [Float] = []
     private var kick: [Double] = []
+    /// Each band's typical one-frame rise over about a second: the second yardstick for
+    /// an onset, beside `spread`. `spread` is distance from a slow average, so a section
+    /// where the bass drops out and slams back in reads as one wide swing and lifts the
+    /// bar over every kick for seconds; the ink went flat on a drop. Rises alone only
+    /// count rises, so a level change between sections does not move this bar.
+    private var flux: [Double] = []
+    /// How many typical rises a rise must be to count, against `flux`.
+    static let fluxOnsetScale = 8.0
+    /// Seconds since the music came back from silence, capped at the ramp. The levels
+    /// climb from nothing over the first frames back, a rise in every band that is the
+    /// analyser waking rather than a drum, so onsets are let in over about 150 ms.
+    private var reentry = Double.infinity
     /// A surge that arrived before there was anything to apply it to.
     private var pendingSurge: (strength: Double, direction: Double)?
 
@@ -181,8 +224,11 @@ final class FerrofluidSim {
     private var spread: [Double] = []
     /// The spread `deviation` starts every band at, and returns to on re-entry.
     private static let initialSpread = 0.06
-    /// How many swings a rise must clear to count as an onset.
-    static let onsetFloor = 0.9
+    /// How many swings a rise must clear to count as an onset, and how far past that a
+    /// hit is half strength. The soft knee keeps a hit's size proportional to its rise,
+    /// where a hard clamp made every drum a full blow.
+    static let onsetFloor = 1.1
+    static let onsetKnee = 1.0
     /// `deviation` slowed to a drift: between hits the body follows how loud the music
     /// is, not every wobble in it.
     private var drift: [Double] = []
@@ -209,6 +255,7 @@ final class FerrofluidSim {
     /// track's swings are, a cold value moves the slam one frame later rather than
     /// removing it, and a stale spread only under-reacts briefly.
     private func reenter(_ levels: [Float]) {
+        reentry = 0
         previousLevels = levels
         olderLevels = levels
         baseline = levels.map(Double.init)
@@ -227,36 +274,60 @@ final class FerrofluidSim {
         runClock()
     }
 
-    /// The 16 ms tick. It runs without an audio consumer, so opening the idle panel
-    /// still moves the ink; the tap is the expensive part, not this. The loop ends
+    /// The 60 Hz tick. It runs without an audio consumer, so opening the idle panel
+    /// still moves the ink; the tap is the expensive part, not this. The clock ends
     /// itself once nothing feeds it and the fluid is at rest.
+    ///
+    /// Stepped on the display's refresh. A 16 ms sleep on the main actor ran at about
+    /// 56 Hz with gaps up to 24 ms, so against a 60 Hz screen some four frames a second
+    /// showed the ink unchanged and the next one jumped: a judder that read as a stiff,
+    /// late liquid. The levels are read in the same tick, so every step has the newest.
     private func runClock() {
-        guard running == nil else { return }
-
-        running = Task { @MainActor [weak self] in
+        guard !isDriven else { return }
+        lastFrame = 0
+        if let screen = NSScreen.screens.first {
+            let tick = DisplayTick { [weak self] link in self?.frame(link) }
+            let link = screen.displayLink(target: tick, selector: #selector(DisplayTick.fire(_:)))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 60, preferred: 60)
+            link.add(to: .main, forMode: .common)
+            self.link = link
+            return
+        }
+        fallback = Task { @MainActor [weak self] in
             var last = ContinuousClock.now
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(16))
                 guard let self, !Task.isCancelled else { return }
-
                 let now = ContinuousClock.now
                 let span = last.duration(to: now)
-                let dt = min(0.05, Double(span.components.seconds)
-                             + Double(span.components.attoseconds) / 1e18)
                 last = now
-                self.step(dt: dt)
-
-                if self.audio == nil, self.isSettled {
-                    self.running = nil
-                    return
-                }
+                self.tick(dt: min(0.05, Double(span.components.seconds)
+                                  + Double(span.components.attoseconds) / 1e18))
             }
         }
     }
 
+    private func frame(_ link: CADisplayLink) {
+        let dt = lastFrame == 0 ? 1.0 / 60 : min(0.05, link.timestamp - lastFrame)
+        lastFrame = link.timestamp
+        tick(dt: dt)
+    }
+
+    private func tick(dt: Double) {
+        audio?.pull()
+        step(dt: dt)
+        if audio == nil, isSettled { endClock() }
+    }
+
+    private func endClock() {
+        link?.invalidate()
+        link = nil
+        fallback?.cancel()
+        fallback = nil
+    }
+
     func stop() {
-        running?.cancel()
-        running = nil
+        endClock()
         brightness = 0
         flowPhase = 0
         impact = 0
@@ -266,12 +337,15 @@ final class FerrofluidSim {
         sites = []
         swell = 0
         swellVelocity = 0
-        lastBassHit = 0
+        swellCharge = 0
         raised = 0
         impact = 0
+        light = 0
+        sinceFlash = .infinity
         previousLevels = []
         olderLevels = []
         kick = []
+        flux = []
         quietFor = 0
         pendingSurge = nil
         inkOpen = openTarget
@@ -352,16 +426,20 @@ final class FerrofluidSim {
         updateFlow(levels: levels, dt: dt)
         updateImpact(dt: dt)
         publishGates()
-        updateSites(levels: levels, dev: drift, dt: dt)
+        updateSites(levels: levels, dev: dev, dt: dt)
     }
+
+    /// Where the lobes' small random offsets come from; a check replaces it to replay a
+    /// capture exactly.
+    var random: (ClosedRange<Double>) -> Double = { Double.random(in: $0) }
 
     private func seed(levels: [Float]) {
         sites = (0..<Self.siteCount).map { index in
             let position = (Double(index) + 0.5) / Double(Self.siteCount)
             let band = min(levels.count - 1, Int(position * Double(levels.count)))
-            return Site(rim: min(1, max(0, position + Double.random(in: -0.012...0.012))),
+            return Site(rim: min(1, max(0, position + random(-0.012...0.012))),
                         band: band,
-                        fan: Double.random(in: -0.38...0.38),
+                        fan: random(-0.38...0.38),
                         height: 0,
                         field: 0,
                         isUp: false)
@@ -369,7 +447,7 @@ final class FerrofluidSim {
         raised = 0
         swell = 0
         swellVelocity = 0
-        lastBassHit = 0
+        swellCharge = 0
     }
 
     /// Positive band rise gives the surface its immediate attack.
@@ -390,13 +468,26 @@ final class FerrofluidSim {
         // loud one both stay still between hits.
         // The kick is the strike itself and lasts a fraction of a beat; how long the ink
         // takes to recover is the surface's business, set by its own drain rates.
-        let decay = pow(0.002, dt)
+        let decay = pow(0.00002, dt)
+        reentry += dt
+        let wake = min(1, reentry / 0.15)
+        if flux.count != levels.count { flux = [Double](repeating: 0.02, count: levels.count) }
+        let fluxRate = min(1, dt / 1.2)
         for index in levels.indices {
             let rise = Double(max(0, levels[index] - min(previousLevels[index],
                                                          olderLevels[index])))
             let swing = index < spread.count ? spread[index] : Self.initialSpread
-            let onset = rise / max(0.03, swing * 1.6) - Self.onsetFloor
-            kick[index] = max(kick[index] * decay, min(1, max(0, onset)))
+            // Either yardstick may call it: `spread` keeps the hits it always caught, `flux`
+            // adds the ones a section change hid from it.
+            let ratio = max(rise / max(0.03, swing * 1.6),
+                            rise / max(0.02, flux[index] * Self.fluxOnsetScale))
+            let over = max(0, ratio - Self.onsetFloor)
+            // Silence has no rises, so learning through it would shrink the bar to nothing
+            // and the first frame back would read as a hit in every band.
+            if quietFor == 0 {
+                flux[index] += (Double(max(0, levels[index] - previousLevels[index])) - flux[index]) * fluxRate
+            }
+            kick[index] = max(kick[index] * decay, wake * pow(over / (over + Self.onsetKnee), 1.5))
         }
         olderLevels = previousLevels
         previousLevels = levels
@@ -447,12 +538,26 @@ final class FerrofluidSim {
                             direction != 0 ? direction : (pendingSurge?.direction ?? 0))
             return
         }
+        func weight(_ band: Int) -> Double {
+            let t = Double(band) / Double(max(1, kick.count - 1))
+            return direction > 0 ? (0.3 + 0.7 * t) : (1 - 0.7 * t)
+        }
+        // The kick is raised flat, for the body and the light: leaning it as well would
+        // let the end bands through the common-hit subtraction, and their random spread
+        // would decide the crown instead of the surge.
         for index in kick.indices {
-            let t = Double(index) / Double(max(1, kick.count - 1))
-            let w = direction > 0 ? (0.45 + 0.55 * t) : (1 - 0.55 * t)
-            kick[index] = max(kick[index], strength * w)
+            kick[index] = max(kick[index], strength)
+        }
+        // The peaks are charged directly: a surge lands in every band at once, which
+        // the common-hit subtraction in `updateSites` would read as a whole-mix hit and
+        // cancel, leaving a track change with no crown. A full surge stands a full lobe
+        // at the end it leans to, so the crown is the surge's and not the random spread's.
+        for index in sites.indices {
+            sites[index].field = max(sites[index].field, 1.7 * strength * weight(sites[index].band))
         }
         impact = max(impact, strength)
+        surgeOpen = max(surgeOpen, strength)
+        flash(strength)
         swell = max(swell, strength * 0.7)
         // Republish immediately: `advance` early-returns while `isSettled` is true, and
         // it is a stored value, so a surge into a settled fluid would be skipped by the
@@ -465,6 +570,23 @@ final class FerrofluidSim {
         // Fast up, slow down: a hit reads instantly and leaves an afterglow.
         impact = max(hit, impact * pow(0.06, dt))
         if impact < Self.settledEpsilon { impact = 0 }
+        sinceFlash += dt
+        light *= pow(0.06, dt)
+        flash(hit)
+        if light < Self.settledEpsilon { light = 0 }
+    }
+
+    /// Lights a hit if the flash ceiling allows it. A hit's rise straddles two or three
+    /// frames, so the first 50 ms of a flash may still climb; after that the light only
+    /// decays until the gap has passed.
+    private func flash(_ hit: Double) {
+        let strength = hit * (dimFlashingLights ? 0.35 : 1)
+        if sinceFlash < 0.05 {
+            light = max(light, strength)
+        } else if sinceFlash >= (dimFlashingLights ? 1 : Self.flashGap), strength > light + 0.1 {
+            light = strength
+            sinceFlash = 0
+        }
     }
 
 
@@ -484,17 +606,21 @@ final class FerrofluidSim {
         let bass = drift.prefix(count).reduce(0, +) / Double(count)
         // In silence it drains quickly, so the ink comes home and the renderer can stop.
         let poolRate = quietFor > 0 ? 4.0 : 0.8
-        pool += (min(1, bass * 0.3) - pool) * min(1, poolRate * dt)
-        let hit = kick.prefix(count).max() ?? 0
-        // A spring rather than a chase: the body rests on the pool, and a kick is a blow
-        // that throws it, so it moves in the frame the hit arrives, overshoots, and
-        // bounces home like a liquid instead of easing in and out like a meter. Only the
-        // rise of the kick strikes; its decay is the spring's business.
-        let blow = max(0, hit - lastBassHit)
-        lastBassHit = hit
-        swellVelocity += blow * Self.swellBlow
-        let omega = quietFor > 0 ? 20.0 : 15.0
-        swellVelocity += (omega * omega * (pool - swell) - 2 * 0.4 * omega * swellVelocity) * dt
+        pool += (min(1, bass * 0.03) - pool) * min(1, poolRate * dt)
+        // Any drum heaves the body, the low end hardest: a snare is a hit as much as a kick,
+        // and on many mixes the sub-bass is a flat floor with the beat living in the mids.
+        var hit = 0.0
+        for index in kick.indices {
+            let t = Double(index) / Double(max(1, kick.count - 1))
+            hit = max(hit, kick[index] * (1 - 0.9 * t))
+        }
+        // Critically damped toward the pool plus the held charge: the body flows out over
+        // about 90 ms and drains over about 400 ms, with no overshoot to ring.
+        let chargeTau = 0.08 / (quietFor > 0 ? 1.6 : 1)
+        swellCharge = max(swellCharge * exp(-dt / chargeTau), min(1.0, hit * Self.swellBlow * loudGain))
+        let target = pool + swellCharge
+        let omega = target > swell ? 30.0 : 18.0
+        swellVelocity += (omega * omega * (target - swell) - 2 * omega * swellVelocity) * dt
         swell = min(1.15, swell + swellVelocity * dt)
         if swell <= 0 { swell = 0; swellVelocity = max(0, swellVelocity) }
         if swell < 0.004, abs(swellVelocity) < 0.02 { swell = 0; swellVelocity = 0 }
@@ -502,65 +628,58 @@ final class FerrofluidSim {
 
     private func updateSites(levels: [Float], dev: [Double], dt: Double) {
         var standing = 0.0
-        let energy = dev.reduce(0, +) / Double(max(1, dev.count))
-        let allowed = 2 + Int((min(1, energy) * 7).rounded())
+        // What every band hit together, taken off each one, so a full-mix crash raises the
+        // bands that stood out of it rather than all seventeen as one wall.
+        let common = kick.reduce(0, +) / Double(max(1, kick.count))
+        // Quiet passages move less: hits are scaled by how near the music is to the loudest
+        // it has been over the last several seconds, so a verse stays calm under a chorus.
+        loudMemory = max(brightness, loudMemory * exp(-dt / Self.loudMemorySeconds))
+        loudGain = pow(min(1, brightness / max(0.02, loudMemory)), Self.loudCurve)
+        for index in sites.indices {
+            let band = min(levels.count - 1, sites[index].band)
+            let bandT = Double(band) / Double(max(1, levels.count - 1))
+            // The charge holds the larger of its own decay and the newest hit: bass holds a
+            // little longer than treble, and twice as briefly once the music has stopped.
+            // A hit under the gate charges nothing, so small hits leave the ink still; the
+            // gate is taken off the hit, not the charge, so a held lobe drains on its own
+            // curve.
+            let tau = (0.11 - 0.044 * bandT) / (quietFor > 0 ? 1.6 : 1)
+            let hit = max(0, kick[band] - 1.3 * common) * Self.siteBlow * (1 + sites[index].fan)
+            let gated = max(0, (min(1.2, hit * loudGain) - Self.siteGate) / (1.2 - Self.siteGate))
+            sites[index].field = max(sites[index].field * exp(-dt / tau), 1.2 * gated)
+        }
+        // Only a few lobes may stand at once, more as the music gets busier, so each hit is
+        // its own move rather than the whole rim breathing.
+        surgeOpen *= exp(-dt / 0.3)
+        let energy = max(surgeOpen, dev.reduce(0, +) / Double(max(1, dev.count)))
+        let allowed = Self.fewestStanding + Int((min(1, energy) * Self.extraStanding).rounded())
         let rank = sites.indices.sorted { sites[$0].field > sites[$1].field }
         var mayStand = [Bool](repeating: false, count: sites.count)
         for index in rank.prefix(allowed) { mayStand[index] = true }
-
         for index in sites.indices {
             let band = min(levels.count - 1, sites[index].band)
-            let raw = min(1, dev[band] * 0.22 + kick[band] * 1.4)
-
-            // Heaves on the hit, drains like something thick.
-            let fieldRate = raw > sites[index].field ? 60.0 : 6.0
-            sites[index].field += (raw - sites[index].field) * min(1, fieldRate * dt)
-            let field = sites[index].field
-
-            if sites[index].isUp {
-                if field < collapseField || !mayStand[index] {
-                    sites[index].isUp = false
-                }
-            } else if field > criticalField, mayStand[index] {
-                sites[index].isUp = true
-            }
-
-            let target: Double
-            if sites[index].isUp {
-                let excess = (field - collapseField) / (1 - collapseField)
-                // Power law rather than a floor plus a curve: a floor makes every standing peak
-                // start high and the crown a row of near-equal spikes (about 1.8:1). This spans
-                // roughly 0.14 to 1.0 (about 7:1) at the shipping `criticalField`, so a quiet
-                // band is a ripple and a hit is a spire. Onset is still a finite pop, so the
-                // hysteresis above holds. Both ratios depend on `criticalField`, and the same
-                // figures are restated in `FerrofluidView` and the site's JS port.
-                target = min(1, pow(max(0, excess), 1.35))
-            } else {
-                target = 0
-            }
-
-            // Bass is heavy and drains slowly, treble is light and snaps back; one rate
-            // would make the whole crown breathe as a single object.
             let bandT = Double(band) / Double(max(1, levels.count - 1))
-            // Twice as fast once the music has stopped, so the ink is home inside the
-            // settle budget rather than draining for four seconds of silence.
-            // A spring: the spike shoots up within a frame or two, overshoots, and rings
-            // down. A plain chase reached its mark and stopped dead, which read as stiff.
-            // The stiff spring holds until the spike turns over, so the momentum it gave
-            // is braked by the spring that made it; braked by the soft one, a spike told
-            // to fall kept climbing for 150 ms.
+            let target = mayStand[index] ? sites[index].field : 0
+            // The lobe follows its charge critically damped, out at about 80 rad/s and home
+            // at about 20: it is out in about 60 ms and drains over about 300 ms, never
+            // overshooting. The step is the exact solution for the frame, so it starts from
+            // rest without a jump and stays stable at any rate. Bass is heavy and treble
+            // light, so treble both answers and drains a little quicker; one rate would
+            // smooth every band into one breath, and a quick drain alone would leave the
+            // treble lower than the bass for the same hit.
             var v = sites[index].velocity
-            let rising = v > 0 || target > sites[index].height + 0.05
-            let omega = rising ? 52.0 : (7.0 + 13.0 * bandT) * (quietFor > 0 ? 1.6 : 1)
-            let zeta = rising ? 0.5 : 0.7
-            v += (omega * omega * (target - sites[index].height) - 2 * zeta * omega * v) * dt
-            var h = sites[index].height + v * dt
+            let weight = 0.8 + 0.4 * bandT
+            let omega = target > sites[index].height ? 80.0 * weight : 20.0 * weight
+            let c1 = sites[index].height - target, c2 = v + omega * c1, decay = exp(-omega * dt)
+            var h = target + (c1 + c2 * dt) * decay
+            v = (c2 - omega * (c1 + c2 * dt)) * decay
             if h <= 0 { h = 0; v = max(0, v) }
             if h > 1.25 { h = 1.25; v = min(0, v) }
             if h < 0.003, abs(v) < 0.05 { h = 0; v = 0 }
             sites[index].height = h
             sites[index].velocity = v
-            standing += sites[index].height
+            sites[index].isUp = h > Self.standingHeight
+            standing += h
         }
 
         // Surface tension shares ink between neighbouring peaks: first-order diffusion,
@@ -585,4 +704,13 @@ final class FerrofluidSim {
                        up, sites.count, meanField, swell).data(using: .utf8)!)
         }
     }
+}
+
+/// The display link's target. The link retains its target, so this holds the simulation
+/// weakly and the simulation ends the link with `invalidate`.
+@MainActor
+private final class DisplayTick: NSObject {
+    let body: (CADisplayLink) -> Void
+    init(_ body: @escaping (CADisplayLink) -> Void) { self.body = body }
+    @objc func fire(_ link: CADisplayLink) { body(link) }
 }

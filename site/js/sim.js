@@ -5,11 +5,12 @@
 // matched and two stale figures, which is the whole reason the port is verified
 // against the Swift rather than against prose.
 //
-// The physics is deterministic. `Site.rim` and `Site.fan` are seeded randomly
-// but are read only by the renderer — `updateSites` touches `band` and nothing
-// else — so the same levels and the same dt produce the same swell, impact,
-// field and height in both languages, and test/portcheck.mjs asserts exactly
-// that against a dump from the real Swift.
+// The physics is deterministic given the seed. `Site.rim` and `Site.fan` are
+// seeded randomly; `rim` is read only by the renderer, but a lobe's charge
+// scales with its `fan`. So the same levels, the same dt and the same fans
+// produce the same swell, impact, light, field and height in both languages,
+// and test/portcheck.mjs asserts exactly that against a dump from the real
+// Swift, which leads with the fans it drew.
 
 export const SITE_COUNT = 17;
 export const BAND_COUNT = 12;
@@ -18,16 +19,35 @@ export const SILENCE_LEVEL = 0.02;
 export const GLOW_GATE = 0.14;
 export const GLOW_FADE = 0.10;
 
-// Exported so portcheck can hold its held-loudness margin against the real
-// value instead of a copy of the number.
-export const CRITICAL_FIELD = 0.36;
-const COLLAPSE_FIELD = 0.16;
+// A lobe at this height counts as standing. Exported so portcheck can hold its
+// held-loudness margin against the real value instead of a copy of the number.
+export const STANDING_HEIGHT = 0.08;
 const INITIAL_SPREAD = 0.06;
-// How many swings a rise must clear to count as an onset.
-const ONSET_FLOOR = 0.9;
+// How many swings a rise must clear to count as an onset, and how far past that
+// a hit is half strength. The soft knee keeps a hit's size proportional to its
+// rise, where a hard clamp made every drum a full blow.
+const ONSET_FLOOR = 1.1;
+const ONSET_KNEE = 1.0;
+// How many typical rises a rise must be to count, against `flux`.
+const FLUX_ONSET_SCALE = 8.0;
 const REENTRY_AFTER = 0.35;
-// How hard a full kick throws the body, in swell per second.
-const SWELL_BLOW = 22.0;
+// How far a full hit throws the body, and a band's lobe, as a share of full travel.
+const SWELL_BLOW = 0.5;
+const SITE_BLOW = 12.0;
+// A hit under this share of full travel charges nothing, so small hits leave
+// the ink still.
+const SITE_GATE = 0.35;
+// How many lobes may stand at once: this many always, up to this many more as
+// the music gets busier.
+const FEWEST_STANDING = 2;
+const EXTRA_STANDING = 7.0;
+// How long the loudest recent moment is remembered, and how steeply a quieter
+// passage is scaled down against it.
+const LOUD_MEMORY_SECONDS = 12.0;
+const LOUD_CURVE = 6.0;
+// A new flash starts only this long after the last one began (the WCAG 2.3.1
+// ceiling of three a second).
+export const FLASH_GAP = 1.0 / 3;
 
 /**
  * The Swift carries band levels as `[Float]`, and three places do their
@@ -45,10 +65,10 @@ const SILENCE_F32 = f32(SILENCE_LEVEL);
 const STIR_F32 = f32(0.004);
 
 /** The halo's alpha, eased to nothing at the gate. Verbatim from the Swift. */
-export function glowAlpha(impact, openness) {
-  const t = Math.min(1, Math.max(0, (impact - GLOW_GATE) / GLOW_FADE));
+export function glowAlpha(light, openness) {
+  const t = Math.min(1, Math.max(0, (light - GLOW_GATE) / GLOW_FADE));
   const ease = t * t * (3 - 2 * t);
-  return (0.10 + 0.62 * impact) * ease * Math.min(1, Math.max(0, openness));
+  return (0.10 + 0.62 * light) * ease * Math.min(1, Math.max(0, openness));
 }
 
 /** Deterministic RNG so the harness can seed sites reproducibly. */
@@ -69,9 +89,26 @@ export class FerrofluidSim {
     this.sites = [];
     this.swell = 0;
     this.swellVelocity = 0;
-    this.lastBassHit = 0;
+    // The body's charge from the last hit, held at the larger of its decay and
+    // the newest hit, so the swell has a target to flow toward rather than a
+    // blow to absorb.
+    this.swellCharge = 0;
+    // The loudest the music has been lately, and how near it is to that now.
+    this.loudMemory = 0;
+    this.loudGain = 1;
+    // A track change opens the lobe budget for a moment, so the whole side it
+    // leans to stands rather than whichever two lobes happen to rise first.
+    this.surgeOpen = 0;
     this.raised = 0;
     this.impact = 0;
+    // The hit as light: what the halo shows. `impact` may climb on every drum;
+    // this starts a new flash only FLASH_GAP after the last one began. A hit
+    // inside the gap still moves the ink; only the light skips it.
+    this.light = 0;
+    this.sinceFlash = Infinity;
+    // The Swift mirrors the system's Dim Flashing Lights setting. The page has no
+    // such setting to read, so this stays false.
+    this.dimFlashingLights = false;
     this.inkOpen = 0;
     this.openTarget = 0;
     this.reduceMotion = false;
@@ -89,6 +126,15 @@ export class FerrofluidSim {
     // onset bar.
     this.olderLevels = [];
     this.kick = [];
+    // Each band's typical frame-to-frame rise: a second yardstick for an onset
+    // beside `spread`, which reads a section where the bass drops out and slams
+    // back in as one wide swing and lifts the bar over every kick for seconds.
+    this.flux = [];
+    // Seconds since the music came back from silence, capped at the ramp. The
+    // levels climb from nothing over the first frames back, a rise in every band
+    // that is the analyser waking rather than a drum, so onsets are let in over
+    // about 150ms.
+    this.reentry = Infinity;
     this.baseline = [];
     this.spread = [];
     // `deviation` slowed to a drift, and the bass pool the body rests on.
@@ -135,7 +181,8 @@ export class FerrofluidSim {
 
   publishGates() {
     const e = SETTLED_EPSILON;
-    const settled = this.swell < e && Math.abs(this.swellVelocity) < 0.02 && this.impact < e && this.pointerPull < e
+    const settled = this.swell < e && Math.abs(this.swellVelocity) < 0.02 && this.impact < e && this.light < e
+      && this.pointerPull < e
       && this.inkOpen === this.openTarget
       && !this.sites.some((s) => s.height > 0.003 || Math.abs(s.velocity) > 0.05);
     if (settled !== this.isSettled) this.isSettled = settled;
@@ -149,6 +196,7 @@ export class FerrofluidSim {
    * `spread` is deliberately NOT reset.
    */
   reenter(levels) {
+    this.reentry = 0;
     this.previousLevels = levels.slice();
     this.olderLevels = levels.slice();
     this.baseline = levels.map(Number);
@@ -196,7 +244,7 @@ export class FerrofluidSim {
     this.updateFlow(levels, dt);
     this.updateImpact(dt);
     this.publishGates();
-    this.updateSites(levels, this.drift, dt);
+    this.updateSites(levels, dev, dt);
   }
 
   seed(levels) {
@@ -218,7 +266,7 @@ export class FerrofluidSim {
     this.raised = 0;
     this.swell = 0;
     this.swellVelocity = 0;
-    this.lastBassHit = 0;
+    this.swellCharge = 0;
   }
 
   updateKick(levels, dt) {
@@ -234,14 +282,27 @@ export class FerrofluidSim {
     }
     // An onset is a rise wider than this band's own recent swing, so level
     // noise no longer kicks the surface between hits.
-    const decay = Math.pow(0.002, dt);
+    const decay = Math.pow(0.00002, dt);
+    this.reentry += dt;
+    const wake = Math.min(1, this.reentry / 0.15);
+    if (this.flux.length !== levels.length) this.flux = new Array(levels.length).fill(0.02);
+    const fluxRate = Math.min(1, dt / 1.2);
     for (let i = 0; i < levels.length; i++) {
       // Subtracted at Float width, as the Swift does, before widening, and
       // measured from the lower of the last two frames.
       const rise = Math.max(0, f32(levels[i] - Math.min(this.previousLevels[i], this.olderLevels[i])));
       const swing = i < this.spread.length ? this.spread[i] : INITIAL_SPREAD;
-      const onset = rise / Math.max(0.03, swing * 1.6) - ONSET_FLOOR;
-      this.kick[i] = Math.max(this.kick[i] * decay, Math.min(1, Math.max(0, onset)));
+      // Either yardstick may call it: `spread` keeps the hits it always
+      // caught, `flux` adds the ones a section change hid from it.
+      const ratio = Math.max(rise / Math.max(0.03, swing * 1.6),
+        rise / Math.max(0.02, this.flux[i] * FLUX_ONSET_SCALE));
+      const over = Math.max(0, ratio - ONSET_FLOOR);
+      // Silence has no rises, so learning through it would shrink the bar to
+      // nothing and the first frame back would read as a hit in every band.
+      if (this.quietFor === 0) {
+        this.flux[i] += (Math.max(0, f32(levels[i] - this.previousLevels[i])) - this.flux[i]) * fluxRate;
+      }
+      this.kick[i] = Math.max(this.kick[i] * decay, wake * Math.pow(over / (over + ONSET_KNEE), 1.5));
     }
     this.olderLevels = this.previousLevels;
     this.previousLevels = levels.slice();
@@ -279,12 +340,27 @@ export class FerrofluidSim {
       this.awake = true;
       return;
     }
+    const weight = (band) => {
+      const t = band / Math.max(1, this.kick.length - 1);
+      return direction > 0 ? (0.3 + 0.7 * t) : (1 - 0.7 * t);
+    };
+    // The kick is raised flat, for the body and the light: leaning it as well
+    // would let the end bands through the common-hit subtraction, and their
+    // random spread would decide the crown instead of the surge.
     for (let i = 0; i < this.kick.length; i++) {
-      const t = i / Math.max(1, this.kick.length - 1);
-      const w = direction > 0 ? (0.45 + 0.55 * t) : (1 - 0.55 * t);
-      this.kick[i] = Math.max(this.kick[i], strength * w);
+      this.kick[i] = Math.max(this.kick[i], strength);
+    }
+    // The peaks are charged directly: a surge lands in every band at once, which
+    // the common-hit subtraction in `updateSites` would read as a whole-mix hit
+    // and cancel, leaving a track change with no crown. A full surge stands a
+    // full lobe at the end it leans to, so the crown is the surge's and not the
+    // random spread's.
+    for (const site of this.sites) {
+      site.field = Math.max(site.field, 1.7 * strength * weight(site.band));
     }
     this.impact = Math.max(this.impact, strength);
+    this.surgeOpen = Math.max(this.surgeOpen, strength);
+    this.flash(strength);
     this.swell = Math.max(this.swell, strength * 0.7);
     this.publishGates();
     this.awake = true;
@@ -295,6 +371,25 @@ export class FerrofluidSim {
     for (const k of this.kick) if (k > hit) hit = k;
     this.impact = Math.max(hit, this.impact * Math.pow(0.06, dt));
     if (this.impact < SETTLED_EPSILON) this.impact = 0;
+    this.sinceFlash += dt;
+    this.light *= Math.pow(0.06, dt);
+    this.flash(hit);
+    if (this.light < SETTLED_EPSILON) this.light = 0;
+  }
+
+  /**
+   * Lights a hit if the flash ceiling allows it. A hit's rise straddles two or
+   * three frames, so the first 50ms of a flash may still climb; after that the
+   * light only decays until the gap has passed.
+   */
+  flash(hit) {
+    const strength = hit * (this.dimFlashingLights ? 0.35 : 1);
+    if (this.sinceFlash < 0.05) {
+      this.light = Math.max(this.light, strength);
+    } else if (this.sinceFlash >= (this.dimFlashingLights ? 1 : FLASH_GAP) && strength > this.light + 0.1) {
+      this.light = strength;
+      this.sinceFlash = 0;
+    }
   }
 
   updateFlow(levels, dt) {
@@ -310,23 +405,30 @@ export class FerrofluidSim {
 
   updateSwell(levels, dev, dt) {
     const count = Math.max(1, Math.min(3, levels.length));
-    // A pool that follows the bass over about a second, and the hit on top.
+    // Two parts: a pool that follows how loud the bass is over about a second,
+    // so the ink rests rounded and full rather than as the bare cutout, and the
+    // hit on top.
     let bass = 0;
     for (let i = 0; i < count; i++) bass += this.drift[i];
     bass /= count;
     // In silence it drains quickly, so the ink comes home and the loop can stop.
     const poolRate = this.quietFor > 0 ? 4.0 : 0.8;
-    this.pool += (Math.min(1, bass * 0.3) - this.pool) * Math.min(1, poolRate * dt);
+    this.pool += (Math.min(1, bass * 0.03) - this.pool) * Math.min(1, poolRate * dt);
+    // Any drum heaves the body, the low end hardest: a snare is a hit as much as
+    // a kick, and on many mixes the sub-bass is a flat floor with the beat
+    // living in the mids.
     let hit = 0;
-    for (let i = 0; i < count && i < this.kick.length; i++) if (this.kick[i] > hit) hit = this.kick[i];
-    // A spring rather than a chase: the body rests on the pool, and a kick is
-    // a blow that throws it, so it moves in the frame the hit arrives,
-    // overshoots, and bounces home. Only the rise of the kick strikes.
-    const blow = Math.max(0, hit - this.lastBassHit);
-    this.lastBassHit = hit;
-    this.swellVelocity += blow * SWELL_BLOW;
-    const omega = this.quietFor > 0 ? 20.0 : 15.0;
-    this.swellVelocity += (omega * omega * (this.pool - this.swell) - 2 * 0.4 * omega * this.swellVelocity) * dt;
+    for (let i = 0; i < this.kick.length; i++) {
+      const t = i / Math.max(1, this.kick.length - 1);
+      hit = Math.max(hit, this.kick[i] * (1 - 0.9 * t));
+    }
+    // Critically damped toward the pool plus the held charge: the body flows out
+    // over about 90ms and drains over about 400ms, with no overshoot to ring.
+    const chargeTau = 0.08 / (this.quietFor > 0 ? 1.6 : 1);
+    this.swellCharge = Math.max(this.swellCharge * Math.exp(-dt / chargeTau), Math.min(1.0, hit * SWELL_BLOW * this.loudGain));
+    const target = this.pool + this.swellCharge;
+    const omega = target > this.swell ? 30.0 : 18.0;
+    this.swellVelocity += (omega * omega * (target - this.swell) - 2 * omega * this.swellVelocity) * dt;
     this.swell = Math.min(1.15, this.swell + this.swellVelocity * dt);
     if (this.swell <= 0) { this.swell = 0; this.swellVelocity = Math.max(0, this.swellVelocity); }
     if (this.swell < 0.004 && Math.abs(this.swellVelocity) < 0.02) { this.swell = 0; this.swellVelocity = 0; }
@@ -334,68 +436,65 @@ export class FerrofluidSim {
 
   updateSites(levels, dev, dt) {
     let standing = 0;
-    let energySum = 0;
-    for (const d of dev) energySum += d;
-    const energy = energySum / Math.max(1, dev.length);
-    const allowed = 2 + Math.round(Math.min(1, energy) * 7);
-
-    const rank = this.sites.map((_, i) => i)
-      .sort((a, b) => this.sites[b].field - this.sites[a].field);
-    const mayStand = new Array(this.sites.length).fill(false);
-    for (const index of rank.slice(0, allowed)) mayStand[index] = true;
-
+    // What every band hit together, taken off each one, so a full-mix crash
+    // raises the bands that stood out of it rather than all seventeen as one wall.
+    let kickSum = 0;
+    for (const k of this.kick) kickSum += k;
+    const common = kickSum / Math.max(1, this.kick.length);
+    // Quiet passages move less: hits are scaled by how near the music is to the
+    // loudest it has been over the last several seconds, so a verse stays calm
+    // under a chorus.
+    this.loudMemory = Math.max(this.brightness, this.loudMemory * Math.exp(-dt / LOUD_MEMORY_SECONDS));
+    this.loudGain = Math.pow(Math.min(1, this.brightness / Math.max(0.02, this.loudMemory)), LOUD_CURVE);
     for (let index = 0; index < this.sites.length; index++) {
       const site = this.sites[index];
       const band = Math.min(levels.length - 1, site.band);
-      const raw = Math.min(1, dev[band] * 0.22 + this.kick[band] * 1.4);
-
-      // Heaves on the hit, drains like something thick.
-      const fieldRate = raw > site.field ? 60.0 : 6.0;
-      site.field += (raw - site.field) * Math.min(1, fieldRate * dt);
-      const field = site.field;
-
-      if (site.isUp) {
-        if (field < COLLAPSE_FIELD || !mayStand[index]) site.isUp = false;
-      } else if (field > CRITICAL_FIELD && mayStand[index]) {
-        site.isUp = true;
-      }
-
-      let target;
-      if (site.isUp) {
-        // Power law, not a floor plus a curve: 0.1441…1.0 is a 6.94:1 range, so
-        // a quiet band is a ripple and a hit is a spire. A floor made every
-        // standing peak at least 0.32, which is the same-height spike comb.
-        //
-        // That figure is a FUNCTION of CRITICAL_FIELD, not a constant beside
-        // it: onset is ((CRITICAL_FIELD − COLLAPSE_FIELD) / (1 − COLLAPSE_FIELD))
-        // ** 1.35. It read 0.089 and 11:1 for as long as the field was 0.30,
-        // and stayed at 0.089 when 858889f moved the field to 0.36 — in the
-        // Swift original and here in the port, so one constant moving left the
-        // same wrong number in two languages.
-        const excess = (field - COLLAPSE_FIELD) / (1 - COLLAPSE_FIELD);
-        target = Math.min(1, Math.pow(Math.max(0, excess), 1.35));
-      } else {
-        target = 0;
-      }
-
       const bandT = band / Math.max(1, levels.length - 1);
-      // A spring: the spike shoots up within a frame or two, overshoots, and
-      // rings down. The stiff spring holds until the spike turns over, so the
-      // momentum it gave is braked by the spring that made it.
-      // Bass is soft and treble stiff, and the fall is quicker once the music has
-      // stopped, so the ink settles in budget.
+      // The charge holds the larger of its own decay and the newest hit: bass
+      // holds a little longer than treble, and twice as briefly once the music
+      // has stopped. A hit under the gate charges nothing, so small hits leave
+      // the ink still; the gate is taken off the hit, not the charge, so a held
+      // lobe drains on its own curve.
+      const tau = (0.11 - 0.044 * bandT) / (this.quietFor > 0 ? 1.6 : 1);
+      const hit = Math.max(0, this.kick[band] - 1.3 * common) * SITE_BLOW * (1 + site.fan);
+      const gated = Math.max(0, (Math.min(1.2, hit * this.loudGain) - SITE_GATE) / (1.2 - SITE_GATE));
+      site.field = Math.max(site.field * Math.exp(-dt / tau), 1.2 * gated);
+    }
+    // Only a few lobes may stand at once, more as the music gets busier, so each
+    // hit is its own move rather than the whole rim breathing.
+    this.surgeOpen *= Math.exp(-dt / 0.3);
+    let devSum = 0;
+    for (const d of dev) devSum += d;
+    const energy = Math.max(this.surgeOpen, devSum / Math.max(1, dev.length));
+    const allowed = FEWEST_STANDING + Math.round(Math.min(1, energy) * EXTRA_STANDING);
+    const rank = this.sites.map((_, i) => i).sort((a, b) => this.sites[b].field - this.sites[a].field);
+    const mayStand = new Array(this.sites.length).fill(false);
+    for (const index of rank.slice(0, allowed)) mayStand[index] = true;
+    for (let index = 0; index < this.sites.length; index++) {
+      const site = this.sites[index];
+      const band = Math.min(levels.length - 1, site.band);
+      const bandT = band / Math.max(1, levels.length - 1);
+      const target = mayStand[index] ? site.field : 0;
+      // The lobe follows its charge critically damped, out at about 80 rad/s and
+      // home at about 20: it is out in about 60ms and drains over about 300ms,
+      // never overshooting. The step is the exact solution for the frame, so it
+      // starts from rest without a jump and stays stable at any rate. Bass is
+      // heavy and treble light, so treble both answers and drains a little
+      // quicker; one rate would smooth every band into one breath, and a quick
+      // drain alone would leave the treble lower than the bass for the same hit.
       let v = site.velocity;
-      const rising = v > 0 || target > site.height + 0.05;
-      const omega = rising ? 52.0 : (7.0 + 13.0 * bandT) * (this.quietFor > 0 ? 1.6 : 1);
-      const zeta = rising ? 0.5 : 0.7;
-      v += (omega * omega * (target - site.height) - 2 * zeta * omega * v) * dt;
-      let h = site.height + v * dt;
+      const weight = 0.8 + 0.4 * bandT;
+      const omega = target > site.height ? 80.0 * weight : 20.0 * weight;
+      const c1 = site.height - target, c2 = v + omega * c1, decay = Math.exp(-omega * dt);
+      let h = target + (c1 + c2 * dt) * decay;
+      v = (c2 - omega * (c1 + c2 * dt)) * decay;
       if (h <= 0) { h = 0; v = Math.max(0, v); }
       if (h > 1.25) { h = 1.25; v = Math.min(0, v); }
       if (h < 0.003 && Math.abs(v) < 0.05) { h = 0; v = 0; }
       site.height = h;
       site.velocity = v;
-      standing += site.height;
+      site.isUp = h > STANDING_HEIGHT;
+      standing += h;
     }
 
     // Surface tension shares ink between neighbours. First-order diffusion

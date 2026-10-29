@@ -17,6 +17,8 @@ enum LyricsCheck {
         theCountInRunsAcrossItsBreak()
         picksTheRecordOfTheRightLength()
         searchTermsLoseThePlayersDecoration()
+        aDecoratedVersionIsAskedForByItsWholeName()
+        onlyRealAnswersAreKept()
         creditsAndLabelsAreNotSung()
         if failures > 0 { exit(1) }
         print("lyricscheck: all checks passed")
@@ -132,6 +134,46 @@ enum LyricsCheck {
                 "a leading bracket is the title")
         require(LyricsRecord.searchTitle("- Intro") == "- Intro", "a leading dash is the title")
         require(LyricsRecord.searchArtist("Aria, Beck & Cleo") == "Aria", "first credit only")
+    }
+
+    /// LRCLIB's search answers with 20 records at most. Asked for "Hotel California" by
+    /// Eagles it returned 20 studio takes and none of the 421 s live one, which it
+    /// returned at once for "Hotel California - Live"; the player's title is asked
+    /// second, so a miss on the plain title no longer ends the lookup.
+    static func aDecoratedVersionIsAskedForByItsWholeName() {
+        require(LyricsRecord.searchTitles("Hotel California - Live")
+                    == ["Hotel California", "Hotel California - Live"],
+                "a decorated title is asked plain, then whole: \(LyricsRecord.searchTitles("Hotel California - Live"))")
+        require(LyricsRecord.searchTitles("Yellow") == ["Yellow"], "a plain title is asked once")
+        require(LyricsRecord.searchTitles("(I Can't Get No) Satisfaction") == ["(I Can't Get No) Satisfaction"],
+                "a title that is all bracket is asked once")
+        func r(_ name: String, _ d: Double) -> LyricsRecord {
+            LyricsRecord(trackName: name, artistName: "Eagles", albumName: "x", duration: d,
+                         instrumental: false, syncedLyrics: "[00:01.00]x")
+        }
+        let studio = (0..<20).map { r("Hotel California", 390 + Double($0 % 3)) }
+        require(LyricsRecord.best(of: studio, duration: 421, album: "Hell Freezes Over",
+                                  title: "Hotel California - Live") == nil,
+                "twenty studio takes hold no 421 s record")
+        require(LyricsRecord.best(of: [r("Hotel California - Live", 421)], duration: 421,
+                                  album: "Hell Freezes Over", title: "Hotel California - Live") != nil,
+                "the whole-name search holds it")
+    }
+
+    /// LRCLIB answers a busy server with 429, or a 503 "ServerOverloaded" on about one
+    /// request in ten. Only 200 and 404 are answers; a miss built on anything else was
+    /// kept for three days and hid a song LRCLIB has.
+    static func onlyRealAnswersAreKept() {
+        require(LyricsRecord.answered(status: 200) && LyricsRecord.answered(status: 404),
+                "a record and a not-found are answers")
+        for status in [429, 500, 502, 503, 504] as [Int?] + [nil] {
+            require(!LyricsRecord.answered(status: status),
+                    "status \(String(describing: status)) is no answer about the song")
+        }
+        require(LyricsRecord.isBusy(status: 503) && LyricsRecord.isBusy(status: 429),
+                "overloaded and rate-limited replies are asked again")
+        require(!LyricsRecord.isBusy(status: 404) && !LyricsRecord.isBusy(status: 200),
+                "a not-found is final")
     }
 
     static func creditsAndLabelsAreNotSung() {

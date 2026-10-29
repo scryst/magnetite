@@ -129,7 +129,10 @@ export class BandAnalyser {
       }
       const mean = sum / (i1 - i0);
       const db = 20 * Math.log10(Math.max(mean, 1e-7));
-      const level = Math.min(1, Math.max(0, (db + 70) / 55));
+      // Each band gets a 55 dB window that tilts down 3.8 dB a band toward the
+      // treble, as music does. The Swift builds the top at Float width.
+      const top = Math.fround(-3 - Math.fround(Math.fround(3.8) * b));
+      const level = Math.min(1, Math.max(0, (db - top + 55) / 55));
       // Attack fast, release slow — the app's meter, applied per publish.
       const prev = this.bands[b];
       this.bands[b] = Math.fround(prev + (level - prev) * (level > prev ? 0.85 : 0.16));

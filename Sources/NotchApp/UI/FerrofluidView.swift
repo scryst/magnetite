@@ -37,12 +37,10 @@ struct FerrofluidView: View, Animatable {
     static let blur: CGFloat = 3.4
 
     var body: some View {
-        // Read here, not by the parent: `isSettled` is derived from fields rewritten
-        // every frame, and reading it in `NotchRootView`'s body would invalidate the whole
-        // panel each frame.
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: sim.isSettled)) { _ in
-            canvas
-        }
+        // Read here, not by the parent: `frame` changes every step, and reading it in
+        // `NotchRootView`'s body would invalidate the whole panel each frame.
+        let _ = sim.frame
+        canvas
         .frame(width: panelSize.width, height: panelSize.height)
         .allowsHitTesting(false)
     }
@@ -53,11 +51,11 @@ struct FerrofluidView: View, Animatable {
         let pointerPull = CGFloat(sim.pointerPull)
         let swell = CGFloat(sim.swell)
         let raised = CGFloat(sim.raised)
-        let impact = CGFloat(sim.impact)
+        let light = CGFloat(sim.light)
         // The ink's own openness, which trails the shell's. Clamped to `openness` so it
         // never leads the chrome, which keeps ink out of the menu bar structurally.
         let inkOpen = max(0, min(openness, CGFloat(sim.inkOpen)))
-        let haloAlpha = CGFloat(FerrofluidSim.glowAlpha(impact: sim.impact,
+        let haloAlpha = CGFloat(FerrofluidSim.glowAlpha(light: sim.light,
                                                         openness: Double(inkOpen)))
 
         return Canvas { context, size in
@@ -92,7 +90,7 @@ struct FerrofluidView: View, Animatable {
             if haloAlpha > 0.002 {
                 context.drawLayer { glow in
                     // Radius rides the transient too, so a strike lands harder than a snare.
-                    glow.addFilter(.blur(radius: 11 + 14 * impact))
+                    glow.addFilter(.blur(radius: 11 + 14 * light))
                     glow.blendMode = .plusLighter
                     glow.opacity = haloAlpha
                     paint(glow, tint)
