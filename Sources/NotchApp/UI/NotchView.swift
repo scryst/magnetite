@@ -1347,12 +1347,17 @@ private struct Artwork: View {
     @ViewBuilder
     private var face: some View {
         if let image {
-            Image(nsImage: image)
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fill)
-                // Dark covers vanish against the black shell; lift them slightly.
-                .brightness(palette.luminance < 0.16 ? 0.06 : 0)
+            // The clear layer takes the tile's size and the print fills it from an
+            // overlay, so a cover that is not square (a music video's 16:9 still) is
+            // cropped to the tile instead of widening it.
+            Color.clear.overlay {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fill)
+                    // Dark covers vanish against the black shell; lift them slightly.
+                    .brightness(palette.luminance < 0.16 ? 0.06 : 0)
+            }
         } else {
             LinearGradient(colors: [palette.colors.first ?? .gray,
                                     (palette.colors.dropFirst().first ?? .gray).opacity(0.5),
