@@ -47,12 +47,19 @@
 
     /// Every 4 pt across the window, top row first: the action a click there reaches, or
     /// nil.
+    static let step: CGFloat = 4
+
+    static func point(row: Int, col: Int, _ size: CGSize) -> NSPoint {
+        NSPoint(x: step / 2 + CGFloat(col) * step, y: size.height - step / 2 - CGFloat(row) * step)
+    }
+
     static func scan(_ window: NSWindow, _ size: CGSize, _ media: MediaManager) -> [[String?]] {
-        let step: CGFloat = 4
-        return stride(from: size.height - step / 2, to: 0, by: -step).map { y in
-            stride(from: step / 2, to: size.width, by: step).map { x in
+        let rows = Int(((size.height - step / 2) / step).rounded(.up))
+        let cols = Int(((size.width - step / 2) / step).rounded(.up))
+        return (0..<rows).map { row in
+            (0..<cols).map { col in
                 media.calls = []
-                click(window, at: NSPoint(x: x, y: y))
+                click(window, at: point(row: row, col: col, size))
                 return media.calls.first
             }
         }
@@ -83,10 +90,23 @@
         let shell = controller.currentSize
 
         let (window, size) = host(controller, media, region: { controller.currentSize })
-        let real = scan(window, size, media)
+        var real = scan(window, size, media)
         window.orderOut(nil)
         let (open, _) = host(controller, media, region: nil)
         let bare = scan(open, size, media)
+        open.orderOut(nil)
+        // A busy Mac can deliver a button's action after the 2 ms pump, so a cell the
+        // region let through may read as nil. The region is geometry and does not change
+        // with time: click each disagreeing cell again and wait properly.
+        window.orderFrontRegardless()
+        for (row, cells) in real.enumerated() {
+            for (col, call) in cells.enumerated() where call == nil && bare[row][col] != nil {
+                media.calls = []
+                click(window, at: point(row: row, col: col, size))
+                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                real[row][col] = media.calls.first
+            }
+        }
 
         let glyph = ["toggleLike": "h", "previous": "<", "playPause": "P", "next": ">",
                      "toggleShuffle": "s", "toggleRepeat": "r", "openInPlayer": "A", "seek": "~", "openArtist": "a"]

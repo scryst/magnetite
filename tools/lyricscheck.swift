@@ -17,6 +17,7 @@ enum LyricsCheck {
         theCountInRunsAcrossItsBreak()
         picksTheRecordOfTheRightLength()
         searchTermsLoseThePlayersDecoration()
+        creditsAndLabelsAreNotSung()
         if failures > 0 { exit(1) }
         print("lyricscheck: all checks passed")
     }
@@ -101,12 +102,58 @@ enum LyricsCheck {
                                         duration: 147, album: "Other", title: "Plot Twist - English ver.")
         require(version?.trackName == "Plot Twist (English ver.)",
                 "one length, two languages: the title picks the version, got \(String(describing: version))")
+
+        // LRCLIB's only synced Crush "Seesaw (ft. IU)": its 171 s is where its credit
+        // sits, and Spotify's "seesaw (Feat. IU)" runs 181 s.
+        let seesaw = LyricsRecord(trackName: "Seesaw (ft. IU)", artistName: "Crush", albumName: "Seesaw",
+                                  duration: 171, instrumental: false, syncedLyrics: """
+            [00:10.00]Dwijukbakjuk
+            [02:41.00]Du ru du du
+            [02:46.00]
+            [02:51.00]{more Crush lyrics at lyricsify.com/u/KPopLRCFiles}
+            """)
+        require(LyricsRecord.best(of: [seesaw], duration: 181, album: "seesaw (Feat. IU)",
+                                  title: "seesaw (Feat. IU)") != nil,
+                "a length that is only the last stamp must not hide the lyrics")
+        var edit = seesaw
+        edit.syncedLyrics = "[00:10.00]Dwijukbakjuk\n[02:41.00]Du ru du du"
+        require(LyricsRecord.best(of: [edit], duration: 181, album: "Seesaw") == nil,
+                "a real 171 s recording 10 s short of the track is another edit")
+        require(LyricsRecord.best(of: [seesaw], duration: 200, album: "Seesaw") == nil,
+                "a guessed length still has to be near the track")
     }
 
     static func searchTermsLoseThePlayersDecoration() {
         require(LyricsRecord.searchTitle("Song - Remastered 2011") == "Song", "remaster suffix")
         require(LyricsRecord.searchTitle("Song (feat. X)") == "Song", "feature credit")
+        require(LyricsRecord.searchTitle("Misty (MINA)") == "Misty",
+                "any trailing bracket: LRCLIB files the synced Misty (MINA) as Misty")
+        require(LyricsRecord.searchTitle("(I Can't Get No) Satisfaction") == "(I Can't Get No) Satisfaction",
+                "a leading bracket is the title")
         require(LyricsRecord.searchTitle("- Intro") == "- Intro", "a leading dash is the title")
         require(LyricsRecord.searchArtist("Aria, Beck & Cleo") == "Aria", "first credit only")
+    }
+
+    static func creditsAndLabelsAreNotSung() {
+        // The tail of LRCLIB's ILLIT "Pop Pop", as Laks saw it under the player.
+        let tail = SyncedLyrics(lrc: """
+            [02:16.00]Pop Pop
+            [02:21.00]
+            [02:26.00]{more ILLIT lyrics at lyricsify.com/u/KPopLRCFiles}
+            """)!
+        require(tail.lines.map(\.text) == ["", "Pop Pop"],
+                "a source credit must not show as a line: \(tail.lines.map(\.text))")
+        let l = SyncedLyrics(lrc: """
+            [00:00.00]작사 : Someone
+            [00:00.50]Lyrics by Someone
+            [00:01.00]Words
+            [00:03.00][Chorus]
+            [00:09.00](Wait for you)
+            [00:11.00]Lyrics from www.example.com
+            """)!
+        require(l.lines.map(\.text) == ["Words", "(Wait for you)"],
+                "credits and labels go, a sung aside stays: \(l.lines.map(\.text))")
+        require(SyncedLyrics.isCredit("{Synced by KPopLRCFiles}"), "a braced line is never sung, address or not")
+        require(!SyncedLyrics.isCredit("Music by the sea"), "a sung line that starts like a credit stays")
     }
 }
