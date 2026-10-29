@@ -155,6 +155,18 @@ b { font-weight: 600; }
 }
 @media (min-width: 720px) { .moves ol { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; } }
 
+/* What's in it, and what isn't: a plain list, the limits given the same room. */
+.facts { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: 28px; }
+.facts__title { margin: 0; font: 800 clamp(36px, 4.4vw, 60px)/0.95 var(--display); font-stretch: 112%; letter-spacing: -0.035em; }
+.facts__cols { display: grid; gap: 40px; }
+@media (min-width: 900px) { .facts__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
+.facts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.facts li { position: relative; padding-left: 22px; max-width: 46ch; font-size: 16px; }
+.facts li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.facts__not li { color: var(--ink-soft); }
+.facts__not li::before { background: none; border: 1.5px solid var(--ink-soft); }
+.facts__subtitle { margin: 0 0 16px; font: 700 21px/1.2 var(--sans); }
+
 /* Download, with the honest part beside it. */
 .get {
   width: var(--col); margin: var(--gap) auto 0; scroll-margin-top: 40px;

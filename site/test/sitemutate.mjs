@@ -49,6 +49,7 @@ const MUTATIONS = [
   ['credit', 'the footer drops the licence link', 'site/index.html', 'from the Free Music Archive, under\n    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>', 'from the Free Music Archive'],
   ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a, .foot__credit a { white-space: nowrap; }', ''],
   ['mark', 'the inline glyph is edited by hand', 'site/index.html', '<path fill="currentColor" d="M272.5 283C', '<path fill="currentColor" d="M272.5 284C'],
+  ['mark', 'the symbol sheet takes room on the page', 'site/css/magnetite.css', '.defs { position: absolute; width: 0; height: 0;', '.defs { position: absolute;'],
   ['mark', 'the menu-bar icon is edited by hand', 'Sources/NotchApp/App/MagnetiteMark.swift', 'static let aspect: CGFloat = ', 'static let aspect: CGFloat = 1.0 * '],
   ['demo', 'the box is not the film size', 'site/index.html', 'width="1600" height="700"', 'width="1600" height="900"'],
   ['demo', 'the film can make sound by itself', 'site/index.html', 'data-demo muted loop', 'data-demo loop'],

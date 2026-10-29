@@ -138,7 +138,7 @@
           <span><a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>
             by <a href="https://freemusicarchive.org/music/beat-mekanik/" rel="external">Beat Mekanik</a>,
             <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
-            Filmed from the running app.</span></p>
+            A screen recording of the real app, not a mock-up.</span></p>
         <div class="stage__controls">
           <button type="button" class="sound" data-demo-sound aria-pressed="false">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.6L8 3v10L4.6 10H2z"/><path class="sound__waves" d="M10.6 5.4a3.6 3.6 0 0 1 0 5.2M12.4 3.6a6.2 6.2 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -151,7 +151,7 @@
 
     <div class="pitch">
       <h1 class="hero__title" id="hero-title">Spotify and Apple Music, in&nbsp;your MacBook’s notch<span class="dot">.</span></h1>
-      <p class="pitch__lede">A drop of black ferrofluid hangs from the camera and moves to whatever is playing.</p>
+      <p class="pitch__lede">Controls for the Spotify and Music apps around the camera, and a black liquid outline that moves with the sound your Mac is playing.</p>
       <div class="pitch__actions">
         <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip"
            aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.12 ZIP from GitHub</span></a>
@@ -164,10 +164,35 @@
   <section class="moves" aria-labelledby="moves-title">
     <h2 class="visually-hidden" id="moves-title">How it works</h2>
     <ol>
-      <li><b>Hover.</b> Bring the pointer to the notch and the player pours out. Move away and it drains back in.</li>
-      <li><b>Scrub.</b> Drag along its bottom edge to seek. The liquid keeps time with the song.</li>
-      <li><b>Swipe.</b> Two fingers on the trackpad skip a track, back or forward, or pause it.</li>
+      <li><b>Hover.</b> Point at the notch and the player opens. Move away and it closes to a mini player: the cover and elapsed time either side of the camera.</li>
+      <li><b>Scrub.</b> The player’s bottom edge is its progress bar. Drag along it to seek.</li>
+      <li><b>Swipe.</b> Two fingers on the trackpad: sideways to skip a track, up or down to play or pause.</li>
     </ol>
+  </section>
+
+  <!-- Every line here is a shipped feature or a real limit (APP.md, README.md, the M menu). -->
+  <section class="facts" aria-labelledby="facts-title">
+    <h2 class="facts__title" id="facts-title">What’s in it</h2>
+    <div class="facts__cols">
+      <ul>
+        <li>Play, pause, skip and seek for Spotify and Apple Music</li>
+        <li>Time-synced lyrics from LRCLIB, which you can turn off</li>
+        <li>Favourites in Apple Music; Spotify liked songs, shuffle and repeat with a free Spotify developer app of your own</li>
+        <li>Volume and brightness shown in the notch when you change them</li>
+        <li>Each credited artist opens in Spotify or Music</li>
+        <li>One player per display; a floating pill on displays without a notch</li>
+        <li>Hides for fullscreen apps, the screensaver and the lock screen</li>
+      </ul>
+      <div class="facts__not">
+        <h3 class="facts__subtitle">What it doesn’t do</h3>
+        <ul>
+          <li>Other players: no browser tabs, YouTube or the Podcasts app. Only the Spotify and Music desktop apps.</li>
+          <li>Intel Macs or macOS before 26.</li>
+          <li>The liquid needs permission to record system audio; without it the player still works and the outline stays still.</li>
+          <li>Apple hasn’t notarised it, so macOS asks you to approve it once.</li>
+        </ul>
+      </div>
+    </div>
   </section>
 
   <section class="get" id="download" aria-labelledby="get-title">
@@ -221,10 +246,6 @@
           <p>Liked songs, shuffle and repeat need a free Spotify developer app of your own. The steps are in the
           <a href="https://github.com/scryst/magnetite#faq-and-troubleshooting" rel="external">README</a>; then choose
           “Connect Spotify Library…” in the M menu.</p></dd>
-      </div>
-      <div>
-        <dt>Will it work without a notch?</dt>
-        <dd><p>Yes. Displays without a notch get a floating pill. You still need macOS 26 or later on Apple silicon.</p></dd>
       </div>
       <div>
         <dt>Why is there no track or moving liquid?</dt>

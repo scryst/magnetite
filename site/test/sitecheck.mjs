@@ -203,6 +203,11 @@ const CHECKS = {
     const swift = readFileSync(join(repo, 'Sources/NotchApp/App/MagnetiteMark.swift'), 'utf8');
     if (swift !== gen.markSwift(mark)) out.push('MagnetiteMark.swift is not what gen-mark.mjs derives');
     if (out.length > 1) out.push('rerun node site/test/gen-mark.mjs');
+    // The symbol sheet is an inline <svg>, 300×150 by default: without a zero-size
+    // rule it pushes the whole page down on a phone (2026-10-29, a 157 px gap).
+    const sheet = html.match(/<svg class="([\w-]+)"[^>]*>\s*<symbol/)?.[1];
+    const sized = sheet && css.match(new RegExp(`\\.${sheet}\\s*\\{[^}]*\\}`))?.[0];
+    if (!sized || !/width:\s*0[;\s]/.test(sized) || !/height:\s*0[;\s]/.test(sized)) out.push(`the #mark symbol sheet (.${sheet}) has no zero width and height in magnetite.css, so it takes 150 px of the page`);
     return out;
   },
 
