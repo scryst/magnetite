@@ -287,10 +287,24 @@ struct NotchRootView: View {
             .mask(shape)
     }
 
+    /// Frames per second for the colour field. Closed and settled it shows through a
+    /// 0.62 scrim in a band a couple of dozen points tall, where 30 is indistinguishable
+    /// and half the work; it runs all day, so that half is most of the app's idle cost.
+    private var fieldRate: Double { expanded || pourStart != nil ? 60 : 30 }
+
     private var meshColors: [Color] {
         let p = media.palette.colors.isEmpty
             ? ArtworkPalette.fallback.colors : media.palette.colors
         func c(_ i: Int) -> Color { p[i % p.count] }
+        // A black-and-white sleeve's palette is light, not hue, ordered brightest first.
+        // Only the centre point, the one that wanders furthest, carries the highlight, so
+        // it reads as a pool of light moving over dark metal; spread over the corners as
+        // well, it lit the whole card evenly and nothing seemed to move.
+        if media.palette.monochrome {
+            return [c(3), c(1), c(3),
+                    c(1), c(0), c(2),
+                    c(3), c(2), c(3)]
+        }
         return [c(0), c(1), c(2),
                 c(3), c(0), c(1),
                 c(2), c(3), c(0)]
@@ -308,12 +322,17 @@ struct NotchRootView: View {
         if media.hasTrack {
             ZStack {
                 if let art = media.artwork {
-                    CoverField(fluid: fluid, art: art, size: size)
+                    // A black-and-white sleeve's only identity is where its light falls,
+                    // which a blur flattens to grey; contrast brings the layout back.
+                    CoverField(fluid: fluid, art: art, size: size, rate: fieldRate)
+                        .contrast(media.palette.monochrome ? 1.6 : 1)
                 }
 
                 // Over the cover the mesh is the motion, not the colour; alone it is both.
-                MeshField(fluid: fluid, colors: meshColors)
-                    .opacity(media.artwork == nil ? 1 : 0.42)
+                // A black-and-white sleeve blurs to one dark sheet, so there the mesh
+                // carries the sleeve's own light and is most of what shows.
+                MeshField(fluid: fluid, colors: meshColors, rate: fieldRate)
+                    .opacity(media.artwork == nil ? 1 : media.palette.monochrome ? 0.9 : 0.42)
             }
             // A scrim keeps the colour rich but dark enough for white type; additive
             // blending blows the field out. See `ArtworkPalette.scrimAlpha`.
@@ -1495,11 +1514,12 @@ private struct SwipeLeanFrame<Content: View>: View {
 private struct MeshField: View {
     var fluid: FerrofluidSim
     var colors: [Color]
+    var rate: Double
 
     var body: some View {
         // Runs exactly when there is sound: gating on `media.isPlaying` would advance the
         // phase unseen while another app plays, then jump. Held still under Reduce Motion.
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0,
+        TimelineView(.animation(minimumInterval: 1.0 / rate,
                                 paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
             // Audio-integrated, never wall-clock.
             let t = fluid.flowPhase
@@ -1547,9 +1567,10 @@ private struct CoverField: View {
     var fluid: FerrofluidSim
     var art: NSImage
     var size: CGSize
+    var rate: Double
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0,
+        TimelineView(.animation(minimumInterval: 1.0 / rate,
                                 paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
             let t = fluid.flowPhase
             let swell = min(1, fluid.swell)

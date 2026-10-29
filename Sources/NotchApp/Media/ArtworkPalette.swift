@@ -18,6 +18,9 @@ struct ArtworkPalette: Equatable, Sendable {
     /// is not a function of any scalar; two colours with the same weighted
     /// channel sum can emit 1.6x different light.
     var washPeak: Peak
+    /// The sleeve had no colour of its own (black-and-white art), so `colors` is the
+    /// app's own lustre rather than anything taken from the cover.
+    var monochrome = false
 
     /// One wash colour as gamma-encoded sRGB.
     struct Peak: Equatable, Sendable {
@@ -158,6 +161,9 @@ struct ArtworkPalette: Equatable, Sendable {
         // Mean colour, greys included. It is the only description of a
         // monochrome sleeve, which the bucket pass discards.
         var rSum = 0.0, gSum = 0.0, bSum = 0.0
+        // Every pixel's luma, for a monochrome sleeve's light: where a black-and-white
+        // cover differs from another is how much of it is dark, lit, or in between.
+        var lumas: [Double] = []
 
         for i in stride(from: 0, to: pixels.count, by: 4) {
             let a = Double(pixels[i + 3]) / 255
@@ -166,7 +172,9 @@ struct ArtworkPalette: Equatable, Sendable {
             let g = Double(pixels[i + 1]) / 255
             let b = Double(pixels[i + 2]) / 255
 
-            lumaSum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+            lumaSum += luma
+            lumas.append(luma)
             rSum += r; gSum += g; bSum += b
             counted += 1
 
@@ -204,15 +212,43 @@ struct ArtworkPalette: Equatable, Sendable {
         // monochrome palette instead.
         guard !ranked.isEmpty else {
             guard counted > 0 else { return nil }
-            let base = rgbToHSB(rSum / counted, gSum / counted, bSum / counted)
-            let steps: [(s: Double, b: Double)] = [(0.12, 1.00), (0.08, 0.74),
-                                                   (0.16, 1.12), (0.06, 0.55)]
-            let hsb = capped(steps.map {
-                (h: base.h, s: $0.s, b: min(1, max(0.12, base.b * $0.b)))
-            })
+            // The sleeve's own light: four tones from its luma distribution, so a
+            // near-black cover with one lit word and a bright grey photograph give
+            // different fields. Stretched to a spread of at least 0.35 about the median,
+            // because a flat sleeve's real tones are too close together for the moving
+            // mesh to show anything, which is what made such covers look dead.
+            lumas.sort()
+            func tone(_ q: Double) -> Double { lumas[min(lumas.count - 1, Int(q * Double(lumas.count)))] }
+            let median = tone(0.5)
+            var lo = tone(0.05), hi = tone(0.95)
+            let span = hi - lo
+            if span < 0.45 {
+                lo = min(max(0.05, median - 0.12), 0.5)
+                hi = lo + 0.45
+            }
+            // Where each tone sits between `lo` and `hi`: the sleeve's own spacing when it
+            // has a real spread, even spacing as it flattens, so a near-uniform sleeve
+            // still gets a highlight to move instead of four copies of one grey.
+            func stretched(_ q: Double) -> Double {
+                let own = min(1, max(0, (tone(q) - tone(0.05)) / max(0.001, span)))
+                let trust = min(1, span / 0.45)
+                return lo + (hi - lo) * (own * trust + q * (1 - trust))
+            }
+            // A sepia or blue-washed print keeps its cast, raised so it shows. A true
+            // grey gets a cool metallic sheen; its mean hue is JPEG noise, and taking it
+            // drew a green line under a black-and-white cover.
+            let cast = rgbToHSB(rSum / counted, gSum / counted, bSum / counted)
+            let tinted = cast.s >= 0.04
+            let hue = tinted ? cast.h : 0.6
+            let chroma = tinted ? min(0.24, cast.s * 2.5) : 0.07
+            let hsb = capped([(h: hue, s: chroma * 0.6, b: stretched(0.95)),
+                              (h: hue, s: chroma, b: stretched(0.25)),
+                              (h: hue, s: chroma * 1.2, b: stretched(0.65)),
+                              (h: hue, s: chroma * 0.8, b: stretched(0.05))])
             return ArtworkPalette(colors: hsb.map(Self.color),
                                   luminance: mean,
-                                  washPeak: Self.peak(of: hsb))
+                                  washPeak: Self.peak(of: hsb),
+                                  monochrome: true)
         }
 
         let hsb = capped(spread(ranked))
