@@ -250,7 +250,7 @@ main() {
   cat <<EOF
 
 The first time music plays, macOS asks to let Magnetite control Spotify or
-Music, and to record system audio for the visualiser. Audio never leaves
+Music, and to record system audio for the visualizer. Audio never leaves
 your Mac.
 
 Update:     run this installer again
