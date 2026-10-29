@@ -25,7 +25,7 @@
 	<key>CFBundleIconFile</key>
 	<string>Magnetite</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.13</string>
+	<string>0.1.14</string>
 	<key>CFBundleVersion</key>
 	<string>19</string>
 	<!-- Finder's Get Info and crash reports are the two places a downloaded

@@ -185,6 +185,12 @@ enum Motion {
         reduceMotion ? .easeOut(duration: 0.16)
                      : .spring(response: 0.42, dampingFraction: 0.86)
     }
+    /// The last song's words leaving on a track change. On `track`'s 0.52 s spring they
+    /// stayed half lit under the new title and lyrics, and the two songs read as one
+    /// double-exposed line for about 175 ms. They leave this fast, and the new words
+    /// wait `wordsGap` to arrive, so only one song is ever legible.
+    static var wordsOut: Animation { .easeOut(duration: reduceMotion ? 0.08 : 0.12) }
+    static var wordsGap: Double { reduceMotion ? 0.06 : 0.09 }
     /// Track change, the one place extra bounce is earned.
     static var track: Animation {
         reduceMotion ? .easeOut(duration: 0.20)
