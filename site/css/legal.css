@@ -71,3 +71,12 @@ code {
   html { background: Canvas; color: CanvasText; }
   .legal__date, .legal__foot { color: CanvasText; }
 }
+
+/* The way home, under the product's own name. */
+.legal__home {
+  display: inline-flex; align-items: center; gap: 10px;
+  min-height: 44px; margin-bottom: clamp(24px, 6vw, 56px);
+  font: 600 19px/1 'Geist', -apple-system, system-ui, sans-serif;
+  letter-spacing: -0.02em; text-decoration: none;
+}
+.legal__home img { border-radius: 5px; }

@@ -54,6 +54,11 @@ const MUTATIONS = [
   ['firstlaunch', 'the steps lose Open Anyway', 'site/index.html', 'click <b>Open Anyway</b>', 'click <b>Open</b>'],
   ['credit', 'a song loses its credit', 'site/index.html', '<a href="https://open.spotify.com/track/4zXZ5Mq2L6jnsOsTssgRh8" rel="external">“Hush” by The Marías</a>', 'Hush'],
   ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a { white-space: nowrap; }', ''],
+  ['scale', 'the film is placed at twice its size', 'site/css/magnetite.css', 'left: 36.772%; width: 26.455%;', 'left: 23.545%; width: 52.91%;'],
+  ['scale', 'the camera stops at the lid\'s own size', 'site/css/magnetite.css', '--zoom: 2;', '--zoom: 1;'],
+  ['name', 'the wordmark leaves the top of the page', 'site/index.html', '<a class="brand" href="#top">', '<a class="brandless" href="#top">'],
+  ['name', 'the dock forgets the name', 'site/index.html', '>Download Magnetite</a>', '>Download for Mac</a>'],
+  ['name', 'a legal page loses its way home', 'site/privacy.html', 'alt="" width="22" height="22">Magnetite</a>', 'alt="" width="22" height="22">Home</a>'],
   ['mark', 'the inline glyph is edited by hand', 'site/index.html', '<path fill="currentColor" d="M272.5 283C', '<path fill="currentColor" d="M272.5 284C'],
   ['mark', 'the symbol sheet takes room on the page', 'site/css/magnetite.css', '.defs { position: absolute; width: 0; height: 0;', '.defs { position: absolute;'],
   ['mark', 'the menu-bar icon is edited by hand', 'Sources/NotchApp/App/MagnetiteMark.swift', 'static let aspect: CGFloat = ', 'static let aspect: CGFloat = 1.0 * '],
@@ -79,6 +84,7 @@ for (const [name, what, file, from, to] of MUTATIONS) {
     cpSync(join(repo, 'Resources/Info.plist'), join(root, 'Resources/Info.plist'));
     cpSync(join(repo, 'install.sh'), join(root, 'install.sh'));
     cpSync(join(repo, 'Sources/NotchApp/App/MagnetiteMark.swift'), join(root, 'Sources/NotchApp/App/MagnetiteMark.swift'));
+    cpSync(join(repo, 'tools/notchtake.swift'), join(root, 'tools/notchtake.swift'));
     const path = join(root, file);
     const text = readFileSync(path, 'utf8');
     if (!text.includes(from)) { results.push(`FAIL ${name}: "${what}" no longer applies (target text not in ${file})`); continue; }

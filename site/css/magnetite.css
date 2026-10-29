@@ -60,6 +60,17 @@ b { font-weight: 600; }
 }
 .skip-link:focus { transform: none; }
 
+/* The name, top left. It scrolls away on a phone, where the film fills the
+   window's width; from 900 px it stays, beside the film like a menu-bar item. */
+.masthead { position: absolute; top: 0; left: 0; z-index: 20; padding: 16px var(--gutter); }
+.brand {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px;
+  color: var(--ink); text-decoration: none;
+  font: 600 20px/1 var(--display); letter-spacing: -0.025em;
+}
+.brand__mark { width: 28px; height: 20px; }
+@media (min-width: 900px) { .masthead { position: fixed; padding-top: 20px; } }
+
 /* The symbol sheet the mark is drawn from takes no room. */
 .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
@@ -113,7 +124,8 @@ b { font-weight: 600; }
    front scoop 17 wide. Lengths are in cqw, hundredths of the lid, so it is to
    scale at any size. It is built in 3D: front on and without a camera (Reduce
    Motion), the deck is edge-on and only the lid and the base's front show.
-   The recording is 800 × 350 points from the top of the screen, centered. */
+   The recording is 400 × 256 points from the top of the screen, centered,
+   so its notch lands exactly on the drawn one. */
 .mac {
   /* A grayscale riso print: one light ink, shaded only by the size of its
      halftone dots, with the speckled dropout of a drum print. The recording
@@ -156,7 +168,7 @@ b { font-weight: 600; }
   border-radius: 0.64cqw 0.64cqw 0 0;
   background: #000;
 }
-.mac__film { position: absolute; top: 0; left: 23.545%; width: 52.91%; height: auto; background: #000; }
+.mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; }
 .mac__notch {
   position: absolute; top: 0; left: 43.88%; width: 12.24%; height: 3.26%;
   border-radius: 0 0 0.58cqw 0.58cqw;
@@ -258,10 +270,14 @@ b { font-weight: 600; }
   @media (prefers-reduced-motion: no-preference) {
     .journey {
       --macw: calc(var(--film) * 1.9531);
+      /* The take is 400 points, so on this lid it is half the film's width;
+         the camera ends --zoom times closer than the lid's own size, which
+         costs nothing to draw where a lid twice as large halved the frame rate. */
+      --zoom: 2;
       --s0: 0.32;
       --w0: calc(var(--macw) * var(--s0));
       --x0: calc(var(--w0) * 0.057);
-      --y0: calc(24px + var(--w0) * 0.02);
+      --y0: calc(76px + var(--w0) * 0.02);
       /* The camera dollies in from --z0 rather than scaling the picture, its
          eye on the notch the whole way, so the deck is seen from above and
          nothing shears. The MacBook starts turned and its lid tipped back. */
@@ -342,6 +358,10 @@ b { font-weight: 600; }
       --y0: calc(50svh - var(--w0) * 0.445);
     }
     .pitch { top: 50%; right: auto; width: min(34vw, 460px); translate: 0 -50%; }
+    /* Each gesture on one line across the window, not wrapped to the film's
+       width: two lines reach the credit in a short window. */
+    .moves { left: var(--gutter); right: var(--gutter); width: auto; margin-left: 0; }
+    .moves li { font-size: clamp(30px, min(4.2vw, 6.4svh), 56px); text-wrap: balance; }
     /* The film's controls step aside while the base sweeps down through them. */
     .stage__foot {
       left: 50%; right: auto; width: var(--film); margin-left: calc(var(--film) / -2);
@@ -357,7 +377,8 @@ b { font-weight: 600; }
     transform: translate3d(var(--x0), var(--y0), var(--z0))
       rotateX(calc(var(--rx0) * -1)) rotateY(var(--ry0));
   }
-  to { transform: none; }
+  /* A dolly, not a scale: perspective p / (p - z) is --zoom. */
+  to { transform: translateZ(calc(var(--p) * (1 - 1 / var(--zoom)))); }
 }
 @keyframes fade {
   to { opacity: 0; visibility: hidden; }
