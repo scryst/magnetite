@@ -323,17 +323,17 @@ struct NotchRootView: View {
     /// points drift on slow, mutually-prime sines so it never visibly loops, and only
     /// while a track plays.
     ///
-    /// The blurred cover is kept: at `blur(46)` it lays down close to the cover's global
-    /// mean, and `glassEffect` alone is tinted with a single palette colour. The opacity
+    /// The cover's own colour layout is kept under it (`CoverField`): the palette alone
+    /// is four colours with no positions, and `glassEffect` alone is tinted with one. The opacity
     /// below is 0.74 + 0.24 x loudness, so a paused panel shows the weakest colour.
     @ViewBuilder
     private var coverWash: some View {
         if media.hasTrack {
             ZStack {
-                if let art = media.artwork {
+                if media.artwork != nil, !media.palette.layout.isEmpty {
                     // A black-and-white sleeve's only identity is where its light falls,
-                    // which a blur flattens to grey; contrast brings the layout back.
-                    CoverField(fluid: fluid, art: art, size: size, rate: fieldRate)
+                    // which the cell means soften to grey; contrast brings the layout back.
+                    CoverField(fluid: fluid, layout: media.palette.layout, rate: fieldRate)
                         .contrast(media.palette.monochrome ? 1.6 : 1)
                 }
 
@@ -1577,55 +1577,73 @@ private struct MeshField: View {
     }
 }
 
-/// The sleeve as the card's light. Three blurred copies turn and drift against each other
-/// on the music's own clock, so the colour moves the way the ink does instead of sitting
-/// in the middle as a glow; the swell breathes them and a hit brightens them in the frame
-/// it lands, within the flash ceiling. Still when nothing plays and under Reduce Motion,
-/// like the mesh.
+/// The sleeve as the card's light. Its colours, where they sit on the cover (a grid of
+/// cell means, `ArtworkPalette.layout`), are drawn as a mesh whose seams flow on the
+/// music's own clock, so the card carries the record's light and moves the way the ink
+/// does. The cover itself is never drawn here: turning blurred copies of it showed as
+/// pictures going round in circles however hard they were blurred. The swell spreads
+/// the field and a hit brightens it in the frame it lands, within the flash ceiling.
+/// Still when nothing plays and under Reduce Motion, like the mesh.
 private struct CoverField: View {
     var fluid: FerrofluidSim
-    var art: NSImage
-    var size: CGSize
+    var layout: [Color]
     var rate: Double
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / rate,
                                 paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
-            let t = fluid.flowPhase
-            let swell = min(1, fluid.swell)
-            let side = max(size.width, size.height)
-            ZStack {
-                copy(side: side * 1.6, turn: t * 22,
-                     x: sin(t * 0.9) * 0.12, y: cos(t * 0.7) * 0.16,
-                     scale: 1 + 0.12 * swell)
-                copy(side: side * 1.0, turn: 180 - t * 34,
-                     x: cos(t * 1.1 + 1.0) * 0.30, y: sin(t * 0.8 + 2.0) * 0.34,
-                     scale: 1 + 0.26 * swell)
-                    .opacity(0.8)
-                copy(side: side * 0.7, turn: 90 + t * 50,
-                     x: sin(t * 1.3 + 4.0) * 0.36, y: cos(t * 1.2 + 0.5) * 0.38,
-                     scale: 1 + 0.4 * swell)
-                    .opacity(0.7)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .blur(radius: 26)
-            .saturation(1.5)
-            // The hit's light, not the swell: the swell can pulse faster than the flash
-            // ceiling allows across the whole card.
-            .brightness(0.1 * min(1, fluid.light))
+            Self.field(layout, phase: fluid.flowPhase, swell: min(1, fluid.swell),
+                       light: min(1, fluid.light))
         }
     }
 
-    /// One copy of the sleeve, `turn` degrees round, its centre `x`/`y` panel widths off.
-    private func copy(side: CGFloat, turn: Double, x: Double, y: Double,
-                      scale: Double) -> some View {
-        Image(nsImage: art)
-            .resizable()
-            .scaledToFill()
-            .frame(width: side, height: side)
-            .rotationEffect(.degrees(turn))
-            .scaleEffect(scale)
-            .offset(x: x * size.width, y: y * size.width)
+    /// The field at one moment. Static so a film harness can step it frame by frame.
+    /// Square, like the sleeve, and cropped by the panel the way the cover would be, so
+    /// the record's colours keep their proportions instead of smearing into bands. The
+    /// blur is opaque: a transparent one pulls black in round the edges.
+    static func field(_ layout: [Color], phase t: Double, swell: Double,
+                      light: Double) -> some View {
+        MeshGradient(width: ArtworkPalette.layoutSide, height: ArtworkPalette.layoutSide,
+                     points: points(phase: t, swell: swell), colors: layout)
+            .aspectRatio(1, contentMode: .fill)
+            .blur(radius: 18, opaque: true)
+            .saturation(1.5)
+            // The hit's light, not the swell: the swell can pulse faster than the flash
+            // ceiling allows across the whole card.
+            .brightness(0.1 * light)
+    }
+
+    /// The lattice at phase `t`. Corners stay put, edge points slide along their edge and
+    /// inner points wander in both axes, each on its own irrational rate, so colour regions
+    /// bulge into each other without any visible loop. Reach is under half a cell, so two
+    /// neighbours swinging at each other never cross and the mesh never folds. The swell
+    /// pushes inner points away from the centre column and row, opening the middle colours
+    /// up on a loud passage; that only ever separates neighbours.
+    static func points(phase t: Double, swell: Double) -> [SIMD2<Float>] {
+        let n = ArtworkPalette.layoutSide
+        let cell = 1 / Double(n - 1)
+        var lattice: [SIMD2<Float>] = []
+        for row in 0..<n {
+            for column in 0..<n {
+                let i = Double(row * n + column)
+                // Golden-ratio steps give every point a different rate and offset.
+                let rx = 0.45 + (i * 0.618_034).truncatingRemainder(dividingBy: 1) * 0.6
+                let ry = 0.45 + (i * 0.414_214).truncatingRemainder(dividingBy: 1) * 0.6
+                let ox = i * 2.399, oy = i * 1.711
+                var x = Double(column) * cell, y = Double(row) * cell
+                let innerX = column > 0 && column < n - 1
+                let innerY = row > 0 && row < n - 1
+                if innerX { x += sin(t * rx + ox) * cell * (innerY ? 0.4 : 0.32) }
+                if innerY { y += sin(t * ry + oy) * cell * (innerX ? 0.4 : 0.32) }
+                if innerX && innerY {
+                    let mid = (n - 1) / 2, push = 0.15 * cell * swell
+                    x += Double((column - mid).signum()) * push
+                    y += Double((row - mid).signum()) * push
+                }
+                lattice.append(SIMD2(Float(x), Float(y)))
+            }
+        }
+        return lattice
     }
 }
 

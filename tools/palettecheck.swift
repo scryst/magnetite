@@ -19,6 +19,7 @@ enum PaletteCheck {
         theRulerWeighsAfterItLinearises()
         theFallbackDescribesItself()
         unrasterisableArtStillReturnsNil()
+        theCoverFieldKeepsTheSleevesLayout()
         print("palettecheck: all checks passed")
     }
 
@@ -279,6 +280,23 @@ enum PaletteCheck {
     private static func unrasterisableArtStillReturnsNil() {
         require(ArtworkPalette.extract(from: NSImage(size: .zero)) == nil,
                 "an empty image should still return nil so callers keep their palette")
+    }
+
+    /// The cover field flows the sleeve's colours where they sit; the old field turned
+    /// copies of the picture in circles. A red top-left and blue bottom-right must come
+    /// out as red in the first cell and blue in the last, not mirrored or transposed.
+    private static func theCoverFieldKeepsTheSleevesLayout() {
+        let corners = make { x, y in
+            x < 12 && y < 12 ? (0.9, 0.1, 0.1) : x >= 12 && y >= 12 ? (0.1, 0.2, 0.9) : (0, 0, 0)
+        }
+        let n = ArtworkPalette.layoutSide
+        let layout = ArtworkPalette.extract(from: corners)!.layout
+        require(layout.count == n * n, "the layout should be a full \(n) x \(n) grid")
+        let red = Color(.sRGB, red: 0.9, green: 0.1, blue: 0.1)
+        let blue = Color(.sRGB, red: 0.1, green: 0.2, blue: 0.9)
+        require(distance(layout[0], red) < 0.1, "the sleeve's top left should lead the layout")
+        require(distance(layout[n * n - 1], blue) < 0.1, "the sleeve's bottom right should end it")
+        require(distance(layout[n - 1], .black) < 0.1, "the top right should stay dark")
     }
 
     // MARK: Fixtures
