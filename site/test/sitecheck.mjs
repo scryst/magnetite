@@ -276,6 +276,39 @@ const CHECKS = {
     return out;
   },
 
+  // The MacBook is drawn to Apple's measurements, not by eye. These are read
+  // off Apple's top-down store photo of the 14-inch (mbp14-spaceblack-gallery2,
+  // the body 1298 px wide) in hundredths of the body's width. The grilles were
+  // drawn at half their width and Laks caught it (2026-10-29).
+  deck() {
+    const out = [];
+    const text = read('css/magnetite.css');
+    const rule = (sel) => text.match(new RegExp(`^${sel.replace(/[.:]/g, '\\$&')} \\{([^}]*)\\}`, 'm'))?.[1] ?? '';
+    const num = (decls, prop) => decls.match(new RegExp(`(?:^|[\\s;])${prop}:\\s*([\\d.]+)cqw`))?.[1];
+    const near = (what, got, want) => {
+      if (got === undefined || Number.isNaN(Number(got))) out.push(`${what} is not set in cqw`);
+      else if (Math.abs(Number(got) - want) > 0.3) out.push(`${what} is ${got}cqw; Apple's photo measures ${want}`);
+    };
+    const deck = rule('.mac__deck');
+    const cols = deck.match(/grid-template-columns:\s*([\d.]+)cqw\s+([\d.]+)cqw\s+([\d.]+)cqw/);
+    const gap = num(deck, 'column-gap');
+    if (!cols) out.push('.mac__deck has no three-column grid in cqw');
+    else {
+      near('the grille width', cols[1], 4.4);
+      near('the keyboard well width', cols[2], 89.4);
+      near('the grille inset from the side', (100 - Number(cols[1]) * 2 - Number(cols[2]) - Number(gap) * 2) / 2, 0.6);
+    }
+    near('the well top', num(deck, 'padding-top'), 5.55);
+    near('the grille height', num(rule('.mac__grille'), 'height'), 33.9);
+    const pad = rule('.mac__pad');
+    near('the trackpad width', num(pad, 'width'), 41.4);
+    near('the trackpad height', num(pad, 'height'), 25.9);
+    const scoop = rule('.mac__front::before');
+    near('the front scoop width', num(scoop, 'width'), 17);
+    near('the front scoop left', num(scoop, 'left'), 41.5);
+    return out;
+  },
+
   // Every local href and src on every page is a file that ships. deploy.sh drops
   // test/ and downloads/, so a link into either is a 404 in production.
   links() {

@@ -48,6 +48,8 @@ const MUTATIONS = [
   ['type', 'the font ships without its license', 'site/css/type.css', 'OFL: fonts/OFL-Geist.txt', 'OFL: fonts/OFL-Archivo.txt'],
   ['spelling', 'British spelling comes back', 'site/index.html', 'MIT license', 'MIT licence'], // us-spelling: ok
   ['spelling', 'the British visualizer comes back', 'site/llms.txt', 'visualizer', 'visualiser'], // us-spelling: ok
+  ['deck', 'the grilles shrink back to a guess', 'site/css/magnetite.css', 'grid-template-columns: 4.4cqw 89.4cqw 4.4cqw', 'grid-template-columns: 2.4cqw 89.4cqw 2.4cqw'],
+  ['deck', 'the trackpad is drawn wider than Apple makes it', 'site/css/magnetite.css', 'width: 41.4cqw; height: 25.9cqw;', 'width: 47.3cqw; height: 25.9cqw;'],
   ['accent', 'a colored flair comes back', 'site/css/magnetite.css', '  --bg: #000;\n', '  --bg: #000;\n  --pink: #FF4FA3;\n'],
   ['firstlaunch', 'the steps lose Open Anyway', 'site/index.html', 'click <b>Open Anyway</b>', 'click <b>Open</b>'],
   ['credit', 'the footer drops the license link', 'site/index.html', 'from the Free Music Archive, under\n    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>', 'from the Free Music Archive'],
