@@ -19,14 +19,14 @@ Download the ZIP, then open it the first time like this:
 
 1. Open the ZIP, drag Magnetite to Applications, then double-click it.
 2. macOS says it can't verify Magnetite. That's expected for a free app that
-   isn't in Apple's paid programme. Click Done.
+   isn't in Apple's paid program. Click Done.
 3. Open System Settings → Privacy & Security and scroll down to Security. Click
    Open Anyway next to Magnetite, then confirm with Touch ID or your password.
 4. Look for the M in the menu bar. Play something in Spotify or Music and hover
    the notch. Allow the two permission prompts: one to control Spotify or Music,
-   one to record system audio for the visualiser.
+   one to record system audio for the visualizer.
 
-You only do this once. The build is ad-hoc signed and not notarised by Apple,
+You only do this once. The build is ad-hoc signed and not notarized by Apple,
 so only open a download you trust.
 
 Prefer to skip the warning? [Inspect the installer](https://github.com/scryst/magnetite/blob/main/install.sh),
@@ -58,7 +58,7 @@ The matching ZIP must report `OK`. Do not install if the checksum fails.
 - [Report a bug](https://github.com/scryst/magnetite/issues)
 - [Private security reporting](https://github.com/scryst/magnetite-releases/security/policy)
 - [Privacy](https://magnetite.app/privacy.html) · [Terms](https://magnetite.app/terms.html)
-- [Source and MIT licence](https://github.com/scryst/magnetite)
+- [Source and MIT license](https://github.com/scryst/magnetite)
 
 No Magnetite account, analytics or audio uploads. Optional Spotify authorization
 and artwork requests are described in the privacy notice.

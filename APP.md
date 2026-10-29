@@ -33,7 +33,7 @@ Design rules are in [PRODUCT.md](PRODUCT.md).
   pinned, so it stays until toggled again or you click elsewhere. With Open on
   Hover off, a click on the notch opens it.
 - **Two-finger swipes** skip tracks (sideways) and play or pause (up or down).
-  Deltas are normalised to the device direction, because `scrollingDeltaX`
+  Deltas are normalized to the device direction, because `scrollingDeltaX`
   already includes the natural-scrolling preference. Momentum events are
   ignored so one swipe is one action.
 - Closed, the panel ignores mouse events, so swipes are read by a global
@@ -61,7 +61,7 @@ Each band is driven by its change against a 2.5-second baseline rather than its
 loudness, so sustained music keeps moving instead of pinning every band high. A
 track change injects one transient, and the ordinary physics does the rest.
 
-## Colour
+## Color
 
 The background is two counter-rotating `MeshGradient` layers built from the
 cover's palette. `ArtworkPalette.spread` widens hue and brightness for
@@ -86,7 +86,7 @@ Settings and the music source are in the **M** menu-bar item.
 | Volume HUD | CoreAudio property listener; no permission needed |
 | Brightness HUD | Private `DisplayServices` via `dlsym`, read-only, fails quietly |
 | Ferrofluid | CoreAudio process tap → vDSP FFT → twelve bands |
-| Library | Favourites through Music, or through a connected Spotify Web API app; shuffle and repeat |
+| Library | Favorites through Music, or through a connected Spotify Web API app; shuffle and repeat |
 | Artists | Each credited artist opens in Spotify or Music; unresolved names open a search |
 | Multiple displays | One controller and panel per screen, keyed by display UUID |
 
@@ -112,7 +112,7 @@ those can't be told apart from a collaboration.
 - `SBApplication` must be declared to conform to your ScriptingBridge protocol,
   or `as?` quietly returns nil.
 - Spotify returns `duration` as `Int` milliseconds and Music as `Double`
-  seconds under the same selector. Read it through KVC and normalise.
+  seconds under the same selector. Read it through KVC and normalize.
 - A `GeometryReader` has no ideal width, so inside an `HStack` it collapses to
   zero. `MarqueeText` lays out as ordinary text for that reason.
 - Other notch utilities draw at a very high window level and will paint over

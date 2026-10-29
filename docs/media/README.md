@@ -16,4 +16,4 @@ The music is `docs/media/encryption.mp3`, "Encryption" by
 [Free Music Archive](https://freemusicarchive.org/music/beat-mekanik/single/encryption/)
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), re-encoded to
 160 kbps MP3; `site/media/cover-encryption.webp` is its cover, resized to 176 px.
-The page and the README credit it by artist, title, licence and link.
+The page and the README credit it by artist, title, license and link.

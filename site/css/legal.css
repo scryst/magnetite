@@ -3,9 +3,8 @@
 :root {
   color-scheme: dark;
   --paper: #000;
-  --ink: #F3F4F8;
-  --ink-soft: #A2A7B5;
-  --blue: #8FAEFF;
+  --ink: #F2F0EB;
+  --ink-soft: #A3A09A;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -22,7 +21,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
 
 .legal {
   width: min(calc(100% - 48px), 35em);
@@ -37,9 +36,8 @@ body {
 
 h1 {
   margin: 0 0 12px;
-  font: 800 clamp(44px, 9vw, 80px)/0.95 'Archivo', -apple-system, system-ui, sans-serif;
-  font-stretch: 118%;
-  letter-spacing: -0.035em;
+  font: 600 clamp(44px, 9vw, 80px)/1 'Geist', -apple-system, system-ui, sans-serif;
+  letter-spacing: -0.045em;
 }
 
 h2 {

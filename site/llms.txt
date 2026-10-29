@@ -2,16 +2,16 @@
 
 > A music player that shows the song as black ferrofluid around the MacBook notch.
 
-Magnetite is a free, MIT-licensed, open-source macOS app by scryst. It needs macOS 26 or later on Apple silicon and controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch get a floating pill. The product page plays a screen recording of the running app playing a CC BY track. The audio that drives the visualiser stays in memory on the Mac. There are no trackers and no Magnetite accounts.
+Magnetite is a free, MIT-licensed, open-source macOS app by scryst. It needs macOS 26 or later on Apple silicon and controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch get a floating pill. The product page plays a screen recording of the running app playing a CC BY track. The audio that drives the visualizer stays in memory on the Mac. There are no trackers and no Magnetite accounts.
 
 The optional Spotify Web API connection supports liked songs, shuffle and repeat. It uses PKCE and keeps a refresh token in a file only the owner can read. The current track's artwork may be downloaded from the URL the player supplies. The app asks for Automation and system-audio permissions separately.
 
-The download button links to the release ZIP on GitHub. The app is ad-hoc signed and not notarised by Apple, so on first launch macOS asks you to approve it under System Settings → Privacy & Security → Open Anyway.
+The download button links to the release ZIP on GitHub. The app is ad-hoc signed and not notarized by Apple, so on first launch macOS asks you to approve it under System Settings → Privacy & Security → Open Anyway.
 
 ## Product
 
 - [Product page](https://magnetite.app/): The film, requirements, first-launch steps and the download link.
-- [Magnetite v0.1.12](https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip): Current release ZIP, 757 KB; ad-hoc signed, not notarised.
+- [Magnetite v0.1.12](https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip): Current release ZIP, 757 KB; ad-hoc signed, not notarized.
 - [All versions and checksums](https://github.com/scryst/magnetite-releases/releases): Every release with its SHA-256 file.
 - [First launch and FAQ](https://magnetite.app/#setup): Opening the app past the macOS warning, permissions, supported displays, troubleshooting, updates and uninstall.
 - [Film](https://magnetite.app/media/demo.mp4): The open panel and its ferrofluid playing "Encryption" by Beat Mekanik.
@@ -20,6 +20,6 @@ The download button links to the release ZIP on GitHub. The app is ad-hoc signed
 ## Trust
 
 - [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credentials, lyrics lookups, website hosting and aggregate counts.
-- [Terms](https://magnetite.app/terms.html): MIT licence, warranty and affiliation.
+- [Terms](https://magnetite.app/terms.html): MIT license, warranty and affiliation.
 - [Source code](https://github.com/scryst/magnetite): Swift source, build instructions and issue tracker.
 - [Releases](https://github.com/scryst/magnetite-releases): Binaries and release notes.
