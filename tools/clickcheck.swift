@@ -73,8 +73,9 @@
         // must neither take a click nor push the controls out of the region.
         check(lyrics: false)
         check(lyrics: true)
+        aWideCoverStaysInItsSquare()
         if failures > 0 { exit(1) }
-        print("clickcheck: with and without lyrics, all 7 controls answer a click, the hit region hides none of them, and nothing under the panel does")
+        print("clickcheck: with and without lyrics, all 7 controls answer a click, the hit region hides none of them, and nothing under the panel does; a 16:9 cover is cropped to its square")
     }
 
     static func check(lyrics: Bool) {
@@ -135,5 +136,44 @@
         }
         window.orderOut(nil)
         open.orderOut(nil)
+    }
+
+    /// A music video's cover is a 16:9 still (Spotify sends 640x360). The tile is square
+    /// at both sizes, so the still is cropped to it: drawn wider, it ran over the title
+    /// in the open card and past the camera in the closed strip.
+    static func aWideCoverStaysInItsSquare() {
+        let wide = NSImage(size: NSSize(width: 160, height: 90), flipped: false) { rect in
+            NSColor.white.setFill()
+            rect.fill()
+            return true
+        }
+        for (side, radius) in [(CGFloat(88), CGFloat(14)), (19, 5.5)] {
+            let pad: CGFloat = side / 2
+            let renderer = ImageRenderer(content: Artwork(image: wide, palette: .fallback,
+                                                          size: side, radius: radius)
+                .frame(width: side, height: side)
+                .padding(pad)
+                .frame(width: side + 2 * pad, height: side + 2 * pad))
+            renderer.scale = 2
+            guard let image = renderer.cgImage else {
+                require(false, "the \(Int(side)) pt cover did not render")
+                continue
+            }
+            let bitmap = NSBitmapImageRep(cgImage: image)
+            let scale = CGFloat(image.width) / (side + 2 * pad)
+            func light(_ x: CGFloat, _ y: CGFloat) -> CGFloat {
+                let c = bitmap.colorAt(x: Int(x * scale), y: Int(y * scale))!.usingColorSpace(.deviceRGB)!
+                return c.redComponent * c.alphaComponent
+            }
+            let mid = pad + side / 2
+            // Just inside the slot's left and right edges: the still fills the square.
+            require(light(pad + side * 0.1, mid) > 0.9 && light(pad + side * 0.9, mid) > 0.9,
+                    "a 16:9 cover leaves the \(Int(side)) pt square unfilled")
+            // A quarter of the slot outside either edge: nothing of the still.
+            for x in [pad - side / 4, pad + side * 1.25] {
+                require(light(x, mid) < 0.5,
+                        "a 16:9 cover draws \(Int(side / 4)) pt outside its \(Int(side)) pt square")
+            }
+        }
     }
 }

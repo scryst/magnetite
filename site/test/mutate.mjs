@@ -913,7 +913,7 @@ const MUTANTS = {
     check: DOWNLOAD,
     file: PAGE,
     all: true,
-    from: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.9/Magnetite-0.1.9.zip',
+    from: 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.10/Magnetite-0.1.10.zip',
     to: 'https://github.com/scryst/magnetite-releases/releases/download/v9.9.9/Magnetite-9.9.9.zip',
   },
   // The button falls back to the release page, which is a page to decode
@@ -921,8 +921,8 @@ const MUTANTS = {
   'download-link-reverts-to-release-page': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.9/Magnetite-0.1.9.zip"',
-    to: 'href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.9"',
+    from: 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.10/Magnetite-0.1.10.zip"',
+    to: 'href="https://github.com/scryst/magnetite-releases/releases/tag/v0.1.10"',
   },
   // The way to older versions and the checksum files goes missing.
   'all-versions-link-dropped': {
@@ -946,8 +946,8 @@ const MUTANTS = {
   'download-copy-reverts-to-release': {
     check: DOWNLOAD,
     file: PAGE,
-    from: 'Download<span class="visually-hidden">, Magnetite v0.1.9 ZIP from GitHub</span>',
-    to: 'Release<span class="visually-hidden">, Magnetite v0.1.9 ZIP from GitHub</span>',
+    from: 'Download<span class="visually-hidden">, Magnetite v0.1.10 ZIP from GitHub</span>',
+    to: 'Release<span class="visually-hidden">, Magnetite v0.1.10 ZIP from GitHub</span>',
   },
   'structured-release-names-someone-else': {
     check: DOWNLOAD,
@@ -978,7 +978,7 @@ const MUTANTS = {
   'download-version-drift': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.9</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.10</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>0.2.0</string>',
   },
   // The same drift, in the one direction the check used to be blind to. The
@@ -989,7 +989,7 @@ const MUTANTS = {
   'download-version-bumped-into-a-substring': {
     check: DOWNLOAD,
     file: PLIST,
-    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.9</string>',
+    from: '<key>CFBundleShortVersionString</key>\n\t<string>0.1.10</string>',
     to: '<key>CFBundleShortVersionString</key>\n\t<string>1.4</string>',
   },
   // The size under the button is left over from an older, smaller build.
