@@ -1,8 +1,9 @@
-/* Gloock, one weight, Latin subset, self-hosted. OFL: fonts/OFL-Gloock.txt. */
+/* Archivo, variable weight 500–800 and width 100–125, Latin subset, self-hosted. OFL: fonts/OFL-Archivo.txt. */
 @font-face {
-  font-family: 'Gloock';
+  font-family: 'Archivo';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500 800;
+  font-stretch: 100% 125%;
   font-display: swap;
-  src: url('../fonts/gloock-400-latin.woff2') format('woff2');
+  src: url('../fonts/archivo-var-latin.woff2') format('woff2');
 }

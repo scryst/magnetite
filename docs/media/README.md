@@ -1,15 +1,16 @@
 # Media
 
-The stills in the README are frames from `site/media/film.mp4`, a screen
-recording of the app, cropped and resized with FFmpeg and `cwebp -q 86`.
+`player.webp`, the README's picture, is the frame at 9 s of
+`site/media/demo.mp4`, scaled to 1200 px and encoded with `cwebp -q 86`.
 
-Film music and cover art: Punch Deck, "Chrome Funk", "Cyberpunk Renaissance"
-and "Neon Underworld", [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The film is the app's own panel, not a screen recording. `tools/sitefilm`
+renders the real SwiftUI view offscreen, frame by frame, with the ferrofluid
+driven by the track's audio through the app's own analysis, then muxes that
+audio back in. `site/media/demo-poster.webp` is its first frame.
 
-The site's soundtrack is `site/media/encryption.mp3`, "Encryption" by
+The music is `docs/media/encryption.mp3`, "Encryption" by
 [Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/), from the
 [Free Music Archive](https://freemusicarchive.org/music/beat-mekanik/single/encryption/)
 under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), re-encoded to
-160 kbps MP3; `cover-encryption.webp` is its cover, resized to 176 px. The
-second track is Punch Deck's "Chrome Funk" (`chrome-funk.mp3`). The page
-credits both by artist, title, licence and link.
+160 kbps MP3; `site/media/cover-encryption.webp` is its cover, resized to 176 px.
+The page and the README credit it by artist, title, licence and link.

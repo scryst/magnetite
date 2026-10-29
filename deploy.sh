@@ -141,8 +141,7 @@ echo "==> checking committed source $SHORT"
 git worktree add --detach --quiet "$VERIFY" "$REF"
 (
   cd "$VERIFY"
-  node site/test/portcheck.mjs
-  node site/test/bandscheck.mjs
+  node site/test/sitecheck.mjs
 )
 
 git archive "$REF:site" | tar -x -C "$STAGE"

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Headless checks on the media surface: the reconciliation between what the
 /// user just pressed and what the player reports a moment later.
@@ -18,6 +18,7 @@ enum MediaCheck {
         aPauseDoesNotTakeTheTogglesAway()
         aPauseAsksWhatTheTogglesCanStillDo()
         onlyARealTrackURLIsShareable()
+        aCoverArrivesInAnyShapeTheBridgeHands()
         aWedgedReadDoesNotOwnTheNextOne()
         aWedgedPlayerDoesNotHideTheOtherOne()
         aWedgedCommandNeitherBlocksThePressNorTheNextOne()
@@ -324,6 +325,26 @@ enum MediaCheck {
 
         m.apply(snapshot(.music, identity: "Swim\u{1}Artist\u{1}Album"))
         require(m.shareURL == nil, "a synthesised identity was offered as a link")
+    }
+
+    /// Music hands a cover back as an NSImage, as raw bytes, or as an Apple Event
+    /// descriptor (art set by a script). 0.1.10 trusted the NSImage declaration
+    /// and aborted in `tiffRepresentation` on the descriptor.
+    static func aCoverArrivesInAnyShapeTheBridgeHands() {
+        let image = NSImage(size: NSSize(width: 4, height: 4), flipped: false) { rect in
+            NSColor.red.setFill(); rect.fill(); return true
+        }
+        guard let tiff = image.tiffRepresentation,
+              let jpeg = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [:])
+        else { return require(false, "could not encode the fixture cover") }
+        let event = NSAppleEventDescriptor(descriptorType: 0x4A50_4547 /* 'JPEG' */, data: jpeg)
+        for (shape, value) in [("NSImage", image as AnyObject), ("Data", jpeg as NSData),
+                               ("descriptor", event as AnyObject)] {
+            let cover = MediaBridge.image(from: value)
+            require(cover?.tiffRepresentation != nil, "a cover handed as \(shape) was not read")
+        }
+        require(MediaBridge.image(from: "nope" as NSString) == nil, "a string was read as a cover")
+        require(MediaBridge.image(from: nil) == nil, "no cover was read as one")
     }
 
     /// A player that takes an event and never answers costs one read, not the

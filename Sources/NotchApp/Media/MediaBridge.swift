@@ -670,9 +670,17 @@ final class MediaBridge: @unchecked Sendable {
               let art = artworks.object(at: 0) as? MediaArtwork
         else { return nil }
 
-        if let image = art.data { return image }
-        if let raw = art.rawData { return NSImage(data: raw) }
-        return nil
+        return Self.image(from: art.data) ?? Self.image(from: art.rawData)
+    }
+
+    /// A cover from whatever ScriptingBridge handed back (see `MediaArtwork`).
+    static func image(from value: AnyObject?) -> NSImage? {
+        switch value {
+        case let image as NSImage: image.isValid ? image : nil
+        case let data as Data: NSImage(data: data)
+        case let event as NSAppleEventDescriptor: NSImage(data: event.data)
+        default: nil
+        }
     }
 
     // MARK: Modes

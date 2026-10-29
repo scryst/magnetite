@@ -32,9 +32,13 @@ enum PlayerState {
     // member here against both apps' scripting dictionaries.
 }
 
+// Untyped: ScriptingBridge returns an NSImage for most covers but an
+// NSAppleEventDescriptor for others (art a script set as a JPEG picture), and
+// a typed read trusts the declaration until `tiffRepresentation` aborts the app.
+// `MediaBridge.image(from:)` sorts out which one arrived.
 @objc protocol MediaArtwork {
-    @objc optional var data: NSImage { get }
-    @objc optional var rawData: Data { get }
+    @objc optional var data: AnyObject { get }
+    @objc optional var rawData: AnyObject { get }
 }
 
 @objc protocol MediaPlayerApp {
