@@ -312,6 +312,46 @@ const CHECKS = {
     return out;
   },
 
+  // The film sits on the drawn screen at the size it was filmed, so its notch is
+  // the drawn notch. 0.1.13 placed a 400-point take as if it were 800 points wide,
+  // and the notch on the MacBook read twice its real size.
+  scale() {
+    const out = [];
+    const take = readFileSync(join(repo, 'tools/notchtake.swift'), 'utf8')
+      .match(/let film = \(x: ([\d.]+), y: [\d.]+, w: ([\d.]+), h: [\d.]+/);
+    if (!take) return ['tools/notchtake.swift no longer names the film rect'];
+    const [x, w] = [Number(take[1]), Number(take[2])];
+    const film = css.match(/^\.mac__film \{[^}]*\}/m)?.[0] ?? '';
+    const pct = (prop) => Number(film.match(new RegExp(`[\\s;{]${prop}:\\s*([\\d.]+)%`))?.[1]);
+    if (Math.abs(pct('left') - (x / 1512) * 100) > 0.05) out.push(`.mac__film left is ${pct('left')}%; the take starts at ${x} of 1512 points`);
+    if (Math.abs(pct('width') - (w / 1512) * 100) > 0.05) out.push(`.mac__film width is ${pct('width')}%; the take is ${w} of 1512 points`);
+    // Pushed in, the film fills --film, so the lid is (1512 / w) films of screen
+    // and the 312.6 mm lid holds the 302.5 mm screen.
+    // The camera's last push (--zoom) counts toward it.
+    const macw = Number(css.match(/--macw: calc\(var\(--film\) \* ([\d.]+)\)/)?.[1]);
+    const zoom = Number(css.match(/--zoom: ([\d.]+);/)?.[1] ?? 1);
+    if (!/@keyframes push \{[^@]*translateZ\(calc\(var\(--p\) \* \(1 - 1 \/ var\(--zoom\)\)\)\)/.test(css)) out.push('the push no longer ends at --zoom');
+    const want = (1512 / w) * (312.6 / 302.5);
+    if (Math.abs(macw * zoom - want) > 0.01) out.push(`the lid ends ${(macw * zoom).toFixed(4)} films wide; a ${w}-point take needs ${want.toFixed(4)}`);
+    return out;
+  },
+
+  // The product's name is on screen from the first frame and on the dock that
+  // follows the reader; the page had it only in the footer.
+  name() {
+    const out = [];
+    const main = html.indexOf('<main');
+    const brand = tags.find((t) => t.name === 'a' && /\bbrand\b/.test(t.attrs.class ?? ''));
+    if (!brand || brand.at > main) out.push('no .brand link before <main>');
+    else if (!/^Magnetite$/.test(textOf(brand))) out.push(`the brand link reads "${textOf(brand)}", not Magnetite`);
+    const dock = tags.find((t) => 'data-dock' in t.attrs);
+    if (!dock || !/Magnetite/.test(textOf(dock))) out.push('the dock does not name Magnetite');
+    for (const page of ['privacy.html', 'terms.html']) {
+      if (!/class="legal__home"[^>]*>(?:<img[^>]*>)?Magnetite</.test(read(page))) out.push(`${page} has no Magnetite link home`);
+    }
+    return out;
+  },
+
   // Every local href and src on every page is a file that ships. deploy.sh drops
   // test/ and downloads/, so a link into either is a 404 in production.
   links() {
