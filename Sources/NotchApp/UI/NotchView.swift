@@ -697,9 +697,11 @@ private struct ExpandedPlayer: View {
                         .id(media.trackToken)
                         .transition(.asymmetric(
                             insertion: .offset(y: 8 * Motion.travel)
-                                .combined(with: .opacity),
+                                .combined(with: .opacity)
+                                .animation(Motion.track.delay(Motion.wordsGap)),
                             removal: .offset(y: -6 * Motion.travel)
-                                .combined(with: .opacity)))
+                                .combined(with: .opacity)
+                                .animation(Motion.wordsOut)))
 
                     ArtistLine(media: media)
                         .foregroundStyle(.white.opacity(0.62))
@@ -707,9 +709,10 @@ private struct ExpandedPlayer: View {
                         .transition(.asymmetric(
                             insertion: .offset(y: 8 * Motion.travel)
                                 .combined(with: .opacity)
-                                .animation(Motion.content.delay(0.06)),
+                                .animation(Motion.content.delay(Motion.wordsGap + 0.06)),
                             removal: .offset(y: -6 * Motion.travel)
-                                .combined(with: .opacity)))
+                                .combined(with: .opacity)
+                                .animation(Motion.wordsOut)))
                         .frame(height: Grid.artist)
                     }
 
@@ -930,7 +933,9 @@ private struct LyricsStage: View {
                                  playing: media.isPlaying || scrubbing)
                         .equatable()
                         .id(media.trackToken)
-                        .transition(.opacity.animation(Motion.content))
+                        .transition(.asymmetric(
+                            insertion: .opacity.animation(Motion.content.delay(Motion.wordsGap)),
+                            removal: .opacity.animation(Motion.wordsOut)))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)

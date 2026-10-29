@@ -40,8 +40,14 @@ struct FerrofluidView: View, Animatable {
         // Read here, not by the parent: `frame` changes every step, and reading it in
         // `NotchRootView`'s body would invalidate the whole panel each frame.
         let _ = sim.frame
+        // Flattened at the panel's own size. A bare Canvas sizes its layer to what it
+        // drew, so each time the glow's blur grew or shrank past a step the layer moved
+        // and, for one frame, the whole picture with it: 16 or 32 pt sideways, about
+        // 20 times in the 50 s site film. The shell's clip already hides anything past
+        // this frame.
         canvas
         .frame(width: panelSize.width, height: panelSize.height)
+        .drawingGroup()
         .allowsHitTesting(false)
     }
 
