@@ -21,6 +21,11 @@ struct ArtworkPalette: Equatable, Sendable {
     /// The sleeve had no colour of its own (black-and-white art), so `colors` is the
     /// app's own lustre rather than anything taken from the cover.
     var monochrome = false
+    /// The sleeve's colours where they sit: a `layoutSide` x `layoutSide` grid of cell
+    /// means, row by row from the top left. The cover field flows these as a mesh, so the
+    /// card carries the sleeve's light without ever showing the sleeve as a picture.
+    var layout: [Color] = []
+    static let layoutSide = 5
 
     /// One wash colour as gamma-encoded sRGB.
     struct Peak: Equatable, Sendable {
@@ -151,6 +156,7 @@ struct ArtworkPalette: Equatable, Sendable {
             return true
         }
         guard drawn else { return nil }
+        let layout = Self.layout(of: pixels, width: w, height: h)
 
         // 12 hue buckets, saturated pixels only: greys carry no identity and
         // would pull every palette toward the same muddy centre.
@@ -248,13 +254,38 @@ struct ArtworkPalette: Equatable, Sendable {
             return ArtworkPalette(colors: hsb.map(Self.color),
                                   luminance: mean,
                                   washPeak: Self.peak(of: hsb),
-                                  monochrome: true)
+                                  monochrome: true,
+                                  layout: layout)
         }
 
         let hsb = capped(spread(ranked))
         return ArtworkPalette(colors: hsb.map(Self.color),
                               luminance: mean,
-                              washPeak: Self.peak(of: hsb))
+                              washPeak: Self.peak(of: hsb),
+                              layout: layout)
+    }
+
+    /// Mean colour of each cell of the sleeve, from the premultiplied RGBA the extract
+    /// draws (first row is the image's top). A cell with nothing opaque in it is black.
+    static func layout(of pixels: [UInt8], width w: Int, height h: Int) -> [Color] {
+        let n = layoutSide
+        var cells: [Color] = []
+        for row in 0..<n {
+            for column in 0..<n {
+                var r = 0.0, g = 0.0, b = 0.0, a = 0.0
+                for y in (row * h / n)..<((row + 1) * h / n) {
+                    for x in (column * w / n)..<((column + 1) * w / n) {
+                        let i = (y * w + x) * 4
+                        r += Double(pixels[i]); g += Double(pixels[i + 1])
+                        b += Double(pixels[i + 2]); a += Double(pixels[i + 3])
+                    }
+                }
+                // Premultiplied, so the alpha sum un-premultiplies the mean.
+                cells.append(a > 0 ? Color(.sRGB, red: r / a, green: g / a, blue: b / a)
+                                   : .black)
+            }
+        }
+        return cells
     }
 
     /// Internal so palettecheck can walk the reachable colour set through the

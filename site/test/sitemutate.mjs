@@ -19,15 +19,26 @@ const site = join(here, '..');
 const repo = join(site, '..');
 const check = join(here, 'sitecheck.mjs');
 
+// The release-tied cases read the pinned release from install.sh and the size
+// from the page, so a version bump does not leave them aiming at text that moved.
+const installer = readFileSync(join(repo, 'install.sh'), 'utf8');
+const VERSION = installer.match(/^PIN_VERSION="([^"]+)"/m)[1];
+const PIN = installer.match(/^PIN_SHA256="([0-9a-f]{4})/m)[1];
+const OTHER_PIN = (PIN[0] === 'f' ? '0' : 'f') + PIN.slice(1);
+const [major, minor, patch] = VERSION.split('.').map(Number);
+const OLDER = patch > 0 ? `${major}.${minor}.${patch - 1}` : `${major}.${minor - 1}.0`;
+const KB = readFileSync(join(site, 'index.html'), 'utf8').match(/Free and open source, (\d+) KB\./)[1];
+const ZIP = `releases/download/v${VERSION}/Magnetite-${VERSION}.zip`;
+
 // [check, what breaks, file (relative to the copy's root), from, to]
 // The copy's root holds site/ and the three repository files the checks read.
 const MUTATIONS = [
-  ['floor', 'the page offers an older release', 'site/index.html', '"softwareVersion": "0.1.11"', '"softwareVersion": "0.1.10"'],
-  ['floor', 'the app is a version behind the pin', 'Resources/Info.plist', '<string>0.1.11</string>', '<string>0.1.10</string>'],
-  ['floor', 'llms.txt offers an older release', 'site/llms.txt', 'Magnetite v0.1.11', 'Magnetite v0.1.10'],
-  ['download', 'a button links the releases page, not the zip', 'site/index.html', 'href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.11/Magnetite-0.1.11.zip"\n         aria-describedby="hero-requires"', 'href="https://github.com/scryst/magnetite-releases/releases"\n         aria-describedby="hero-requires"'],
-  ['download', 'the size is from an older build', 'site/index.html', 'Free and open source, 759 KB.', 'Free and open source, 741 KB.'],
-  ['download', 'install.sh pins other bytes', 'install.sh', 'PIN_SHA256="833f', 'PIN_SHA256="933f'],
+  ['floor', 'the page offers an older release', 'site/index.html', `"softwareVersion": "${VERSION}"`, `"softwareVersion": "${OLDER}"`],
+  ['floor', 'the app is a version behind the pin', 'Resources/Info.plist', `<string>${VERSION}</string>`, `<string>${OLDER}</string>`],
+  ['floor', 'llms.txt offers an older release', 'site/llms.txt', `Magnetite v${VERSION}`, `Magnetite v${OLDER}`],
+  ['download', 'a button links the releases page, not the zip', 'site/index.html', `href="https://github.com/scryst/magnetite-releases/${ZIP}"\n         aria-describedby="hero-requires"`, 'href="https://github.com/scryst/magnetite-releases/releases"\n         aria-describedby="hero-requires"'],
+  ['download', 'the size is from an older build', 'site/index.html', `Free and open source, ${KB} KB.`, `Free and open source, ${Number(KB) + 2} KB.`],
+  ['download', 'install.sh pins other bytes', 'install.sh', `PIN_SHA256="${PIN}`, `PIN_SHA256="${OTHER_PIN}`],
   ['requires', 'a download button lost its requirement', 'site/index.html', '\n       aria-describedby="requires"', ''],
   ['requires', 'the requirement drops Apple silicon', 'site/index.html', 'Needs macOS 26 on Apple silicon.', 'Needs macOS 26.'],
   ['crawlable', 'structured data stops parsing', 'site/index.html', '"isAccessibleForFree": true,', '"isAccessibleForFree": true,,'],
