@@ -504,8 +504,10 @@ final class AudioTap: @unchecked Sendable {
             let mean = sum / Float(i1 - i0)
             // dB, then normalised into a range that uses the full height.
             let db = 20 * log10(max(mean, 1e-7))
-            // Music sits roughly in -70...-15 dBFS per band.
-            outScratch[b] = min(1, max(0, (db + 70) / 55))
+            // Each band gets a 55 dB window that tilts down 3.8 dB a band toward the treble,
+            // as music does.
+            let top = -3 - 3.8 * Float(b)
+            outScratch[b] = min(1, max(0, (db - top + 55) / 55))
         }
 
         os_unfair_lock_lock(&lock)

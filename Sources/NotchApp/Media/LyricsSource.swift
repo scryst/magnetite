@@ -67,35 +67,62 @@ enum LyricsSource {
                      URLQueryItem(name: "artist_name", value: artist)]
         if !album.isEmpty { items.append(URLQueryItem(name: "album_name", value: album)) }
         if duration > 0 { items.append(URLQueryItem(name: "duration", value: String(Int(duration.rounded())))) }
-        if let (data, status) = await get("get", items), status == 200,
+        let exact = await get("get", items)
+        if let (data, status) = exact, status == 200,
            let record = try? JSONDecoder().decode(LyricsRecord.self, from: data),
            LyricsRecord.best(of: [record], duration: duration, album: album, title: title) != nil {
             return .some(record)
         }
-        let search = [URLQueryItem(name: "track_name", value: LyricsRecord.searchTitle(title)),
-                      URLQueryItem(name: "artist_name", value: LyricsRecord.searchArtist(artist))]
-        guard let (data, status) = await get("search", search), status == 200,
-              let records = try? JSONDecoder().decode([LyricsRecord].self, from: data)
-        else { return nil }
-        return .some(LyricsRecord.best(of: records, duration: duration, album: album, title: title))
+        // The exact lookup answers 200 or 404. LRCLIB's busy replies (429, and a 503
+        // "ServerOverloaded" on about one request in ten) say nothing about the song, so
+        // after one of them an empty search is a failed question, not a miss to keep.
+        // The same holds when the exact lookup timed out: LRCLIB may still be fetching
+        // the song upstream.
+        let settled = LyricsRecord.answered(status: exact?.1)
+        for name in LyricsRecord.searchTitles(title) {
+            let search = [URLQueryItem(name: "track_name", value: name),
+                          URLQueryItem(name: "artist_name", value: LyricsRecord.searchArtist(artist))]
+            guard let (data, status) = await get("search", search), status == 200,
+                  let records = try? JSONDecoder().decode([LyricsRecord].self, from: data)
+            else { return nil }
+            if let best = LyricsRecord.best(of: records, duration: duration, album: album, title: title) {
+                return .some(best)
+            }
+        }
+        return settled ? .some(nil) : nil
     }
 
+    /// One request, asked again once after a short wait when LRCLIB is busy or the
+    /// connection dropped (a Mac just off sleep fails its first). A timeout is not
+    /// repeated here: the caller asks again later.
     private static func get(_ path: String, _ items: [URLQueryItem]) async -> (Data, Int)? {
         var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = items
         guard let url = components.url else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 8)
         request.setValue(agent, forHTTPHeaderField: "User-Agent")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let http = response as? HTTPURLResponse else { return nil }
-        return (data, http.statusCode)
+        for attempt in 0..<2 {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse else { return nil }
+                if attempt == 0, LyricsRecord.isBusy(status: http.statusCode) {
+                    try await Task.sleep(for: .seconds(1.5))
+                    continue
+                }
+                return (data, http.statusCode)
+            } catch let error as URLError where attempt == 0 && error.code != .timedOut
+                                                 && error.code != .cancelled {
+                try? await Task.sleep(for: .seconds(1.5))
+            } catch { return nil }
+        }
+        return nil
     }
 
     private static func cacheFile(title: String, artist: String, album: String,
                                   duration: Double) -> URL {
         // The leading tag changes whenever lookup improves, so misses cached by an
         // older build are asked again instead of waiting out their three days.
-        let key = ["v2", title, artist, album, String(Int(duration.rounded()))]
+        let key = ["v3", title, artist, album, String(Int(duration.rounded()))]
             .map(LyricsRecord.fold).joined(separator: "\u{1}")
         let digest = SHA256.hash(data: Data(key.utf8)).prefix(16)
             .map { String(format: "%02x", $0) }.joined()

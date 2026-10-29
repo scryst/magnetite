@@ -1575,7 +1575,8 @@ private struct MeshField: View {
 /// The sleeve as the card's light. Three blurred copies turn and drift against each other
 /// on the music's own clock, so the colour moves the way the ink does instead of sitting
 /// in the middle as a glow; the swell breathes them and a hit brightens them in the frame
-/// it lands. Still when nothing plays and under Reduce Motion, like the mesh.
+/// it lands, within the flash ceiling. Still when nothing plays and under Reduce Motion,
+/// like the mesh.
 private struct CoverField: View {
     var fluid: FerrofluidSim
     var art: NSImage
@@ -1604,7 +1605,9 @@ private struct CoverField: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .blur(radius: 26)
             .saturation(1.5)
-            .brightness(0.1 * swell)
+            // The hit's light, not the swell: the swell can pulse faster than the flash
+            // ceiling allows across the whole card.
+            .brightness(0.1 * min(1, fluid.light))
         }
     }
 
@@ -1635,7 +1638,8 @@ private struct HitBloom: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60,
                                 paused: !fluid.hasSound || Motion.reduceMotion)) { _ in
-            let hit = min(1, fluid.impact)
+            // `light`, not `impact`: the flash ceiling lives there.
+            let hit = min(1, fluid.light)
             let swell = min(1, fluid.swell)
             let reach = size.width * (0.22 + 0.38 * swell + 0.45 * hit)
             RadialGradient(colors: [color, color.opacity(0.55), color.opacity(0)],

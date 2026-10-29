@@ -1,4 +1,5 @@
 import AppKit
+import MediaAccessibility
 import SwiftUI
 
 /// Owns one notch per display and routes system events to them.
@@ -56,7 +57,7 @@ final class NotchCoordinator {
     private static let margin = CGSize(width: 128, height: 78)
 
     init() {
-        observeReduceMotion()
+        observeComfort()
         rebuild()
         installMouseMonitors()
         installScreenObserver()
@@ -65,21 +66,25 @@ final class NotchCoordinator {
         wireSystemSources()
     }
 
-    /// Tracks Reduce Motion, now and whenever the user changes it.
-    private func observeReduceMotion() {
-        Motion.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        fluid.reduceMotion = Motion.reduceMotion
+    /// Tracks Reduce Motion and Dim Flashing Lights, now and whenever the user changes
+    /// either. Reduce Motion takes the travel out of the ink and stills the colour field;
+    /// Dim Flashing Lights lowers the flash ceiling on everything a hit lights.
+    private func observeComfort() {
+        let apply: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            Motion.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            self.fluid.reduceMotion = Motion.reduceMotion
+            self.fluid.dimFlashingLights = MADimFlashingLightsEnabled()
+        }
+        apply()
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.fluid.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-                Motion.reduceMotion =
-                    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            }
-        }
+        ) { _ in MainActor.assumeIsolated { apply() } }
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name(kMADimFlashingLightsChangedNotification as String),
+            object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { apply() } }
     }
 
     deinit {

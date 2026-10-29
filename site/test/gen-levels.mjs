@@ -82,19 +82,20 @@ function loudestOnset(frames) {
  *
  * Not a constant here, because a constant here is what went wrong: the header
  * this file writes said 60Hz for as long as the capture has existed, and the
- * levels arrived at 30. Now the app publishes every 16ms and the page replays
- * the resampled capture at 60, so this reads the pump interval from
- * `AudioLevels.swift` and refuses a rate more than 5% from 60.
+ * levels arrived at 30. Now the app reads levels on its 60Hz display link and
+ * the page replays the resampled capture at 60, so this reads the link's rate
+ * from `FerrofluidSim.swift` and refuses a rate more than 5% from 60.
  * `theCaptureIsReplayedAtItsOwnRate` holds site.js to the same number.
  */
 function replayHz() {
+  // The ink's display link reads the levels once per tick, so its rate is the app's.
   const swift = readFileSync(
-    join(repo, 'Sources', 'NotchApp', 'Audio', 'AudioLevels.swift'), 'utf8');
-  const pump = swift.match(/Task\.sleep\(for:\s*\.milliseconds\((\d+)\)\)/);
-  if (!pump) throw new Error('AudioLevels.swift no longer pumps on a milliseconds sleep');
-  const appHz = 1000 / Number(pump[1]);
+    join(repo, 'Sources', 'NotchApp', 'Audio', 'FerrofluidSim.swift'), 'utf8');
+  const link = swift.match(/CAFrameRateRange\([^)]*preferred:\s*([\d.]+)\)/);
+  if (!link) throw new Error('FerrofluidSim.swift no longer states its display link\'s frame rate');
+  const appHz = Number(link[1]);
   if (Math.abs(appHz - 60) / 60 > 0.05) {
-    throw new Error(`the app publishes at ${appHz.toFixed(2)}Hz and this resamples to 60Hz`);
+    throw new Error(`the app reads levels at ${appHz.toFixed(2)}Hz and this resamples to 60Hz`);
   }
   return 60;
 }

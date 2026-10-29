@@ -16,7 +16,7 @@
 //
 // The exceptions are the READABILITY guards: the requires that fire when this
 // file can no longer find what it came to read, like "site.js declares no
-// CAPTURE_HZ" or "AudioLevels.swift no longer pumps on a milliseconds sleep".
+// CAPTURE_HZ" or "FerrofluidSim.swift no longer states its display link's frame rate".
 // They cannot be tripped by a mutant that leaves a working product behind —
 // deleting the constant breaks the page, and a check earlier in the run says so
 // first — and a mutant that only proves the file is unreadable proves nothing
@@ -39,7 +39,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import {
-  FerrofluidSim, mulberry32, glowAlpha, SITE_COUNT, BAND_COUNT, CRITICAL_FIELD,
+  FerrofluidSim, mulberry32, glowAlpha, SITE_COUNT, BAND_COUNT, STANDING_HEIGHT, FLASH_GAP,
 } from '../js/sim.js';
 import { Geometry } from '../js/geometry.js';
 import { INK } from '../js/press.js';
@@ -98,8 +98,17 @@ const SILENCE = new Array(BAND_COUNT).fill(0);
 
 /** Replays a golden dump against a fresh port and compares every frame. */
 function compareFrames(name, drive) {
-  const rows = golden(name);
-  const sim = new FerrofluidSim();
+  const all = golden(name);
+  // A lobe's charge scales with its `fan`, which the Swift seeds from the system
+  // RNG, so the dump leads with the fans it drew and the port is handed the same
+  // ones. The random calls `seed` makes are, per site, the rim then the fan.
+  const fans = all[0].split(' ');
+  require(fans[0] === 'fan' && fans.length === SITE_COUNT + 1,
+    `${name}: the dump no longer leads with the ${SITE_COUNT} fans the Swift drew`);
+  const rows = all.slice(1);
+  const draws = [];
+  for (let i = 0; i < SITE_COUNT; i++) draws.push(0.5, (Number(fans[1 + i]) + 0.38) / 0.76);
+  const sim = new FerrofluidSim(() => draws.shift());
   let frames = 0;
   drive(sim, (index) => {
     const row = rows[frames];
@@ -120,6 +129,8 @@ function compareFrames(name, drive) {
       `${name} frame ${index}: isSettled is ${sim.isSettled}, the Swift says ${g[9] === '1'}`);
     require((g[10] === '1') === sim.hasSound,
       `${name} frame ${index}: hasSound is ${sim.hasSound}, the Swift says ${g[10] === '1'}`);
+    // After the sites, so the columns above keep their places.
+    at('light', sim.light, 11 + 3 * SITE_COUNT);
     for (let i = 0; i < SITE_COUNT; i++) {
       at(`field[${i}]`, sim.sites[i].field, 11 + i);
       at(`height[${i}]`, sim.sites[i].height, 11 + SITE_COUNT + i);
@@ -192,6 +203,79 @@ function theReplayIsSteppedLikeTheApp() {
       check(index++);
     }
   });
+}
+
+/**
+ * The port agrees with the Swift when the beat drops out and comes back.
+ *
+ * An onset has two yardsticks: a rise against the band's swing from a slow
+ * average, and a rise against its typical rise. The captured audio never makes
+ * them disagree, so a port with only the first matched every other golden while
+ * the app struck on the kicks after a drop and the page stayed flat. The
+ * golden is `sim-drop`: a bass wall pumping on each beat, two seconds gone,
+ * then back, the same input as fluidcheck's `kicksStillLandAfterADrop`.
+ */
+function theBeatAfterADropMatches() {
+  compareFrames('sim-drop', (sim, check) => {
+    let index = 0;
+    for (const [seconds, bass] of [[6, 0.9], [2, 0.02], [4, 0.9]]) {
+      for (let n = 0; n < seconds * 60; n++) {
+        const levels = new Array(12).fill(0.35);
+        const pumped = index % 22 < 3 ? Math.fround(Math.fround(bass) - Math.fround(0.15)) : bass;
+        for (let band = 0; band < 3; band++) levels[band] = Math.max(0, pumped);
+        sim.advance(levels, 1 / 60);
+        check(index++);
+      }
+    }
+  });
+}
+
+/**
+ * The port agrees with the Swift when the music comes back from a pause, and
+ * the pause is not a hit.
+ *
+ * Coming back is the one path through `reenter` and through the ramp that lets
+ * onsets in over 150ms: the levels climb from nothing, a rise in every band that
+ * is the analyser waking and not a drum. The capture never goes quiet long enough
+ * to take that path, so no other golden reaches either. The golden is `sim-resume`:
+ * the first two seconds of the capture, four seconds of silence, then the same
+ * two seconds again, waking over four steps as the analyser does. And as fluidcheck's `resumingIsNotAnEvent` asks, the first
+ * dozen frames back may heave the body no harder than the same music does.
+ */
+function theMusicComingBackIsNotAHit() {
+  const music = REAL_LEVELS.slice(0, 120);
+  // The analyser wakes over the first four callbacks back, at a quarter, a half
+  // and three quarters of the level: the rise the ramp keeps from reading as a
+  // drum. Multiplied at Float width, as the probe does.
+  const waking = (frames) => frames.map((levels, n) => {
+    const k = Math.min(4, n + 1) / 4;
+    return levels.map((v) => Math.fround(Math.fround(v) * k));
+  });
+  const sim = compareFrames('sim-resume', (s, check) => {
+    let index = 0;
+    for (const levels of [...music, ...new Array(240).fill(SILENCE), ...waking(music)]) {
+      s.advance(levels, 1 / 60);
+      check(index++);
+    }
+  });
+  require(sim.sites.length === SITE_COUNT, 'the resume dump never seeded the sites');
+
+  // The same comparison fluidcheck makes, run on the port.
+  const play = new FerrofluidSim(mulberry32(5));
+  let musicSwell = 0;
+  let resumeSwell = 0;
+  music.forEach((levels, i) => {
+    play.advance(levels, 1 / 60);
+    if (i >= 30) musicSwell = Math.max(musicSwell, play.swell);
+  });
+  for (let i = 0; i < 240; i++) play.advance(SILENCE, 1 / 60);
+  waking(music).slice(0, 12).forEach((levels) => {
+    play.advance(levels, 1 / 60);
+    resumeSwell = Math.max(resumeSwell, play.swell);
+  });
+  require(resumeSwell <= musicSwell,
+    `resuming heaved the body to swell ${resumeSwell.toFixed(3)}, harder than the same music `
+    + `does (${musicSwell.toFixed(3)}) — the analyser's own discontinuity read as a drum hit`);
 }
 
 /**
@@ -414,21 +498,25 @@ function theReplayClockIsTheAppsClock() {
  * said 60 in a loop, and they agreed with each other.
  *
  * So this reads the rate out of the APP, which is the only place it is a fact:
- * the pump interval in `AudioLevels.swift`. Tolerance because 16ms is 62.5Hz
- * nominal and the pump cannot beat its own sleep — the honest reading of "16ms
- * between reads" is 60Hz to within 5%, and the check fails a 2x error without
- * pretending to measure the real jitter of a main-actor timer. It was a flat
- * Hz when the pump slept 33ms: 30.3 against 30 is a third of a hertz, 62.5
- * against 60 is two and a half.
+ * the display link in `FerrofluidSim.swift`, which reads the levels, steps the
+ * sim and redraws once per tick at one fixed rate. A pump on a 16ms sleep used
+ * to publish the levels beside a separate render clock; both are gone.
  */
 function theCaptureIsReplayedAtItsOwnRate() {
+  // The ink's display link is the app's one clock: each tick reads the levels, steps the
+  // sim and redraws, so its fixed rate is both the rate levels are taken at and the
+  // rate the ink is drawn at.
   const swift = readFileSync(
-    join(here, '..', '..', 'Sources', 'NotchApp', 'Audio', 'AudioLevels.swift'), 'utf8');
-  const pump = swift.match(/Task\.sleep\(for:\s*\.milliseconds\((\d+)\)\)/);
-  require(pump, 'AudioLevels.swift no longer pumps on a milliseconds sleep — the rate the '
-    + 'capture is taken at can no longer be read from the app, so site.js cannot be checked '
+    join(here, '..', '..', 'Sources', 'NotchApp', 'Audio', 'FerrofluidSim.swift'), 'utf8');
+  const link = swift.match(
+    /CAFrameRateRange\(minimum:\s*([\d.]+),\s*maximum:\s*([\d.]+),\s*preferred:\s*([\d.]+)\)/);
+  require(link, 'FerrofluidSim.swift no longer states its display link\'s frame rate — the rate '
+    + 'the capture is taken at can no longer be read from the app, so site.js cannot be checked '
     + 'against it');
-  const appHz = 1000 / Number(pump[1]);
+  require(link[1] === link[2] && link[2] === link[3],
+    `the display link runs at ${link[1]}-${link[2]}Hz, not one fixed rate, so the app has no `
+    + 'single rate for the site to replay at');
+  const appHz = Number(link[3]);
 
   const site = readFileSync(join(here, '..', 'js', 'site.js'), 'utf8');
   const captureHz = Number(site.match(/^const CAPTURE_HZ = ([\d.]+);/m)?.[1]);
@@ -437,20 +525,16 @@ function theCaptureIsReplayedAtItsOwnRate() {
   require(Number.isFinite(simHz), 'site.js declares no SIM_HZ');
 
   require(Math.abs(captureHz - appHz) / appHz <= 0.05,
-    `site.js replays the capture at ${captureHz}Hz and the app publishes levels every `
-    + `${pump[1]}ms, which is ${appHz.toFixed(2)}Hz — the page is playing the music at `
+    `site.js replays the capture at ${captureHz}Hz and the app reads levels at `
+    + `${appHz.toFixed(2)}Hz — the page is playing the music at `
     + `${(captureHz / appHz).toFixed(2)}x`);
   // The app's clock is its renderer's, and the site's still is stepped on the
   // same assumption that one divides the other.
   require(Number.isInteger(simHz / captureHz),
     `the sim steps at ${simHz}Hz over levels arriving at ${captureHz}Hz, which is not a whole `
     + 'number of steps per captured frame — the app holds each frame for an exact count');
-  const view = readFileSync(
-    join(here, '..', '..', 'Sources', 'NotchApp', 'UI', 'FerrofluidView.swift'), 'utf8');
-  const timeline = view.match(/minimumInterval:\s*1\.0\s*\/\s*([\d.]+)/);
-  require(timeline, 'FerrofluidView no longer states its TimelineView interval');
-  require(Number(timeline[1]) === simHz,
-    `the site steps at ${simHz}Hz and the app renders at ${timeline[1]}Hz`);
+  require(appHz === simHz,
+    `the site steps at ${simHz}Hz and the app steps and renders at ${appHz}Hz`);
 
   // And the card, which is the third copy of this cadence.
   //
@@ -538,6 +622,14 @@ function aSkipLeansTheWayItWent() {
     sim.surge(1, -1);
     for (let i = 0; i < 90; i++) { sim.advance(SILENCE, 1 / 60); check(i); }
   });
+  // A track change is lit the moment it lands, not on the next step: the halo
+  // answers the surge itself, through the same flash ceiling as a drum.
+  const lit = new FerrofluidSim(mulberry32(5));
+  lit.advance(SILENCE, 1 / 60);
+  require(lit.light === 0, 'the light was on before the surge');
+  lit.surge(1, 1);
+  require(lit.light === 1, `a surge left the light at ${lit.light}, where the hit is a full one`);
+
   // Both sims have drained to nothing after 90 frames of silence, which is the
   // point of the dump but useless for judging the lean. Measure the heave while
   // it is happening instead: agreeing with the Swift is not enough, because a
@@ -562,6 +654,24 @@ function aSkipLeansTheWayItWent() {
     `a forward skip did not lean forward (${ahead.low.toFixed(3)} low vs ${ahead.high.toFixed(3)} high)`);
   require(behind.low > behind.high,
     `a back skip did not lean back (${behind.low.toFixed(3)} low vs ${behind.high.toFixed(3)} high)`);
+  // The kick a skip raises is flat, so the body heaves the same whichever way the
+  // skip went; only the crown leans. Over silence nothing reads the kick, so this
+  // has to be asked mid-song, where a leaned kick lets a forward skip heave less.
+  const heave = (direction) => {
+    const sim = new FerrofluidSim(mulberry32(5));
+    for (let f = 0; f < 400; f++) sim.advance(REAL_LEVELS[f % REAL_LEVELS.length], 1 / 60);
+    sim.surge(1, direction);
+    let body = 0;
+    for (let f = 400; f < 440; f++) {
+      sim.advance(REAL_LEVELS[f % REAL_LEVELS.length], 1 / 60);
+      body += sim.swell;
+    }
+    return body;
+  };
+  const bodyAhead = heave(1);
+  const bodyBehind = heave(-1);
+  require(Math.abs(bodyAhead - bodyBehind) < 1e-9,
+    `a skip heaves the body by which way it went (${bodyAhead.toFixed(4)} forward vs ${bodyBehind.toFixed(4)} back)`);
   // The dump stops at 90 frames, where impact is still 0.0147 and the gate is
   // legitimately open. Run it out: "when the music stops it goes back in the
   // notch and holds completely still" is a claim the site makes in so many
@@ -814,196 +924,239 @@ function theSurfaceNormalTurnsWithTheSurface() {
 }
 
 /**
- * Hysteresis: a peak holds after the hit and drains without ringing. It breaks
- * at 0.36 and does not collapse until 0.16 — if it released at the same value
- * it broke at, the crown would chatter on every band sitting near threshold.
+ * A peak stands on the hit and drains without ringing. A site's charge holds
+ * the larger of its own decay and the newest hit, and its height follows the
+ * charge critically damped, so a lobe flows out, stays a little, and drains
+ * home: never a chatter at some threshold, never an overshoot to ring on.
  *
- * Both numbers in that sentence are now held, which only one of them was. The
- * COLLAPSE end has had a mutant since it was written: set it equal to the
- * critical field and the chatter this check exists to forbid shows up in the
- * decay loop below. The BREAK end had nothing. Its assertion was in a branch
- * that never runs, no mutant in the harness touched the constant, and a sweep
- * found the shipped 0.36 could be moved anywhere on [0.26, 0.42] with all
- * thirty-nine checks and every mutation run green — a page whose liquid stands
- * on quiet music, or never stands at all, passing everything.
+ * This replaced the hysteresis pair. The surface used to break at one field and
+ * collapse at a lower one, and the check held both numbers; the Swift has no
+ * such pair now, and `isUp` is nothing but `height > STANDING_HEIGHT`. What the
+ * pair was for, a crown that does not chatter on a band sitting near the line,
+ * is held below by the one flip up and one flip down a decaying lobe makes, and
+ * by the fall never turning back up.
  *
- * The break is held by a straddled pair of onsets at the top of the function
- * rather than by reading the constant back out of sim.js, which would have been
- * the same constant compared to itself.
+ * The standing line is held by a straddled pair of onsets that differ only in
+ * amplitude, with the fans fixed by a seeded RNG so the pair does not move with
+ * the dice. A guard that read STANDING_HEIGHT out of sim.js would compare the
+ * constant to itself, so the guards below spell 0.08 themselves.
  */
-function aPeakHoldsBelowTheFieldThatRaisedIt() {
-  // WHERE THE THRESHOLD ACTUALLY IS, which this check is named for and could
-  // not see. `CRITICAL_FIELD` in sim.js could be moved anywhere from 0.26 to
-  // 0.42 — measured by bisection — and the whole suite stayed green, the
-  // mutation harness included; the nearest killers were 0.24 and 0.44, and
-  // neither is this check. The assertion below that names the number is DEAD:
-  // it sits in the `!before && site.isUp` branch of a decay from SILENCE, where
-  // nothing ever rises again, so it has never once executed. Substituting
-  // `require(false)` for it leaves this check green, which is how that was
-  // established rather than supposed.
-  //
-  // So the threshold is straddled outright, by a pair of onsets differing only
-  // in amplitude. `site.field` is a smoothed copy of the drive and never reads
-  // `CRITICAL_FIELD` — the constant decides only whether a site STANDS — so the
-  // guards below can spell 0.36 themselves and stay independent of the value
-  // under test. That independence is the point: a guard that asks the thing it
-  // is testing how far to look cannot fail, and this file has shipped that
-  // exact shape before.
+function aPeakStandsOnTheHitAndDrainsWithoutRinging() {
+  const drive = (amp, frames) => {
+    const sim = new FerrofluidSim(mulberry32(5));
+    const on = new Array(BAND_COUNT).fill(0);
+    on[0] = amp;
+    for (let i = 0; i < 3; i++) sim.advance(SILENCE, 1 / 60);
+    for (let i = 0; i < frames; i++) sim.advance(on, 1 / 60);
+    return sim;
+  };
   const onsetTo = (amp) => {
-    const probe = new FerrofluidSim();
-    const drive = new Array(BAND_COUNT).fill(0);
-    drive[0] = amp;
-    for (let i = 0; i < 3; i++) probe.advance(SILENCE, 1 / 60);
+    const sim = new FerrofluidSim(mulberry32(5));
+    const on = new Array(BAND_COUNT).fill(0);
+    on[0] = amp;
+    for (let i = 0; i < 3; i++) sim.advance(SILENCE, 1 / 60);
     let reached = 0;
     let stood = false;
     for (let i = 0; i < 30; i++) {
-      probe.advance(drive, 1 / 60);
-      for (const site of probe.sites) {
+      sim.advance(on, 1 / 60);
+      for (const site of sim.sites) {
         if (site.band !== 0) continue;
-        reached = Math.max(reached, site.field);
+        reached = Math.max(reached, site.height);
         if (site.isUp) stood = true;
       }
     }
     return { reached, stood };
   };
-  // Onsets must clear 0.9 swings now, over the lower of the last two frames and
-  // at a gain of 1.0, so the field climbs steeply from about 0.09 of amplitude
-  // and the pair sits at about 0.11. It was 0.1616 and 0.1644 at 1.4 swings and
-  // a gain of 0.8; the amplitudes were found again by bisection, not scaled.
-  const under = onsetTo(0.1086);
-  const over = onsetTo(0.1108);
-
-  // The pair proves itself discriminating before it is used as evidence, and
-  // the MARGINS are written down because they are what a later retune eats
-  // without saying so: 0.3427 sits 0.0173 below the critical field and 0.3751
-  // sits 0.0151 above it, a little over four percent either way. Tighter would
-  // pin the constant harder and start failing on an honest change to the
-  // smoothing; looser is the hole this closes. Swept afterwards rather than
-  // predicted: the constant now survives on [0.3427, 0.3751) and is killed by
-  // this check at every step outside it, where before it survived the whole of
-  // [0.26, 0.42] and was killed only at 0.24 and 0.44, by two other checks.
-  // The interval is half-open because each bound is a value the field REACHES,
-  // and `field > CRITICAL_FIELD` is strict: at 0.3427 nothing stands and the
-  // quiet case still passes, at 0.3751 nothing stands and the loud case fails.
-  require(under.reached > 0.30 && under.reached < 0.36,
-    `the quieter onset drives band 0 to ${under.reached.toFixed(4)}, which no longer sits just `
-    + 'below the critical 0.36 — the pair has stopped straddling the threshold, and everything '
+  // Found by bisection on the height a band-0 lobe reaches: the smaller onset
+  // tops out at 0.073 and the larger at 0.087, a little under nine percent
+  // either side of the 0.08 line. Tighter would pin the constant harder and
+  // fail on an honest change to the smoothing; looser lets it wander. Both sit
+  // just past the gate (an onset of 0.2 raises nothing at all), so the pair
+  // also holds the gate where it is.
+  const under = onsetTo(0.28021);
+  const over = onsetTo(0.28121);
+  require(under.reached > 0.07 && under.reached < 0.08,
+    `the quieter onset lifts band 0 to ${under.reached.toFixed(4)}, which no longer sits just `
+    + 'below the standing height of 0.08 — the pair has stopped straddling the line, and everything '
     + 'asserted after this is being asserted about a scenario that cannot see it');
-  require(over.reached > 0.36 && over.reached < 0.39,
-    `the louder onset drives band 0 to ${over.reached.toFixed(4)}, which no longer sits just `
-    + 'above the critical 0.36 — the same failure from the other side, and the one that widens '
-    + 'the band this check pins the constant to');
-
+  require(over.reached > 0.08 && over.reached < 0.09,
+    `the louder onset lifts band 0 to ${over.reached.toFixed(4)}, which no longer sits just above `
+    + 'the standing height of 0.08 — the same failure from the other side');
   require(!under.stood,
-    `a site stood at field ${under.reached.toFixed(4)}, under the critical 0.36 — the surface `
-    + 'breaks at a smaller field than the page is built around, so the crown stands on quiet '
-    + 'music and the liquid never settles');
+    `a lobe counted as standing at ${under.reached.toFixed(4)}, under 0.08 — the crown stands on `
+    + 'ripples');
   require(over.stood,
-    `nothing stood at field ${over.reached.toFixed(4)}, over the critical 0.36 — the surface `
-    + 'needs a bigger field than the page is built around, so the loudest moments in the '
-    + 'capture go by without a peak');
+    `no lobe counted as standing at ${over.reached.toFixed(4)}, over 0.08 — the loudest moments in `
+    + 'the capture go by without a peak');
 
-  // Only band 0 is driven. Sites are assigned bands by index, so this raises
-  // the one or two sites sitting on band 0 and nothing else — and `allowed` is
-  // never below 2, so the crown cap cannot be what knocks them down. Driving
-  // every band instead makes the cap the likelier cause of any release and the
-  // check stops being about hysteresis at all.
-  const sim = new FerrofluidSim();
-  const onset = new Array(BAND_COUNT).fill(0);
-  onset[0] = 0.9;
-
-  // Silence first, so the onset is an edge. A constant level — even a loud one
-  // — produces no deviation and no kick, which is the entire point of the
-  // per-band z-score and the reason a flat 0.9 raises nothing at all.
-  for (let i = 0; i < 3; i++) sim.advance(SILENCE, 1 / 60);
-  for (let i = 0; i < 5; i++) sim.advance(onset, 1 / 60);
-  const watched = sim.sites
-    .map((site, index) => ({ site, index }))
-    .filter(({ site }) => site.band === 0);
-  require(watched.length > 0, 'no site is driven by band 0');
-  require(watched.some(({ site }) => site.isUp), 'the onset never broke the surface');
-
-  const wasUp = new Map(watched.map(({ index }) => [index, sim.sites[index].isUp]));
-  let heldBetween = false;
-
+  // A real hit, then silence, watching the one lobe band 0 drives.
+  const sim = drive(0.9, 5);
+  const watched = sim.sites.filter((site) => site.band === 0);
+  require(watched.length === 1, `expected one site on band 0, found ${watched.length}`);
+  const [site] = watched;
+  require(site.isUp, 'the hit never raised the lobe');
+  let wasUp = site.isUp;
+  let flips = 0;
+  let standing = 0;
+  let previous = site.height;
+  let peaked = false;
   for (let frame = 0; frame < 400; frame++) {
     sim.advance(SILENCE, 1 / 60);
-    for (const { index } of watched) {
-      const site = sim.sites[index];
-      const before = wasUp.get(index);
-      // A NET, not evidence, and it is worth the difference being written down.
-      // This branch needs a site to RISE during a decay from silence, and one
-      // never does — the assertion has never executed in this check's life, and
-      // a `require(false)` in its place leaves the run green. What it would
-      // catch is a future where the field can climb while the drive is gone.
-      // The threshold itself is held by the straddled pair at the top of this
-      // function, which is where the number is actually observed.
-      if (!before && site.isUp) {
-        require(site.field > 0.36,
-          `a peak broke at field ${site.field.toFixed(4)}, below the critical 0.36`);
-      }
-      if (before && !site.isUp) {
-        require(site.field < 0.16,
-          `a peak released at field ${site.field.toFixed(4)}, above the collapse 0.16 — `
-          + 'the hysteresis pair has collapsed to one value');
-      }
-      // The hold itself: standing while the field sits between the two.
-      if (site.isUp && site.field > 0.16 && site.field < 0.36) heldBetween = true;
-      wasUp.set(index, site.isUp);
-    }
+    // The rule itself, spelled here: standing is a height, with no memory.
+    require(site.isUp === (site.height > 0.08),
+      `frame ${frame}: the lobe at ${site.height.toFixed(4)} is ${site.isUp ? '' : 'not '}standing`);
+    if (site.isUp) standing++;
+    if (site.isUp !== wasUp) { flips++; wasUp = site.isUp; }
+    // Ringing is the height turning back up after it has begun to fall.
+    if (site.height < previous - 1e-12) peaked = true;
+    require(!(peaked && site.height > previous + 1e-9),
+      `frame ${frame}: the lobe rose again after it began to fall (${previous.toFixed(5)} to `
+      + `${site.height.toFixed(5)}) — it rings`);
+    previous = site.height;
   }
-  require(heldBetween,
-    'no peak ever stood between the collapse and critical fields — there is no hysteresis to speak of');
-  require(watched.every(({ index }) => !sim.sites[index].isUp),
-    'a peak never came down at all');
+  require(flips === 1,
+    `the lobe flipped between standing and not ${flips} times draining from one hit, where a `
+    + 'decay crosses the line once');
+  // It holds: a hit is not a one-frame blip, and not a pin either.
+  require(standing >= 20,
+    `the lobe stood for only ${standing} frames after the hit — it does not hold`);
+  require(standing <= 120,
+    `the lobe stood for ${standing} frames after the hit — it does not drain`);
+  require(!site.isUp && site.height === 0, 'the lobe never came home');
 }
 
 /**
- * The crown is capped. `allowed = 2 + round(min(1, energy) * 7)` is what keeps
- * eight middling lobes from reading as a ripple; without it every band near
- * threshold stands at once and the surface is a comb.
+ * A crown is a few peaks that stand out of the mix, not a wall. The common-hit
+ * subtraction is what keeps it so: whatever every band hit together is taken
+ * off each one, so a full-mix crash heaves the body and raises no peaks, and
+ * only a band that stood out of the hit stands. On top of that, only a few
+ * lobes may stand at once (two, up to nine as the music gets busier), so each
+ * hit is its own move; the replay against the goldens holds that number.
+ *
+ * Held loudness raises nothing either: an onset is a rise, so a tone however
+ * loud is a non-event once it has arrived.
  */
-function theCrownIsCapped() {
-  const sim = new FerrofluidSim();
+function aFullMixHitRaisesNoWall() {
+  const standing = (sim) => sim.sites.filter((site) => site.height > 0.05).length;
+
+  // A step in every band at once, which is a whole-mix hit.
+  const crash = new FerrofluidSim(mulberry32(5));
+  const quiet = new Array(BAND_COUNT).fill(0.1);
+  for (let i = 0; i < 60 * 3; i++) crash.advance(quiet, 1 / 60);
+  const all = new Array(BAND_COUNT).fill(0.85);
+  let wall = 0;
+  let heaved = 0;
+  for (let i = 0; i < 12; i++) {
+    crash.advance(all, 1 / 60);
+    wall = Math.max(wall, standing(crash));
+    heaved = Math.max(heaved, crash.swell);
+  }
+  // The body moves on about a quarter of its old throw since 0.1.9 (0.27 here), so
+  // the lobes carry the beat; under 0.2 the hit has not landed.
+  require(heaved > 0.2,
+    `a full-mix hit heaved the body only to ${heaved.toFixed(3)} — the hit never landed, so the `
+    + 'count below cannot fail');
+  require(wall === 0,
+    `a full-mix hit raised ${wall} of ${crash.sites.length} peaks as one wall — what every band hit `
+    + 'together was not taken off each one');
+
+  // Four bands step up, which is a hit that stands out: the crown has to rise
+  // first, or the held count below is vacuous.
+  const sim = new FerrofluidSim(mulberry32(5));
+  for (let i = 0; i < 60 * 3; i++) sim.advance(quiet, 1 / 60);
+  const loud = Array.from({ length: BAND_COUNT }, (_, i) => (i % 3 === 0 ? 0.85 : 0.1));
+  for (let i = 0; i < 12; i++) sim.advance(loud, 1 / 60);
+  const struck = standing(sim);
+  require(struck >= 2,
+    `the step into loudness raised only ${struck} peaks, so the held count below cannot fail`);
+  for (let i = 0; i < 60 * 8; i++) sim.advance(loud, 1 / 60);
+  require(standing(sim) <= 1,
+    `held loudness left ${standing(sim)} peaks standing — the drive is reading level, not change`);
+  require(sim.swell < 0.15, `held loudness kept the pool swollen (${sim.swell})`);
+
+  // The captured music breaks the surface at all, and a crown of peaks that are
+  // all one height is the same-height comb the product rules out.
+  const music = new FerrofluidSim(mulberry32(5));
   let worst = 0;
   REAL_LEVELS.forEach((levels) => {
-    sim.advance(levels, 1 / 60);
-    worst = Math.max(worst, sim.standingCount);
+    music.advance(levels, 1 / 60);
+    worst = Math.max(worst, music.standingCount);
   });
-  require(worst <= 9, `${worst} peaks stood at once, above the cap of 9`);
   require(worst >= 2, `the crown never broke at all during the replay (${worst})`);
 
-  // Held loudness must raise nothing: the drive measures each band's change
-  // against its own 2.5-second baseline, so a constant tone is a non-event
-  // however loud it is.
-  //
-  // 0.8, not 0.7, and the difference is the whole check. A drive that read the
-  // level directly would produce `raw = level * 0.5`, which at 0.7 is 0.35 —
-  // just under the 0.36 critical field, so nothing would stand and this would
-  // pass against exactly the defect it exists to catch. It was written at 0.7
-  // first and a mutation caught it. At 0.8 the mutant stands eight peaks.
-  //
-  // The margin is 0.04, and it is the check's whole premise, so it is held here
-  // rather than hoped for: a critical field raised past 0.40 fails by name
-  // instead of leaving the count below unable to fail. `0.5` restates the dev
-  // weight in updateSites (`dev * 0.5 + kick * 0.8`); if that weight ever
-  // moves, this fails red rather than passing green, the safe direction for a
-  // guard. (`aPeakHoldsBelowTheFieldThatRaisedIt` also pins the field to a
-  // band under 0.40, but a check's premise belongs in the check that relies
-  // on it — solo is where the harness proves ownership.)
-  const heldLevel = 0.8;
-  const levelReadingDrive = heldLevel * 0.5;
-  const margin = levelReadingDrive - CRITICAL_FIELD;
-  require(margin >= 0.01,
-    `held level ${heldLevel} gives a level-reading drive of ${levelReadingDrive.toFixed(3)}, only `
-    + `${margin.toFixed(3)} above the critical field ${CRITICAL_FIELD} — below 0.01 the count `
-    + 'below cannot fail');
-  const flat = new FerrofluidSim();
-  const held = new Array(BAND_COUNT).fill(heldLevel);
-  for (let i = 0; i < 60 * 8; i++) flat.advance(held, 1 / 60);
-  require(flat.standingCount <= 2,
-    `held loudness left ${flat.standingCount} peaks standing — the drive is reading level, not change`);
-  require(flat.swell < 0.15, `held loudness kept the pool swollen (${flat.swell})`);
+  const comb = new FerrofluidSim(mulberry32(5));
+  const floor = Array.from({ length: BAND_COUNT }, (_, i) => 0.25 - i * 0.015);
+  for (let i = 0; i < 60 * 3; i++) comb.advance(floor, 1 / 60);
+  const shaped = floor.slice();
+  shaped[0] = 0.95; shaped[1] = 0.80; shaped[5] = 0.42; shaped[9] = 0.30;
+  for (let i = 0; i < 24; i++) comb.advance(shaped, 1 / 60);
+  const up = comb.sites.map((site) => site.height).filter((h) => h > 0.02);
+  require(up.length >= 2, `no crown formed to measure (${up.length} peaks)`);
+  const ratio = Math.max(...up) / Math.max(0.0001, Math.min(...up));
+  require(ratio > 3, `peak heights span only ${ratio.toFixed(1)}:1 — that is a comb`);
+}
+
+/**
+ * The light flashes at most three times a second, however fast the drums.
+ *
+ * `impact` climbs on every hit and the ink answers every one; the light is what
+ * flashes (the halo, the card's bloom), and WCAG 2.3.1 allows three a second. So
+ * a new flash may start only FLASH_GAP after the last one began, and under Dim
+ * Flashing Lights once a second at a third of the strength. The page leaves the
+ * setting off, but the port carries it, and the port is meant to be the Swift.
+ * Counted on a 12 Hz roll of full-band hits, as fluidcheck counts it.
+ */
+function theLightFlashesNoMoreThanThreeTimesASecond() {
+  const roll = (dim) => {
+    const sim = new FerrofluidSim(mulberry32(5));
+    sim.dimFlashingLights = dim;
+    const floor = new Array(BAND_COUNT).fill(0.2);
+    for (let i = 0; i < 180; i++) sim.advance(floor, 1 / 60);
+    const starts = [];
+    let brightest = 0;
+    let inkMoves = 0;
+    let lastLight = sim.light;
+    let lastImpact = sim.impact;
+    for (let frame = 0; frame < 60 * 4; frame++) {
+      const levels = floor.slice();
+      if (frame % 5 === 0) for (let i = 0; i < levels.length; i++) levels[i] = i % 2 === 0 ? 0.9 : 0.6;
+      sim.advance(levels, 1 / 60);
+      // A start is a rise of more than a tenth: the first 50ms of a flash may
+      // climb over two or three frames, and those are one flash.
+      if (sim.light > lastLight + 0.1 && (!starts.length || frame - starts[starts.length - 1] > 3)) {
+        starts.push(frame);
+      }
+      if (sim.impact > lastImpact + 0.05) inkMoves++;
+      brightest = Math.max(brightest, sim.light);
+      lastLight = sim.light;
+      lastImpact = sim.impact;
+    }
+    return { starts, brightest, inkMoves };
+  };
+  const shortest = (starts) => starts.slice(1).reduce((m, s, i) => Math.min(m, s - starts[i]), Infinity);
+
+  const plain = roll(false);
+  require(plain.starts.length >= 6,
+    `a 12Hz roll lit only ${plain.starts.length} flashes in 4s — the light stopped answering`);
+  // Three a second is a gap of 20 frames at 60Hz; the constant is a third of a
+  // second, spelled here so the check does not ask sim.js how far to look.
+  require(FLASH_GAP * 60 >= 20 - 1e-9 && FLASH_GAP * 60 <= 20 + 1e-9,
+    `FLASH_GAP is ${FLASH_GAP}s, which is not the third of a second three flashes a second allows`);
+  require(shortest(plain.starts) >= 20,
+    `two flashes started ${shortest(plain.starts)} frames apart, over three a second`);
+  require(plain.inkMoves > plain.starts.length * 2,
+    `${plain.inkMoves} hits for ${plain.starts.length} flashes — the ceiling must hold the light, `
+    + 'not the hits');
+
+  const dim = roll(true);
+  require(dim.starts.length >= 2,
+    `under Dim Flashing Lights a 12Hz roll lit only ${dim.starts.length} flashes in 4s`);
+  require(shortest(dim.starts) >= 60,
+    `under Dim Flashing Lights two flashes started ${shortest(dim.starts)} frames apart`);
+  require(dim.brightest <= 0.36,
+    `under Dim Flashing Lights a flash reached ${dim.brightest}`);
+  require(plain.brightest > 0.6,
+    `the plain light only reached ${plain.brightest}, so the dimmed ceiling above is not a comparison`);
 }
 
 /**
@@ -2443,6 +2596,7 @@ function theStillIsAFrameOfTheFilm() {
     ['swell', still.swell, film.swell],
     ['raised', still.raised, film.raised],
     ['impact', still.impact, film.impact],
+    ['light', still.light, film.light],
     ['brightness', still.brightness, film.brightness],
     ['flowPhase', still.flowPhase, film.flowPhase],
     ['inkOpen', still.inkOpen, film.inkOpen],
@@ -4053,6 +4207,8 @@ function theHandInTheFilmGoesTheWayTheAppReadsIt() {
 const CHECKS = {
   theReplayMatchesTheShippingPhysics,
   theReplayIsSteppedLikeTheApp,
+  theBeatAfterADropMatches,
+  theMusicComingBackIsNotAHit,
   theReplayClockIsTheAppsClock,
   theCaptureIsReplayedAtItsOwnRate,
   theCardIsTheSizeThePagePromises,
@@ -4062,8 +4218,9 @@ const CHECKS = {
   theFooterFormulaStaysAQuietMark,
   theOutlineIsTheShippingOutline,
   theSurfaceNormalTurnsWithTheSurface,
-  aPeakHoldsBelowTheFieldThatRaisedIt,
-  theCrownIsCapped,
+  aPeakStandsOnTheHitAndDrainsWithoutRinging,
+  aFullMixHitRaisesNoWall,
+  theLightFlashesNoMoreThanThreeTimesASecond,
   theHaloEasesRatherThanSwitching,
   theCapturedAudioIsTheAppsOwn,
   theStatedFloorIsTheBuildsFloor,

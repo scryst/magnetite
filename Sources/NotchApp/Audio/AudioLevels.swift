@@ -28,7 +28,6 @@ final class AudioLevels {
 
 
     private let tap = AudioTap()
-    private var pump: Task<Void, Never>?
     private var consumers = 0
     /// Reused across ticks so that `levels(into:)`, which keeps the tap's buffer away
     /// from the real-time thread, does not allocate 60 times a second.
@@ -58,21 +57,17 @@ final class AudioLevels {
     private func begin() {
         stallRebuildAttempted = false
         tap.start()
-        pump?.cancel()
-        pump = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                // The fluid steps every 16 ms; reading every 33 left every other step
-                // with no news, so a hit waited up to two frames to land.
-                try? await Task.sleep(for: .milliseconds(16))
-                guard let self, !Task.isCancelled else { return }
-                self.tick()
-            }
-        }
+    }
+
+    /// Reads the tap once. The fluid calls this at the top of each of its display-synced
+    /// steps: a pump of its own ran on another clock, so a step could see the same levels
+    /// twice or miss a reading.
+    func pull() {
+        guard consumers > 0 else { return }
+        tick()
     }
 
     private func end() {
-        pump?.cancel()
-        pump = nil
         tap.stop()
         isLive = false
         bands = [Float](repeating: 0, count: Self.bandCount)

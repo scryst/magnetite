@@ -208,6 +208,24 @@ struct LyricsRecord: Codable, Equatable, Sendable {
         return t.trimmingCharacters(in: .whitespaces)
     }
 
+    /// Titles to ask the fallback search for, in order. It answers with at most 20 records,
+    /// and a popular song's plain title fills them with studio takes, so a decorated
+    /// version such as Eagles' "Hotel California - Live" (421 s) is found only by asking
+    /// for it by its whole name.
+    static func searchTitles(_ title: String) -> [String] {
+        let full = title.trimmingCharacters(in: .whitespaces)
+        let plain = searchTitle(title)
+        return plain == full || plain.isEmpty ? [full] : [plain, full]
+    }
+
+    /// Whether LRCLIB really answered: a record or "not found". Anything else (a busy
+    /// reply, an error page, no reply) says nothing about the song and is not kept.
+    static func answered(status: Int?) -> Bool { status == 200 || status == 404 }
+
+    /// LRCLIB's "try again in a moment": 429 with a Retry-After of a second, and a 503
+    /// "ServerOverloaded" that clears on the next request.
+    static func isBusy(status: Int) -> Bool { [429, 502, 503, 504].contains(status) }
+
     /// The first credited artist, for the fallback search.
     static func searchArtist(_ artist: String) -> String {
         var a = artist

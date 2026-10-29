@@ -48,8 +48,8 @@ import { startCorner } from './corner.js';
  * between the two, which is what `tools/fluidcheck.swift` does with it. So a
  * frame here is one step, and `REAL_LEVELS.length` is 2N-1 frames of N.
  *
- * `theCaptureIsReplayedAtItsOwnRate` reads the pump interval out of
- * AudioLevels.swift and fails if these two ever disagree again.
+ * `theCaptureIsReplayedAtItsOwnRate` reads the display link's rate out of
+ * FerrofluidSim.swift and fails if these two ever disagree again.
  */
 const CAPTURE_HZ = 60;
 
@@ -57,7 +57,7 @@ const CAPTURE_HZ = 60;
  * The rate the PHYSICS is stepped at, which is the app's render clock.
  *
  * Two constants because they are two facts, even though both read 60 now. The
- * app runs `TimelineView` at 1/60 and `AudioLevels` publishes every 16ms, so
+ * app's display link reads the levels and steps the ink once per 60Hz tick, so
  * each step has news and the replay holds no frame — that is the sequence the
  * shipping fluid integrates, and the page reproduces it.
  */
