@@ -1022,13 +1022,19 @@ private struct LyricsColumn: View, Equatable {
                     .font(Self.font)
                     .tracking(-0.3)
                     .foregroundStyle(.white)
-                    // The sung line may take two rows and shrinks a little before it would
-                    // truncate. Lines still to come take one: a second row only reached the
-                    // stage's bottom fade, so it showed as a line cut in half.
-                    .lineLimit(d == 0 ? 2 : 1)
+                    // Every line is laid out the same whatever its turn: two rows, shrinking
+                    // a little before it would truncate. A layout that changed with the turn
+                    // reflowed inside the roll, and the words slid from one row to the next.
+                    .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    // Only the sung line shows its second row. A line to come shows its
+                    // first: a second row only reached the stage's bottom fade, so it showed
+                    // as a line cut in half. It is uncovered as the line rolls up.
+                    .mask(alignment: .top) {
+                        Rectangle().frame(height: d == 0 ? Self.estimate * 3 : Self.estimate + 1)
+                    }
             }
         }
         .opacity(opacity)

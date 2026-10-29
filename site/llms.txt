@@ -11,7 +11,7 @@ The download button links to the release ZIP on GitHub. The app is ad-hoc signed
 ## Product
 
 - [Product page](https://magnetite.app/): The film, requirements, first-launch steps and the download link.
-- [Magnetite v0.1.12](https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip): Current release ZIP, 757 KB; ad-hoc signed, not notarized.
+- [Magnetite v0.1.13](https://github.com/scryst/magnetite-releases/releases/download/v0.1.13/Magnetite-0.1.13.zip): Current release ZIP, 758 KB; ad-hoc signed, not notarized.
 - [All versions and checksums](https://github.com/scryst/magnetite-releases/releases): Every release with its SHA-256 file.
 - [First launch and FAQ](https://magnetite.app/#setup): Opening the app past the macOS warning, permissions, supported displays, troubleshooting, updates and uninstall.
 - [Film](https://magnetite.app/media/demo.mp4): The open panel with scrolling lyrics and its ferrofluid, playing four songs from Spotify.
