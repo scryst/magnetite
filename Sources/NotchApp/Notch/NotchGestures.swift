@@ -121,7 +121,7 @@ final class NotchGestures {
         guard step.action != .none else { return }
 
         lastFired = Date()
-        commit()
+        commit(after: step.commitDelay)
 
         switch step.action {
         case .skipForward:    onSkipForward?()
@@ -147,8 +147,9 @@ final class NotchGestures {
     /// The commit, deliberately a different kind of haptic from the ticks so it does not
     /// arrive as the quietest moment of its own build-up. `.levelChange` is the firmest
     /// pattern available; a follow-up release tap reads as the gesture firing twice.
-    private func commit() {
-        Self.perform(.levelChange)
+    private func commit(after delay: TimeInterval) {
+        guard delay > 0 else { return Self.perform(.levelChange) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { Self.perform(.levelChange) }
     }
 
     private static func perform(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {

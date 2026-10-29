@@ -32,6 +32,7 @@ enum GestureCheck {
         aFlickClicksRatherThanBuzzes()
         aFlickDoesNotOutrunTheFloor()
         theCommitOutrunsTheFloor()
+        theCommitIsNotMergedIntoAClick()
         aSwallowedClickDoesNotComeBackLater()
         aDiagonalDragTicksNothing()
         pullingBackDoesNotReRatchet()
@@ -218,6 +219,28 @@ enum GestureCheck {
         let run = hand.move(dx: 18, dy: 0.3, steps: 3, dt: 0.004)
         require(run.action == .skipForward,
                 "the floor suppressed the commit of a fast swipe")
+    }
+
+    /// A flick to pause: a click a frame before the commit. The engine merges taps inside
+    /// the floor, so a commit played at once folded into that click and the swipe felt
+    /// like nothing. Its haptic waits out the floor; with no click near, it plays at once.
+    private static func theCommitIsNotMergedIntoAClick() {
+        var flick = SwipeRecogniser()
+        let click = flick.add(dx: 0, dy: 40, now: 1)
+        require(click.detent != nil, "setup: the flick did not click")
+        let commit = flick.add(dx: 0, dy: 20, now: 1.008)
+        require(commit.action == .togglePlayback, "setup: the flick did not toggle")
+        require(abs(1.008 + commit.commitDelay - (1 + SwipeRecogniser.tickFloor)) < 1e-9,
+                "the commit haptic landed \(commit.commitDelay * 1000)ms after the commit, "
+                + "inside the floor of the click before it, so the engine merges the two")
+
+        var slow = SwipeRecogniser()
+        _ = slow.add(dx: 0, dy: 40, now: 1)
+        let late = slow.add(dx: 0, dy: 20, now: 1.2)
+        require(late.commitDelay == 0, "a commit well clear of any click was held back")
+        var jump = SwipeRecogniser()
+        require(jump.add(dx: 60, dy: 0, now: 1).commitDelay == 0,
+                "a commit with no click before it was held back")
     }
 
     /// A click the floor swallowed is spent, not owed. The mark advances on every
