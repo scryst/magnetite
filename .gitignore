@@ -4,3 +4,5 @@ build.noindex/
 __pycache__/
 .vercel/
 .claude/
+# Built from tools/notchrec.swift: swiftc -O tools/notchrec.swift -o tools/notchrec
+tools/notchrec

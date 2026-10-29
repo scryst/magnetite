@@ -2,127 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Magnetite — share-card generator</title>
+<title>Magnetite share card</title>
 <!--
-  Generates site/og.png, the image every Slack, iMessage and Twitter unfurl of
-  this site shows.
+  The source of site/og.png, the picture every Slack, iMessage and X unfurl of
+  the site shows: the page's headline over a frame of the film. og-frame.webp
+  is the film at 9 s, where the liquid pulls hardest:
+    ffmpeg -ss 9 -i site/media/demo.mp4 -frames:v 1 frame.png && cwebp -q 90 frame.png -o site/test/og-frame.webp
 
-  It is the page's own hero, printed by the page's own press (js/hero.js,
-  js/press.js) against the app's own captured audio: the liquid in the card is
-  a real frame of the real simulation, seeded so every render is the same one.
-  The press prints ink on white; the card multiplies it onto the page's paper
-  and sets the name beside it, as the page does.
-
-  Usage: open this page and press Save, then put the file at site/og.png — or
-  run `node site/test/cardprobe.mjs --save`, which drives this page's own Save
-  button headlessly and puts the file there. Without `--save` that tool
-  re-renders and compares to the byte. Re-save after any change to what the
-  hero draws.
-
-  `?frame=` picks a different captured frame for review.
+  Render it at the card's size, served (fonts do not load from file://):
+    python3 site/serve.py 4174 &
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+      --hide-scrollbars --window-size=1200,630 --screenshot=site/og.png \
+      http://localhost:4174/test/og.html
 -->
 <link rel="stylesheet" href="../css/type.css">
 <style>
-  body { margin: 0; padding: 20px; background: #1a1a1a; color: #eee; font: 13px ui-monospace, monospace; }
-  #card { display: block; width: 600px; height: 315px; box-shadow: 0 8px 40px #0008; }
-  /* The press lays out in this box. It is the card's size in CSS pixels and
-     is never shown: only its pixels are, composited into #card. */
-  #print { position: absolute; left: -10000px; top: 0; width: 1200px; height: 630px; }
-  .row { display: flex; gap: 12px; align-items: center; margin: 14px 0; }
-  button { font: inherit; padding: 6px 14px; }
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #000; }
+  body { position: relative; color: #F3F4F8; -webkit-font-smoothing: antialiased; }
+  .glow {
+    position: absolute; left: 50%; top: 300px; width: 1100px; height: 520px;
+    transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgb(143 174 255 / 0.32), rgb(169 139 255 / 0.14) 55%, transparent);
+    filter: blur(20px);
+  }
+  h1 {
+    position: absolute; top: 66px; left: 0; right: 0; margin: 0;
+    text-align: center;
+    font: 800 88px/0.9 'Archivo', sans-serif;
+    font-stretch: 125%;
+    letter-spacing: -0.04em;
+  }
+  img {
+    position: absolute; left: 50%; bottom: -8px; width: 980px; height: auto;
+    transform: translateX(-50%);
+    border-radius: 0 0 40px 40px;
+  }
 </style>
 </head>
 <body>
-
-<canvas id="print" aria-hidden="true"></canvas>
-<canvas id="card" width="1200" height="630"></canvas>
-<div class="row">
-  <button id="save">Save og.png</button>
-  <span id="status">loading the face…</span>
-</div>
-
-<script type="module">
-// The press sizes its backing store by devicePixelRatio. Two, whatever this
-// window's is, so the dots are drawn at twice the card's resolution and the
-// downscale below antialiases them instead of the card carrying aliased ones.
-Object.defineProperty(window, 'devicePixelRatio', { value: 2 });
-
-const { FerrofluidSim, mulberry32 } = await import('../js/sim.js');
-const { RisoHero, HEADLINE } = await import('../js/hero.js');
-const { REAL_LEVELS } = await import('../data/real-levels.js');
-const { replayCadence, driveStill } = await import('../js/clock.js');
-
-const W = 1200;
-const H = 630;
-const PAPER = '#ECEBE6';
-const INK = '#222022';
-const SEED = 9;
-const FRAME = Number(new URLSearchParams(location.search).get('frame')) || 116;
-// The page's own cadence: 60 Hz steps over the 60 Hz capture, 10 ms low pass.
-const CADENCE = replayCadence(60, 60, 0.01);
-
-const status = document.getElementById('status');
-const faces = await document.fonts.load(`${HEADLINE.weight} 64px ${HEADLINE.family}`);
-document.body.dataset.faces = faces.length ? 'ok' : 'missing';
-
-// The mark, read off the page's own inline SVG so the card cannot carry a
-// different one.
-const page = new DOMParser().parseFromString(await (await fetch('../index.html')).text(), 'text/html');
-const glyph = page.querySelector('.mark__glyph');
-const markBox = glyph.getAttribute('viewBox').split(/\s+/).map(Number);
-const markPath = new Path2D(glyph.querySelector('path').getAttribute('d'));
-
-const sim = new FerrofluidSim(mulberry32(SEED));
-sim.setOpen(true);
-driveStill(sim, REAL_LEVELS, FRAME, CADENCE);
-
-const print = document.getElementById('print');
-const hero = new RisoHero(print, { lines: ['Music,', 'magnetized.'], copy: null });
-// Past the entrance: the lid open and the run in register.
-hero.born = -Infinity;
-hero.resize();
-hero.render(sim, 1, 0);
-
-const card = document.getElementById('card');
-const ctx = card.getContext('2d');
-ctx.fillStyle = PAPER;
-ctx.fillRect(0, 0, W, H);
-ctx.globalCompositeOperation = 'multiply';
-ctx.imageSmoothingQuality = 'high';
-ctx.drawImage(print, 0, 0, W, H);
-ctx.globalCompositeOperation = 'source-over';
-
-// The name at the foot of the headline's column, in the page's display face,
-// on the same baseline margin as the headline's left edge.
-const { margin } = hero.frame;
-const size = 40;
-const base = H - 92;
-const markH = size * 0.78;
-const markW = markH * markBox[2] / markBox[3];
-ctx.fillStyle = INK;
-ctx.save();
-ctx.translate(margin, base - markH);
-ctx.scale(markH / markBox[3], markH / markBox[3]);
-ctx.translate(-markBox[0], -markBox[1]);
-ctx.fill(markPath);
-ctx.restore();
-ctx.font = `${HEADLINE.weight} ${size}px ${HEADLINE.family}`;
-ctx.textBaseline = 'alphabetic';
-ctx.fillText('Magnetite', margin + markW + 14, base);
-ctx.font = '500 22px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
-ctx.fillStyle = '#5B5860';
-ctx.fillText('magnetite.app', margin, base + 40);
-
-status.textContent = `ready: frame ${FRAME}, seed ${SEED}, face ${document.body.dataset.faces}`;
-
-document.getElementById('save').addEventListener('click', () => {
-  card.toBlob((blob) => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'og.png';
-    a.click();
-  }, 'image/png');
-});
-</script>
+<div class="glow"></div>
+<h1>Music, magnetized.</h1>
+<img src="og-frame.webp" alt="" width="1600" height="700">
 </body>
 </html>

@@ -3,10 +3,8 @@
 serve.py
 __pycache__/
 
-# test/ DOES ship. It is the port's own harness and the generator for the share
-# card, and the page claims its numbers come from the build — a reader who wants
-# to check that should be able to read portcheck.mjs rather than take it on
-# trust. robots.txt keeps it out of search results, which is the right treatment
+# test/ DOES ship here. It holds the site checks and the generators for the mark
+# and the share card, so a reader can see how the page is held to the build. robots.txt keeps it out of search results, which is the right treatment
 # for evidence: reachable, not indexed.
 
 # The Vercel CLI already skips .env* and .vercel by hardcoded default, but a

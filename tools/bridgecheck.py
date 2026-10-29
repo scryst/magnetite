@@ -38,6 +38,8 @@ ACCEPTS = {
     "Bool": {"boolean"},
     "NSImage": {"picture"},
     "Data": {"any", "raw data"},
+    # Read untyped and sorted at runtime by MediaBridge.image(from:).
+    "AnyObject": {"picture", "any", "raw data"},
     "MediaTrack": {"track"},
 }
 

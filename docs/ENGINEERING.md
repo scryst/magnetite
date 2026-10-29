@@ -47,21 +47,19 @@ alongside inert test doubles; neither exercises a live player.
 | `chromecheck` | Layout, type, controls and marquee |
 | `controllercheck` | Window lifecycle, hover, pinning and visibility |
 | `palettecheck` | Artwork palette contrast against the app's own type |
-| `portcheck` | Site simulation, layout contracts, media, discovery and release claims |
-| `bandscheck` | Browser audio analyser against real Swift tap dumps |
-| `mutate` | Named site checks reject regressions and accept valid alternatives |
+| `sitecheck` | The page's release, size, requirements, credit, film, mark and links |
+| `sitemutate` | Each site check rejects a named broken copy of the page |
 
 For site-only iteration:
 
 ```sh
-node site/test/portcheck.mjs
-node site/test/bandscheck.mjs
-node site/test/mutate.mjs
+node site/test/sitecheck.mjs
+node site/test/sitemutate.mjs
 python3 site/serve.py 4173
 ```
 
 Look at the site in a real browser at desktop and phone widths too; the tests
-can't judge readability, footage, audio timing or notch alignment.
+can't judge readability, the film, audio timing or notch alignment.
 
 ## Release mechanics
 

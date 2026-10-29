@@ -393,9 +393,9 @@ final class AudioTap: @unchecked Sendable {
 
     // MARK: Real-time path
 
-    /// Internal rather than private so `site/test/bandsprobe.swift` can feed synthesised
-    /// PCM through the real pipeline (ring, window, FFT, partition, meter) to dump the
-    /// goldens the site's port is checked against.
+    /// Internal rather than private so `tools/sitefilm.swift` can feed a song's PCM
+    /// through the real pipeline (ring, window, FFT, partition, meter) when it films
+    /// the panel for the site.
     func consume(_ bufferList: UnsafePointer<AudioBufferList>) {
         let abl = UnsafeMutableAudioBufferListPointer(
             UnsafeMutablePointer(mutating: bufferList))

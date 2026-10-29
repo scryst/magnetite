@@ -1,0 +1,52 @@
+#!/usr/bin/python3 -I
+"""Film the real panel off screen for the site, from a stretch of a song.
+
+Usage: tools/sitefilm SONG COVER TITLE ARTIST START SECONDS SCRIPT OUT.mp4 [BG]
+
+SITEFILM_SCALE sets the pixels per point (default 2).
+
+SCRIPT is comma-separated "seconds:state" cues (open, closed, bare), e.g.
+"0:closed,2:open". The panel, ink and colour field are the app's own views and
+physics (tools/sitefilm.swift); the song's same stretch is muxed in.
+"""
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+repo = Path(__file__).resolve().parent.parent
+song, cover, title, artist, start, secs, script, out = sys.argv[1:9]
+bg = sys.argv[9] if len(sys.argv) > 9 else "000000"
+work = repo / ".build/checks/sitefilm"
+work.mkdir(parents=True, exist_ok=True)
+merged = work / "SiteFilmView.swift"
+merged.write_text((repo / "Sources/NotchApp/UI/NotchView.swift").read_text()
+                  + "\n" + (repo / "tools/sitefilm.swift").read_text())
+sources = []
+for path in ["UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
+             "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift", "Support/ViewState.swift",
+             "Media/ArtworkPalette.swift", "Media/Lyrics.swift", "Audio/FerrofluidSim.swift",
+             "Audio/AudioLevels.swift", "Audio/AudioTap.swift"]:
+    sources.append(repo / "Sources/NotchApp" / path)
+credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
+pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]
+(work / "Credits.swift").write_text("import Foundation\n" + pure + "}\n")
+# The snapshot fixtures for media and controller, with the real ink in place of its stand-in.
+doubles = (repo / "tools/snapshot-doubles.swift").read_text()
+(work / "Doubles.swift").write_text(doubles[:doubles.index("final class FerrofluidSim")])
+sources += [work / "Credits.swift", work / "Doubles.swift"]
+subprocess.run(["swiftc", "-O", "-parse-as-library", "-module-cache-path", str(work / "ModuleCache"),
+                "-target", "arm64-apple-macosx26.0", *map(str, sources), str(merged),
+                "-o", str(work / "sitefilm")], cwd=repo, check=True)
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", start, "-t", secs, "-i", song,
+                "-ac", "1", "-ar", "48000", "-f", "f32le", str(work / f"audio-{Path(out).stem}.f32")], check=True)
+frames = work / f"frames-{Path(out).stem}"
+shutil.rmtree(frames, ignore_errors=True)
+length = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", song],
+                        capture_output=True, text=True, check=True).stdout.strip()
+subprocess.run([str(work / "sitefilm"), str(work / f"audio-{Path(out).stem}.f32"), str(frames), cover, title, artist,
+                start, length, script, bg], cwd=repo, check=True)
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "60", "-i", str(frames / "%05d.png"),
+                "-ss", start, "-t", secs, "-i", song, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-crf", "18", "-c:a", "aac", "-b:a", "128k", "-shortest", out], check=True)
+print(out)
