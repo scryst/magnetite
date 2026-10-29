@@ -1,19 +1,16 @@
 # Media
 
-`player.webp`, the README's picture, is the frame at 9 s of
-`site/media/demo.mp4`, scaled to 1200 px and encoded with `cwebp -q 86`.
+`player.webp`, the README's picture, is a frame of `site/media/demo.mp4` with
+lyrics on screen, at its full 800 px, encoded with `cwebp -q 86`.
 
-The film is a screen recording of the shipping app playing the track in Music.
-`tools/notchtake` hovers the notch open, swipes two fingers to skip, drags the
-seek edge, and lets the panel fold and reopen, with real pointer and trackpad
-events, while `tools/notchrec` films only Magnetite's windows (400 by 175
-points at two pixels a point, scaled to 1600 by 700). The song is laid back
-under the picture from Music's playhead, logged during the take, since the
-recording carries no sound. `site/media/demo-poster.webp` is its first frame.
+The film is a screen recording of the shipping app playing a "Magnetite film"
+Spotify playlist: "Pop" by ILLIT, "Sunsetz" by Cigarettes After Sex, "Art Deco" by
+Lana Del Rey and "Hush" by The Marías. Every one has synced lyrics on LRCLIB, so the
+panel shows its lyrics stage throughout. `tools/notchtake` hovers the notch open,
+swipes two fingers to skip, drags the seek edge into a sung part of each song, and
+lets the panel fold and reopen, with real pointer and trackpad events. Meanwhile
+`tools/notchrec` films only Magnetite's windows (400 by 256 points at two pixels a
+point, 800 by 512 pixels) and records Spotify's own sound, before the system
+volume, into the same file. `site/media/demo-poster.webp` is its first frame.
 
-The music is `docs/media/encryption.mp3`, "Encryption" by
-[Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/), from the
-[Free Music Archive](https://freemusicarchive.org/music/beat-mekanik/single/encryption/)
-under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), re-encoded to
-160 kbps MP3; `site/media/cover-encryption.webp` is its cover, resized to 176 px.
-The page and the README credit it by artist, title, license and link.
+The page credits each song by title and artist, linked to the track.

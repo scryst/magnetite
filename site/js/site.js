@@ -47,7 +47,7 @@ const io = new IntersectionObserver((entries) => {
   for (const e of entries) e.isIntersecting ? showing.add(e.target) : showing.delete(e.target);
   dock.toggleAttribute('data-shown', showing.size === 0);
 });
-for (const target of document.querySelectorAll('[data-download], .wings__get')) io.observe(target);
+for (const target of document.querySelectorAll('[data-download]')) io.observe(target);
 
 // A phone can't run a Mac app: the button sends the page to the Mac instead.
 const phone = /iPhone|iPad|iPod|Android/.test(navigator.userAgent)

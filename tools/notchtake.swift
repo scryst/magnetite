@@ -1,20 +1,27 @@
 // One take of the site film: films the running Magnetite with notchrec while real
 // pointer and trackpad events play it, so every frame is the shipping app answering
-// real input. Open under the pointer, two fingers swipe to skip, the seek edge is
-// dragged, the pointer leaves so the panel folds, and returns to open it again.
+// real input. Spotify plays a playlist from its first song; two fingers swipe through
+// it, the seek edge is dragged into each new song, the pointer leaves so the panel
+// folds, and returns to open it again. notchrec takes Spotify's own sound with it.
+//
+// Every song on the playlist has synced lyrics on LRCLIB, so the panel is always the
+// tall one: the lyrics stage sits under the controls and the seek edge under that.
+// Each seek lands where lines are sung, and each song is left alone long enough for
+// several lines to scroll past.
 //
 // Events are posted at the HID level, which needs the Accessibility grant, and the
 // pointer is put back where it was afterwards. Each event's time, relative to the
 // film's first frame, is printed so the song can be laid under the picture.
 //
-// usage: notchtake OUT.mov   (notchrec built next to this file)
+// usage: notchtake OUT.mov   (notchrec built next to this file; Spotify already playing)
 import AppKit
 import CoreGraphics
 
 let notchX: CGFloat = 756
-// The open panel's drawn shell, in points from the display's top-left.
-let panelMinX: CGFloat = 570, panelWidth: CGFloat = 372, seekY: CGFloat = 162
-let film = (x: 556, y: 0, w: 400, h: 175, seconds: 18.0)
+// The open panel's drawn shell, in points from the display's top-left, with the
+// lyrics stage (ChromeRules.lyricsBody, 76 pt) under the controls.
+let panelMinX: CGFloat = 570, panelWidth: CGFloat = 372, seekY: CGFloat = 162 + 76
+let film = (x: 556, y: 0, w: 400, h: 256, seconds: 50.0)
 
 var t0 = 0.0
 func now() -> Double { Date().timeIntervalSince1970 }
@@ -70,7 +77,8 @@ usleep(1_500_000)
 let rec = Process()
 rec.executableURL = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
     .appendingPathComponent("notchrec")
-rec.arguments = [CommandLine.arguments[1], "\(film.seconds)", "\(film.x)", "\(film.y)", "\(film.w)", "\(film.h)"]
+rec.arguments = [CommandLine.arguments[1], "\(film.seconds)", "\(film.x)", "\(film.y)", "\(film.w)", "\(film.h)",
+                 "com.spotify.client"]
 let pipe = Pipe()
 rec.standardOutput = pipe
 try rec.run()
@@ -82,16 +90,29 @@ while !buffer.contains("first-frame") {
 t0 = Double(buffer.split(separator: " ")[1].split(separator: "\n")[0]) ?? now()
 mark(String(format: "first-frame %.3f", t0))
 
-wait(until: 2.4); mark("swipe"); swipe(dx: -120, over: 0.22); mark("swipe-end")
-wait(until: 4.4); glide(from: top, to: seekPoint(0.03), over: 0.6)
-wait(until: 5.2); mark("press")
-post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: seekPoint(0.03), mouseButton: .left))
-glide(from: seekPoint(0.03), to: seekPoint(0.62), over: 1.5, dragging: true)
-wait(until: 7.0); mark("release")
-post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: seekPoint(0.62), mouseButton: .left))
-wait(until: 7.6); glide(from: seekPoint(0.62), to: middle, over: 0.6)
-wait(until: 10.6); mark("leave"); glide(from: middle, to: rest, over: 0.4)
-wait(until: 14.2); mark("hover"); glide(from: rest, to: top, over: 0.45)
+/// Drags the seek edge from near the start to `to`, then lifts and drifts up into the panel.
+func seek(at t: Double, to f: CGFloat) {
+    wait(until: t); glide(from: middle, to: seekPoint(0.03), over: 0.6)
+    wait(until: t + 0.8); mark("press")
+    post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: seekPoint(0.03), mouseButton: .left))
+    glide(from: seekPoint(0.03), to: seekPoint(f), over: 1.5, dragging: true)
+    wait(until: t + 2.6); mark("release")
+    post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: seekPoint(f), mouseButton: .left))
+    wait(until: t + 3.2); glide(from: seekPoint(f), to: middle, over: 0.6)
+}
+func skip(at t: Double) { wait(until: t); mark("swipe"); swipe(dx: -120, over: 0.22); mark("swipe-end") }
+
+glide(from: top, to: middle, over: 0.5)
+// Pop rolls from 0:42 through its chorus.
+skip(at: 7.0)                      // Pop -> Sunsetz
+seek(at: 8.4, to: 0.355)           // "Sunsets / I wanna hear your voice"
+skip(at: 19.5)                     // Sunsetz -> Art Deco
+seek(at: 20.9, to: 0.32)           // "Young thing on the downtown scene"
+wait(until: 31.5); mark("leave"); glide(from: middle, to: rest, over: 0.4)
+wait(until: 35.0); mark("hover"); glide(from: rest, to: top, over: 0.45)
+glide(from: top, to: middle, over: 0.5)
+skip(at: 37.5)                     // Art Deco -> Hush
+seek(at: 38.9, to: 0.165)          // "(Every night) got you running in circles"
 rec.waitUntilExit()
 mark("done \(rec.terminationStatus)")
 move(to: home)

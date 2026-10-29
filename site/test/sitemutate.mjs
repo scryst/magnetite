@@ -52,17 +52,17 @@ const MUTATIONS = [
   ['deck', 'the trackpad is drawn wider than Apple makes it', 'site/css/magnetite.css', 'width: 41.4cqw; height: 25.9cqw;', 'width: 47.3cqw; height: 25.9cqw;'],
   ['accent', 'a colored flair comes back', 'site/css/magnetite.css', '  --bg: #000;\n', '  --bg: #000;\n  --pink: #FF4FA3;\n'],
   ['firstlaunch', 'the steps lose Open Anyway', 'site/index.html', 'click <b>Open Anyway</b>', 'click <b>Open</b>'],
-  ['credit', 'the footer drops the license link', 'site/index.html', 'from the Free Music Archive, under\n    <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>', 'from the Free Music Archive'],
-  ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a, .foot__credit a { white-space: nowrap; }', ''],
+  ['credit', 'a song loses its credit', 'site/index.html', '<a href="https://open.spotify.com/track/4zXZ5Mq2L6jnsOsTssgRh8" rel="external">“Hush” by The Marías</a>', 'Hush'],
+  ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a { white-space: nowrap; }', ''],
   ['mark', 'the inline glyph is edited by hand', 'site/index.html', '<path fill="currentColor" d="M272.5 283C', '<path fill="currentColor" d="M272.5 284C'],
   ['mark', 'the symbol sheet takes room on the page', 'site/css/magnetite.css', '.defs { position: absolute; width: 0; height: 0;', '.defs { position: absolute;'],
   ['mark', 'the menu-bar icon is edited by hand', 'Sources/NotchApp/App/MagnetiteMark.swift', 'static let aspect: CGFloat = ', 'static let aspect: CGFloat = 1.0 * '],
-  ['demo', 'the box is not the film size', 'site/index.html', 'width="1600" height="700"', 'width="1600" height="900"'],
+  ['demo', 'the box is not the film size', 'site/index.html', 'width="800" height="512"', 'width="800" height="450"'],
   ['demo', 'the film can make sound by itself', 'site/index.html', 'data-demo muted loop', 'data-demo loop'],
   ['script', 'a simulation script comes back', 'site/index.html', '<script type="module" src="js/site.js"></script>', '<script type="module" src="js/site.js"></script>\n<script type="module" src="js/sim.js"></script>'],
   ['script', 'site.js starts drawing', 'site/js/site.js', 'label();\n', 'label();\nrequestAnimationFrame(() => {});\n'],
   ['links', 'a link into test/', 'site/index.html', '<a href="privacy.html">Privacy</a>', '<a href="test/og.html">Privacy</a> <a href="privacy.html">Privacy</a>'],
-  ['links', 'an anchor no element carries', 'site/index.html', '<a class="wings__get" href="#download">', '<a class="wings__get" href="#get">'],
+  ['links', 'an anchor no element carries', 'site/index.html', '<a class="dock" href="#download" data-dock hidden>', '<a class="dock" href="#get" data-dock hidden>'],
 ];
 
 const checks = [...readFileSync(check, 'utf8').matchAll(/^  (?:async )?(\w+)\(\) \{$/gm)].map((m) => m[1]);

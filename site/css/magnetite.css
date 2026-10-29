@@ -74,32 +74,16 @@ b { font-weight: 600; }
 }
 
 /* Buttons: one solid pill for the download, outlined for the soundtrack. */
-.button, .wings__get, .dock {
+.button, .dock {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 48px; padding: 0 24px; border-radius: 999px;
   background: var(--ink); color: var(--bg);
   font: 600 16px/1 var(--sans); text-decoration: none; white-space: nowrap;
   transition: background-color var(--drain), transform var(--drain);
 }
-.button:hover, .wings__get:hover, .dock:hover { background: #fff; transition-duration: 140ms; }
-.button:active, .wings__get:active, .dock:active { transform: scale(0.97); transition: transform var(--pour); }
+.button:hover, .dock:hover { background: #fff; transition-duration: 140ms; }
+.button:active, .dock:active { transform: scale(0.97); transition: transform var(--pour); }
 .button--big { min-height: 56px; padding: 0 30px; font-size: 18px; }
-
-/* Wings: the menu bar's two sides, either side of the film's notch. */
-.wings {
-  display: flex; justify-content: space-between; align-items: center;
-  height: 64px; padding: 0 var(--gutter);
-}
-.wings__home {
-  display: inline-flex; align-items: center; gap: 9px; min-height: 44px;
-  font: 600 17px/1 var(--display); letter-spacing: -0.02em; text-decoration: none;
-}
-.wings__mark { width: 22px; height: 16px; color: var(--ink); }
-.wings__get { min-height: 40px; padding: 0 18px; font-size: 14px; }
-@media (min-width: 900px) {
-  .wings { height: 76px; }
-}
-.wings { position: absolute; inset: 0 0 auto; z-index: 2; }
 
 /* The journey. Without scroll timelines, or under Reduce Motion, it is a still
    page: the pitch, the MacBook, the three gestures and the film's controls. */
@@ -246,7 +230,7 @@ b { font-weight: 600; }
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px;
 }
 .demo__credit { margin: 0; max-width: 60ch; color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
-.demo__credit a, .foot__credit a { white-space: nowrap; }
+.demo__credit a { white-space: nowrap; }
 .stage__controls { display: flex; align-items: center; gap: 8px; }
 .sound {
   display: inline-flex; align-items: center; gap: 9px;
@@ -277,7 +261,7 @@ b { font-weight: 600; }
       --s0: 0.32;
       --w0: calc(var(--macw) * var(--s0));
       --x0: calc(var(--w0) * 0.057);
-      --y0: calc(80px + var(--w0) * 0.02);
+      --y0: calc(24px + var(--w0) * 0.02);
       /* The camera dollies in from --z0 rather than scaling the picture, its
          eye on the notch the whole way, so the deck is seen from above and
          nothing shears. The MacBook starts turned and its lid tipped back. */
@@ -329,7 +313,7 @@ b { font-weight: 600; }
     }
     .moves {
       position: absolute; left: 50%; width: var(--col); margin-left: calc(var(--col) / -2);
-      top: calc(var(--film) * 0.4375 + clamp(32px, 7svh, 88px));
+      top: calc(var(--film) * 0.64 + clamp(32px, 7svh, 88px));
       display: block; text-align: center;
     }
     .moves li {
@@ -409,17 +393,12 @@ b { font-weight: 600; }
   40%, 100% { opacity: 1; transform: none; visibility: visible; }
 }
 
-/* What's in it, and what isn't: a plain list, the limits given the same room. */
+/* What's in it: one plain list, its one limit first. */
 .facts { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: 28px; }
 .facts__title { margin: 0; font: 600 clamp(36px, 4.4vw, 60px)/1 var(--display); letter-spacing: -0.045em; }
-.facts__cols { display: grid; gap: 40px; }
-@media (min-width: 900px) { .facts__cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; } }
 .facts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 .facts li { position: relative; padding-left: 22px; max-width: 46ch; font-size: 16px; }
 .facts li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
-.facts__not li { color: var(--ink-soft); }
-.facts__not li::before { background: none; border: 1.5px solid var(--ink-soft); }
-.facts__subtitle { margin: 0 0 16px; font: 700 21px/1.2 var(--sans); }
 
 /* Download, with the honest part beside it. */
 .get {
@@ -478,6 +457,11 @@ b { font-weight: 600; }
   width: var(--col); margin: var(--gap) auto 0; padding-bottom: 96px;
   color: var(--ink-soft); font-size: 14px;
 }
+.foot__brand {
+  display: flex; align-items: center; gap: 9px; margin: 0 0 8px;
+  color: var(--ink); font: 600 17px/1 var(--display); letter-spacing: -0.02em;
+}
+.foot__mark { width: 22px; height: 16px; }
 .foot__links { display: flex; flex-wrap: wrap; gap: 4px 24px; }
 .foot__links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
 .foot__credit { margin: 12px 0 0; max-width: 72ch; }
