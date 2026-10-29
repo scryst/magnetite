@@ -4,6 +4,8 @@ Free, open-source Spotify and Apple Music controls in your MacBook notch, with f
 
 [![Magnetite playing Chrome Funk: album art, playback controls and a liquid outline around the camera notch](site/media/app-open.webp)](https://magnetite.app/media/film.mp4)
 
+On [magnetite.app](https://magnetite.app) the same ink runs in the page, scored to [“Encryption”](https://freemusicarchive.org/music/beat-mekanik/single/encryption/) by [Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)): turn the sound on and it reacts to the track's real audio, through the app's own bands.
+
 [![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT licence](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
 
 ## Install
@@ -133,4 +135,4 @@ To build and install into Applications instead, use `./install.sh --from-source`
 
 ## Licence
 
-[MIT](LICENSE). The demo soundtrack and its artwork are credited under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the Gloock font uses the [SIL Open Font License](site/fonts/OFL-Gloock.txt).
+[MIT](LICENSE). The site's soundtrack (Beat Mekanik's “Encryption”, Punch Deck's “Chrome Funk”), the film's music and their artwork are credited under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the Gloock font uses the [SIL Open Font License](site/fonts/OFL-Gloock.txt).

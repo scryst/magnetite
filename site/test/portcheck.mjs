@@ -1799,6 +1799,18 @@ function theSoundtrackUsesTheAppsBands() {
     require(/<img\b[^>]*\bsrc="([^"]+)"/.exec(tag)?.[1] === cover,
       `the circle for ${cover} shows a different picture from the sleeve it names`);
   }
+  // Every track the page plays is credited in the foot by title and artist,
+  // each a link: CC BY asks for both, and a swapped track is the moment a
+  // credit gets left behind (2026-10-28, when Encryption became the score).
+  const credit = /<p class="foot__credit">([\s\S]*?)<\/p>/.exec(page.replace(/<!--[\s\S]*?-->/g, ''))?.[1] ?? '';
+  const linked = [...credit.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)]
+    .map((match) => match[1].replace(/\s+/g, ' ').trim());
+  for (const tag of trackTags) {
+    const title = /data-title="([^"]+)"/.exec(tag)?.[1];
+    const artist = /data-artist="([^"]+)"/.exec(tag)?.[1];
+    require(linked.includes(`“${title}”`) && linked.includes(artist),
+      `the page plays “${title}” by ${artist} without crediting both as links in the foot`);
+  }
 
   const status = /<p\b([^>]*)data-soundtrack-status([^>]*)>/.exec(page);
   require(status && /aria-live="polite"/.test(status[0]) && /visually-hidden/.test(status[0]),
@@ -2232,8 +2244,17 @@ function theCreditLinksWhatItBorrows() {
     + 'content, so it hands the film, the prints and the mark to whatever it points at, '
     + 'in the same paragraph as the page\'s own copyright');
 
-  const credit = /<p class="foot__credit">([\s\S]*?)<\/p>/.exec(markup);
-  require(credit, 'could not find the credit paragraph in index.html');
+  // The footer's full credit and the hero's line naming the score: both state
+  // terms, so each is held to them on its own. A wrong deed in either is one a
+  // reader can follow.
+  for (const cls of ['foot__credit', 'hero__score']) {
+    const credit = new RegExp(`<p class="${cls}">([\\s\\S]*?)<\\/p>`).exec(markup);
+    require(credit, `could not find the ${cls} credit paragraph in index.html`);
+    creditStatesItsTerms(credit);
+  }
+}
+
+function creditStatesItsTerms(credit) {
   require(/“[^”]+”/.test(credit[1]),
     'the credit names no work — the sentence exists to say WHICH music is playing, and '
     + 'the titles are what the licence asks be kept');

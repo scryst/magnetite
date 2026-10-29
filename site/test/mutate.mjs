@@ -1775,8 +1775,8 @@ const MUTANTS = {
   'licence-link-claims-the-page-again': {
     check: BORROWED,
     file: PAGE,
-    from: '<a href="https://creativecommons.org/licenses/by/4.0/" rel="external">',
-    to: '<a href="https://creativecommons.org/licenses/by/4.0/" rel="license">',
+    from: 'All under <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">',
+    to: 'All under <a href="https://creativecommons.org/licenses/by/4.0/" rel="license">',
   },
   // A work named and not linked. The credit still reads correctly to a human
   // — which is exactly why it went unnoticed until a licence review read
@@ -1794,12 +1794,20 @@ const MUTANTS = {
   'the-works-lose-the-marks-that-name-them': {
     check: BORROWED,
     file: PAGE,
-    from: 'rel="external">“Cyberpunk Renaissance”</a>,\n'
+    from: 'rel="external">“Encryption”</a>, from the Free Music Archive.\n'
+      + '    Film and second track:\n'
+      + '    <a href="https://punchdeck.bandcamp.com" rel="external">Punch Deck</a>,\n'
+      + '    <a href="https://punchdeck.bandcamp.com/track/cyberpunk-renaissance"\n'
+      + '       rel="external">“Cyberpunk Renaissance”</a>,\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/chrome-funk"\n'
       + '       rel="external">“Chrome Funk”</a> and\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/neon-underworld"\n'
       + '       rel="external">“Neon Underworld”</a>',
-    to: 'rel="external">Cyberpunk Renaissance</a>,\n'
+    to: 'rel="external">Encryption</a>, from the Free Music Archive.\n'
+      + '    Film and second track:\n'
+      + '    <a href="https://punchdeck.bandcamp.com" rel="external">Punch Deck</a>,\n'
+      + '    <a href="https://punchdeck.bandcamp.com/track/cyberpunk-renaissance"\n'
+      + '       rel="external">Cyberpunk Renaissance</a>,\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/chrome-funk"\n'
       + '       rel="external">Chrome Funk</a> and\n'
       + '    <a href="https://punchdeck.bandcamp.com/track/neon-underworld"\n'
@@ -1826,24 +1834,31 @@ const MUTANTS = {
   'the-deed-is-a-version-behind': {
     check: BORROWED,
     file: PAGE,
-    from: 'href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0',
-    to: 'href="https://creativecommons.org/licenses/by/3.0/" rel="external">CC BY 4.0',
+    from: 'All under <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0',
+    to: 'All under <a href="https://creativecommons.org/licenses/by/3.0/" rel="external">CC BY 4.0',
   },
   // A condition the page never states, carried only by the URL. "CC BY" and
   // by-nc are different offers, and the words are the ones a reader believes.
   'the-deed-carries-a-term-the-words-do-not': {
     check: BORROWED,
     file: PAGE,
-    from: 'href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0',
-    to: 'href="https://creativecommons.org/licenses/by-nc/4.0/" rel="external">CC BY 4.0',
+    from: 'All under <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0',
+    to: 'All under <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="external">CC BY 4.0',
+  },
+  // The same slip in the hero's own credit line, which a reader meets first.
+  'the-scores-deed-carries-a-term-the-words-do-not': {
+    check: BORROWED,
+    file: PAGE,
+    from: '(<a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0',
+    to: '(<a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="external">CC BY 4.0',
   },
   // Terms named but not linked: "CC BY 4.0" as bare text is a claim about
   // someone else's rights that the reader has no way to check.
   'the-terms-stated-without-the-deed': {
     check: BORROWED,
     file: PAGE,
-    from: '<a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>',
-    to: 'CC BY 4.0',
+    from: 'All under <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>',
+    to: 'All under CC BY 4.0',
   },
   // The tab strip told to match the ink instead. The page is untouched and the
   // browser's own chrome wears a colour that is nowhere on the paper under it.
@@ -2847,6 +2862,14 @@ const MUTANTS = {
     from: 'data-soundtrack-track aria-pressed="true"',
     to: 'data-soundtrack-track aria-label="Track one" aria-pressed="true"',
   },
+  // The score swapped and its credit left behind: the circle plays a track
+  // the foot never names.
+  'the-score-plays-uncredited': {
+    check: SOUNDTRACK,
+    file: PAGE,
+    from: 'data-title="Encryption" data-artist="Beat Mekanik"',
+    to: 'data-title="Encryption" data-artist="JMHBM"',
+  },
   'the-pressed-circle-never-follows-the-track': {
     check: SOUNDTRACK,
     file: PLAYER_JS,
@@ -2856,26 +2879,26 @@ const MUTANTS = {
   'a-circle-shows-another-tracks-sleeve': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'src="media/cover-cyberpunk-renaissance.webp" alt=""',
-    to: 'src="media/cover-chrome-funk.webp" alt=""',
+    from: 'src="media/cover-chrome-funk.webp" alt="" width="36" height="36"><span class="player__name">Chrome Funk',
+    to: 'src="media/cover-encryption.webp" alt="" width="36" height="36"><span class="player__name">Chrome Funk',
   },
   'the-second-track-points-at-nothing': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'data-src="media/cyberpunk-renaissance.mp3"',
+    from: 'data-src="media/chrome-funk.mp3"',
     to: 'data-src="media/missing.mp3"',
   },
   'the-second-track-has-no-sleeve': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: 'data-cover="media/cover-cyberpunk-renaissance.webp"',
+    from: 'data-cover="media/cover-chrome-funk.webp"',
     to: 'data-cover="media/missing.webp"',
   },
   'the-player-opens-on-a-track-it-does-not-show': {
     check: SOUNDTRACK,
     file: PAGE,
-    from: '<audio hidden preload="none" src="media/chrome-funk.mp3"',
-    to: '<audio hidden preload="none" src="media/cyberpunk-renaissance.mp3"',
+    from: '<audio hidden preload="none" src="media/encryption.mp3"',
+    to: '<audio hidden preload="none" src="media/chrome-funk.mp3"',
   },
   // A pause written under one key and read under another is a pause that is
   // never remembered: the next visit plays at the visitor again.
