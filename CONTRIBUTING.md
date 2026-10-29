@@ -31,4 +31,4 @@ as described in [SECURITY.md](SECURITY.md).
 
 Do not include credentials, generated build folders or unrelated formatting.
 Release assets and deployment are maintained separately; a PR should not
-publish them. Contributions are licensed under the repository's [MIT licence](LICENSE).
+publish them. Contributions are licensed under the repository's [MIT license](LICENSE).

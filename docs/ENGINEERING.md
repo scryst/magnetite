@@ -63,7 +63,7 @@ can't judge readability, the film, audio timing or notch alignment.
 
 ## Release mechanics
 
-The app is ad-hoc signed, not notarised. `install.sh` is therefore the trust
+The app is ad-hoc signed, not notarized. `install.sh` is therefore the trust
 anchor: it carries `PIN_VERSION` and `PIN_SHA256`, the fingerprint of the one
 release it installs, so a swapped release zip cannot also swap its checksum. A
 default install downloads that version only, checks it against the pin and
@@ -110,7 +110,7 @@ close the panel without touching playback, which is handy when testing.
 
 ## Design notes
 
-- The visualiser measures each band's change against a 2.5-second baseline.
+- The visualizer measures each band's change against a 2.5-second baseline.
   Absolute levels sit high for the whole of a loud track and freeze the
   surface.
 - The FFT reads from a ring buffer so every block gets a full Hann window; a

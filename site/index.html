@@ -52,7 +52,7 @@
   "isAccessibleForFree": true,
   "featureList": [
     "Native notch music controls",
-    "Ferrofluid visualiser driven by system audio",
+    "Ferrofluid visualizer driven by system audio",
     "Spotify and Apple Music playback",
     "On-device audio processing with no tracking"
   ],
@@ -62,7 +62,7 @@
 }
 </script>
 
-<link rel="preload" href="fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/geist-var-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/type.css">
 <link rel="stylesheet" href="css/magnetite.css">
 </head>
@@ -122,23 +122,74 @@
 </header>
 
 <main id="main">
-  <section class="hero" id="top" aria-labelledby="hero-title">
-    <!-- The film: a screen recording of the running app, filmed by tools/notchtake (docs/media/README.md).
-         Its edges are pure black, so it hangs from the top of the page the way the panel hangs from the notch. -->
-    <div class="stage">
-      <video class="stage__film" data-demo muted loop playsinline autoplay preload="metadata"
-             width="1600" height="700" poster="media/demo-poster.webp" aria-describedby="demo-description">
-        <source src="media/demo.mp4" type="video/mp4">
-      </video>
-      <p class="visually-hidden" id="demo-description">Magnetite open under the notch, showing the cover, title,
-        controls and seek strip, while black liquid pulls around the notch in time with the music. A two-finger
-        swipe skips the track, a drag along the bottom edge seeks, and the panel folds into the notch and opens again.</p>
+  <!-- The journey: a drawn MacBook with the real recording on its screen. Scrolled
+       through, the camera swings round to face it and pushes in until the screen's notch is the top of the
+       window, then names the three gestures. CSS scroll timelines only; without
+       them, or under Reduce Motion, it is a still MacBook and a list. -->
+  <section class="hero journey" id="top" aria-labelledby="hero-title">
+    <div class="journey__pin" data-render-check-allow="clipped">
+      <div class="pitch">
+        <h1 class="hero__title" id="hero-title">Spotify and Apple Music, in&nbsp;your MacBook’s notch.</h1>
+        <p class="pitch__lede">Controls around the camera, and a black liquid that moves with what your Mac is playing.</p>
+        <div class="pitch__actions">
+          <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip"
+             aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.12 ZIP from GitHub</span></a>
+        </div>
+        <p class="pitch__meta" data-requires id="hero-requires">macOS 26 on Apple silicon · Free and <a href="https://github.com/scryst/magnetite" rel="external">open source</a> · 757 KB</p>
+      </div>
+
+      <!-- The MacBook is drawn; the player on its screen is a screen recording of the
+           running app, filmed by tools/notchtake (docs/media/README.md). The recording
+           holds only the player, so the rest of the screen is left dark. -->
+      <div class="mac" data-render-check-allow="spills">
+        <div class="mac__lid">
+          <span class="mac__edge mac__edge--top" aria-hidden="true"></span>
+          <span class="mac__edge mac__edge--left" aria-hidden="true"></span>
+          <span class="mac__edge mac__edge--right" aria-hidden="true"></span>
+          <span class="mac__back" aria-hidden="true"></span>
+          <div class="mac__screen">
+            <video class="mac__film" data-demo muted loop playsinline autoplay preload="metadata"
+                   width="1600" height="700" poster="media/demo-poster.webp" aria-describedby="demo-description">
+              <source src="media/demo.mp4" type="video/mp4">
+            </video>
+            <span class="mac__notch" aria-hidden="true"></span>
+          </div>
+        </div>
+        <div class="mac__base" aria-hidden="true">
+          <div class="mac__deck">
+            <div class="mac__grille"></div>
+            <div class="mac__keys">
+            <div><i class="k15"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="k15"></i></div>
+            <div><i class="k15"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div><i class="k175"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="k175"></i></div>
+            <div><i class="k225"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="k225"></i></div>
+            <div><i></i><i></i><i></i><i class="k125"></i><i class="k5"></i><i class="k125"></i><i></i><i></i><i class="kud"></i><i></i></div>
+            </div>
+            <div class="mac__grille"></div>
+            <div class="mac__pad"></div>
+          </div>
+          <div class="mac__side mac__side--left"></div>
+          <div class="mac__side mac__side--right"></div>
+          <div class="mac__front"></div>
+        </div>
+      </div>
+      <p class="visually-hidden" id="demo-description">A drawn MacBook. On its screen, a screen recording of
+        Magnetite open under the notch: the cover, title, controls and seek strip, while black liquid pulls
+        around the notch in time with the music. A two-finger swipe skips the track, a drag along the bottom
+        edge seeks, and the panel folds into the notch and opens again.</p>
+
+      <ol class="moves" aria-label="How it works">
+        <li><b>Hover</b> the notch to open the player.</li>
+        <li><b>Drag</b> its bottom edge to seek.</li>
+        <li><b>Swipe</b> two fingers to skip or pause.</li>
+      </ol>
+
       <div class="stage__foot">
-        <p class="demo__credit"><img src="media/cover-encryption.webp" alt="" width="32" height="32">
-          <span><a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>
-            by <a href="https://freemusicarchive.org/music/beat-mekanik/" rel="external">Beat Mekanik</a>,
-            <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
-            A screen recording of the real app, not a mock-up.</span></p>
+        <p class="demo__credit"><span>Real screen recording, drawn MacBook. Music:
+          <a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>
+          by <a href="https://freemusicarchive.org/music/beat-mekanik/" rel="external">Beat Mekanik</a>,
+          <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.</span></p>
         <div class="stage__controls">
           <button type="button" class="sound" data-demo-sound aria-pressed="false">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.6L8 3v10L4.6 10H2z"/><path class="sound__waves" d="M10.6 5.4a3.6 3.6 0 0 1 0 5.2M12.4 3.6a6.2 6.2 0 0 1 0 8.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -148,26 +199,6 @@
         </div>
       </div>
     </div>
-
-    <div class="pitch">
-      <h1 class="hero__title" id="hero-title">Spotify and Apple Music, in&nbsp;your MacBook’s notch<span class="dot">.</span></h1>
-      <p class="pitch__lede">Controls for the Spotify and Music apps around the camera, and a black liquid outline that moves with the sound your Mac is playing.</p>
-      <div class="pitch__actions">
-        <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip"
-           aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.12 ZIP from GitHub</span></a>
-        <a class="pitch__source" href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
-      </div>
-      <p class="pitch__meta" data-requires id="hero-requires">macOS 26 on Apple silicon · Free and open source · 757 KB</p>
-    </div>
-  </section>
-
-  <section class="moves" aria-labelledby="moves-title">
-    <h2 class="visually-hidden" id="moves-title">How it works</h2>
-    <ol>
-      <li><b>Hover.</b> Point at the notch and the player opens. Move away and it closes to a mini player: the cover and elapsed time either side of the camera.</li>
-      <li><b>Scrub.</b> The player’s bottom edge is its progress bar. Drag along it to seek.</li>
-      <li><b>Swipe.</b> Two fingers on the trackpad: sideways to skip a track, up or down to play or pause.</li>
-    </ol>
   </section>
 
   <!-- Every line here is a shipped feature or a real limit (APP.md, README.md, the M menu). -->
@@ -176,20 +207,19 @@
     <div class="facts__cols">
       <ul>
         <li>Play, pause, skip and seek for Spotify and Apple Music</li>
-        <li>Time-synced lyrics from LRCLIB, which you can turn off</li>
-        <li>Favourites in Apple Music; Spotify liked songs, shuffle and repeat with a free Spotify developer app of your own</li>
-        <li>Volume and brightness shown in the notch when you change them</li>
-        <li>Each credited artist opens in Spotify or Music</li>
-        <li>One player per display; a floating pill on displays without a notch</li>
-        <li>Hides for fullscreen apps, the screensaver and the lock screen</li>
+        <li>Time-synced lyrics from LRCLIB, if you want them</li>
+        <li>Favorites in Apple Music; Spotify likes, shuffle and repeat with your own free Spotify developer app</li>
+        <li>Volume and brightness shown in the notch</li>
+        <li>A floating pill on displays without a notch</li>
+        <li>Hides for fullscreen apps and the lock screen</li>
       </ul>
       <div class="facts__not">
         <h3 class="facts__subtitle">What it doesn’t do</h3>
         <ul>
-          <li>Other players: no browser tabs, YouTube or the Podcasts app. Only the Spotify and Music desktop apps.</li>
-          <li>Intel Macs or macOS before 26.</li>
-          <li>The liquid needs permission to record system audio; without it the player still works and the outline stays still.</li>
-          <li>Apple hasn’t notarised it, so macOS asks you to approve it once.</li>
+          <li>Other players: no browser tabs, YouTube or Podcasts</li>
+          <li>Intel Macs, or macOS before 26</li>
+          <li>Move the liquid without permission to record system audio (the player still works)</li>
+          <li>Open without one approval: Apple hasn’t notarized it</li>
         </ul>
       </div>
     </div>
@@ -200,31 +230,26 @@
       <h2 class="get__title" id="get-title">Get Magnetite</h2>
       <a class="button button--big" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.12/Magnetite-0.1.12.zip"
          aria-describedby="requires"><span data-share-label>Download v0.1.12</span><span class="visually-hidden"> ZIP from GitHub</span></a>
-      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon. Free and open source, 757 KB.
-        To check, open Apple menu → About This Mac. It should say Chip Apple M… and macOS 26.</p>
+      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon (Apple menu → About This Mac). Free and open source, 757 KB.</p>
       <p class="get__all"><a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions and checksums</a></p>
       <div class="get__install" id="install">
         <p>Or paste this into Terminal:</p>
         <!-- render-check: a Terminal command, set in mono on purpose. -->
         <code class="install" data-render-check-ignore>curl -fsSL https://magnetite.app/install.sh | sh</code>
-        <p class="get__aside">The installer checks the checksum and signature; Apple hasn’t reviewed the app.
-          <a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>.</p>
+        <p class="get__aside">It checks the checksum and signature. <a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>.</p>
       </div>
     </div>
 
-    <!-- The zip is ad-hoc signed and not notarised, so macOS blocks the first launch. -->
+    <!-- The zip is ad-hoc signed and not notarized, so macOS blocks the first launch. -->
     <div class="first" data-firstlaunch id="first-launch">
       <h3 class="first__title">Opening it the first time</h3>
       <ol>
-        <li>Open the ZIP, drag Magnetite to Applications, then double-click it.</li>
-        <li>macOS says it can’t verify Magnetite. That’s expected for a free app that isn’t in Apple’s paid
-          programme. Click <b>Done</b>.</li>
-        <li>Open System Settings → Privacy &amp; Security and scroll down to Security. Click <b>Open Anyway</b>
-          next to Magnetite, then confirm with Touch ID or your password.</li>
-        <li>Look for the <b>M</b> in the menu bar. Play something in Spotify or Music and hover the notch. Allow
-          the two prompts: one to control Spotify or Music, one to record system audio for the liquid.</li>
+        <li>Open the ZIP, drag Magnetite to Applications and double-click it.</li>
+        <li>macOS can’t verify it, because it isn’t notarized. Click <b>Done</b>.</li>
+        <li>In System Settings → Privacy &amp; Security, click <b>Open Anyway</b>.</li>
+        <li>Play something, hover the notch, and allow the two prompts.</li>
       </ol>
-      <p class="first__once">You only do this once. Only open a download you trust.</p>
+      <p class="first__once">You only do this once.</p>
     </div>
   </section>
 
@@ -233,30 +258,21 @@
     <dl>
       <div>
         <dt>What permissions does it need?</dt>
-        <dd><p>Automation lets Magnetite read and control Spotify or Music through Apple Events. System audio
-          recording drives the liquid: audio is processed in memory, never saved or uploaded. Both live in System
-          Settings → Privacy &amp; Security.</p>
-          <p>No Magnetite account or tracking. Cover art may be downloaded from your player’s artwork host, and
-          synced lyrics are looked up on LRCLIB by track title and artist. <a href="privacy.html">Privacy details</a>.</p></dd>
+        <dd><p>Automation, to control Spotify or Music. System audio recording, for the liquid: the sound is read in
+          memory and never saved or sent. No account, no tracking. <a href="privacy.html">Privacy details</a>.</p></dd>
       </div>
       <div>
-        <dt>Do I have to connect a Spotify account?</dt>
-        <dd><p>Not for everyday listening. Play, pause, skip, seek and the liquid work with the Spotify desktop app,
-          and Apple Music needs nothing extra, favourites included.</p>
-          <p>Liked songs, shuffle and repeat need a free Spotify developer app of your own. The steps are in the
-          <a href="https://github.com/scryst/magnetite#faq-and-troubleshooting" rel="external">README</a>; then choose
-          “Connect Spotify Library…” in the M menu.</p></dd>
+        <dt>Do I need a Spotify account connected?</dt>
+        <dd><p>No. Likes, shuffle and repeat need a free Spotify developer app of your own; the
+          <a href="https://github.com/scryst/magnetite#faq-and-troubleshooting" rel="external">README</a> has the steps.</p></dd>
       </div>
       <div>
-        <dt>Why is there no track or moving liquid?</dt>
-        <dd><p>Start a track in Spotify or Music on this Mac and check the source in the M menu. Allow Magnetite under
-          Automation for playback, and Screen &amp; System Audio Recording for the liquid, then quit and reopen it.
-          Those permissions are separate.</p></dd>
+        <dt>No track, or the liquid is still?</dt>
+        <dd><p>Check Automation and Screen &amp; System Audio Recording in Privacy &amp; Security, then quit and reopen Magnetite.</p></dd>
       </div>
       <div>
         <dt>How do I update or uninstall?</dt>
-        <dd><p>Rerun the installer to update, or replace the app with the latest release. To remove it, disconnect
-          Spotify if connected, quit Magnetite from the M menu, and delete the app from Applications.</p></dd>
+        <dd><p>Rerun the installer to update. To remove it, quit from the M menu and delete the app.</p></dd>
       </div>
     </dl>
   </section>
@@ -268,7 +284,7 @@
 <footer class="foot">
   <nav class="foot__links" aria-label="About this project">
     <a href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
-    <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT licence</a>
+    <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT license</a>
     <a href="mailto:scrystyt@gmail.com">scrystyt@gmail.com</a>
     <a href="privacy.html">Privacy</a>
     <a href="terms.html">Terms</a>
@@ -279,7 +295,7 @@
     <a href="https://freemusicarchive.org/music/beat-mekanik/single/encryption/" rel="external">“Encryption”</a>,
     from the Free Music Archive, under
     <a href="https://creativecommons.org/licenses/by/4.0/" rel="external">CC BY 4.0</a>.
-    Type: Archivo, under the <a href="fonts/OFL-Archivo.txt">SIL Open Font License</a>.
+    Type: Geist, under the <a href="fonts/OFL-Geist.txt">SIL Open Font License</a>.
     © 2026 scryst.
   </p>
 </footer>

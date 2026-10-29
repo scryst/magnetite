@@ -65,7 +65,7 @@ const EDGE_SIGMA = 2;
 function decodePNG(buffer) {
   if (buffer.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG');
   let at = 8;
-  let width = 0, height = 0, depth = 0, colour = 0, interlace = 0;
+  let width = 0, height = 0, depth = 0, color = 0, interlace = 0;
   const idat = [];
   while (at < buffer.length) {
     const length = buffer.readUInt32BE(at);
@@ -74,13 +74,13 @@ function decodePNG(buffer) {
     if (type === 'IHDR') {
       width = body.readUInt32BE(0);
       height = body.readUInt32BE(4);
-      depth = body[8]; colour = body[9]; interlace = body[12];
+      depth = body[8]; color = body[9]; interlace = body[12];
     } else if (type === 'IDAT') idat.push(body);
     else if (type === 'IEND') break;
     at += 12 + length;
   }
-  if (depth !== 8 || colour !== 6 || interlace !== 0) {
-    throw new Error(`unsupported PNG: depth ${depth} colour ${colour} interlace ${interlace}`);
+  if (depth !== 8 || color !== 6 || interlace !== 0) {
+    throw new Error(`unsupported PNG: depth ${depth} color ${color} interlace ${interlace}`);
   }
   const raw = inflateSync(Buffer.concat(idat));
   const bpp = 4;
@@ -393,12 +393,12 @@ function fitCubic(points, first, last, tHat1, tHat2, tolerance, out) {
   }
   if (split <= first) split = first + 1;
   if (split >= last) split = last - 1;
-  // A centre tangent taken across the split rather than at it: the contour is a
+  // A center tangent taken across the split rather than at it: the contour is a
   // blurred threshold and has no corners, so the two halves must leave the
   // seam smooth or the fit invents a kink that the pour never had.
-  const centre = norm(sub(points[split - 1], points[split + 1]));
-  fitCubic(points, first, split, tHat1, centre, tolerance, out);
-  fitCubic(points, split, last, neg(centre), tHat2, tolerance, out);
+  const center = norm(sub(points[split - 1], points[split + 1]));
+  fitCubic(points, first, split, tHat1, center, tolerance, out);
+  fitCubic(points, split, last, neg(center), tHat2, tolerance, out);
 }
 
 /** Fits a closed ring, smooth across the seam where it starts and ends. */
@@ -418,7 +418,7 @@ export function fitClosed(ring, tolerance) {
  * Each curve is sampled at roughly four points per pixel of its own length. A
  * fixed sample count per curve would make this a measurement of the sampling
  * rather than of the fit: long curves would report a deviation that is really
- * the gap between neighbouring samples, and it would grow as the fit got
+ * the gap between neighboring samples, and it would grow as the fit got
  * BETTER and used fewer, longer curves.
  */
 export function fitError(ring, curves) {
@@ -486,7 +486,7 @@ export function pathData(curves, indent) {
   return wrapped.join(`\n${indent}`);
 }
 
-/** The ink's true extent, unrounded — what the unit-box normalisation needs. */
+/** The ink's true extent, unrounded — what the unit-box normalization needs. */
 function exactBounds(curves) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of curves) {

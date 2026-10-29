@@ -3,7 +3,7 @@
 // The page is static now: one film of the real app, one small script for its
 // two buttons, and the download. So what can break is what it says. A version
 // that is not the one the installer pins, a size from the last build, a
-// requirement a download button no longer points at, a credit the licence asks
+// requirement a download button no longer points at, a credit the license asks
 // for, a poster that is not the film's size, or a link to a file that moved.
 // Each check below names the mistake it catches.
 //
@@ -140,7 +140,7 @@ const CHECKS = {
     return out;
   },
 
-  // One typeface, self-hosted, with its licence. Gloock was the last look and
+  // One typeface, self-hosted, with its license. Gloock was the last look and
   // must not come back by a stray font-family.
   type() {
     const out = [];
@@ -148,12 +148,13 @@ const CHECKS = {
     const font = typeCss.match(/url\('\.\.\/(fonts\/[^']+\.woff2)'\)/)?.[1];
     if (!font || !existsSync(join(site, font))) out.push(`type.css loads ${font}, which is not a file`);
     if (!html.includes(`href="${font}" as="font"`)) out.push(`index.html does not preload ${font}`);
-    if (!existsSync(join(site, 'fonts/OFL-Archivo.txt'))) out.push('missing the Archivo licence');
+    const license = typeCss.match(/OFL: (fonts\/OFL-[\w-]+\.txt)/)?.[1];
+    if (!license || !existsSync(join(site, license))) out.push(`type.css names no font license file that ships (${license})`);
     for (const [name, text] of [['index.html', html], ['magnetite.css', css], ['legal.css', read('css/legal.css')]]) {
       if (/gloock/i.test(text)) out.push(`${name} still names Gloock`);
     }
     const display = css.match(/--display:\s*'([^']+)'/)?.[1];
-    if (display !== 'Archivo') out.push(`the display face is ${display}, not Archivo`);
+    if (display !== 'Geist') out.push(`the display face is ${display}, not Geist`);
     if (!/\bvar\(--display\)/.test(css.match(/\.hero__title\s*\{[^}]*\}/)?.[0] ?? '')) out.push('the headline is not set in the display face');
     return out;
   },
@@ -170,7 +171,7 @@ const CHECKS = {
     return out;
   },
 
-  // CC BY 4.0 asks for the title, the artist and the licence wherever the track
+  // CC BY 4.0 asks for the title, the artist and the license wherever the track
   // plays: under the film and in the footer. A credit is never split mid-name.
   credit() {
     const out = [];
@@ -244,6 +245,34 @@ const CHECKS = {
     const code = read('js/site.js');
     if (/canvas|requestAnimationFrame|AudioContext|Worklet/i.test(code)) out.push('site.js draws or listens to audio again');
     if (statSync(join(site, 'js/site.js')).size > 4000) out.push('site.js grew past 4 KB');
+    return out;
+  },
+
+  // US spelling in everything a visitor or crawler reads. The British forms of
+  // "license", "notarized" and "visualizer" shipped until Laks caught them (2026-10-29).
+  spelling() {
+    const out = [];
+    const uk = /\b(licence|colour\w*|favourite\w*|notaris\w*|organis\w*|visualis\w*|authoris\w*|normalis\w*|programme|centre[sd]?|behaviour\w*|catalogue|grey)\b/gi; // us-spelling: ok
+    for (const page of ['index.html', 'privacy.html', 'terms.html', 'llms.txt']) {
+      const text = read(page).replace(/https?:\/\/\S+/g, '');
+      for (const m of text.matchAll(uk)) out.push(`${page} says "${m[0]}"; write US English`);
+    }
+    return out;
+  },
+
+  // The page has no color of its own: every color in its stylesheets is a
+  // neutral, so the recording is the only color on screen. A pink full stop
+  // was added as flair and Laks called it random (2026-10-29).
+  accent() {
+    const out = [];
+    for (const name of ['css/magnetite.css', 'css/legal.css']) {
+      const text = read(name).replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of text.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b|rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/gi)) {
+        const hex = m[1] && (m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1]);
+        const rgb = hex ? [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)) : [m[2], m[3], m[4]].map(Number);
+        if (Math.max(...rgb) - Math.min(...rgb) > 12) out.push(`${name} uses ${m[0]}, a color; the page keeps to neutrals`);
+      }
+    }
     return out;
   },
 

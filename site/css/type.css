@@ -1,9 +1,8 @@
-/* Archivo, variable weight 500–800 and width 100–125, Latin subset, self-hosted. OFL: fonts/OFL-Archivo.txt. */
+/* Geist, variable weight 100–900, Latin subset, self-hosted. OFL: fonts/OFL-Geist.txt. */
 @font-face {
-  font-family: 'Archivo';
+  font-family: 'Geist';
   font-style: normal;
-  font-weight: 500 800;
-  font-stretch: 100% 125%;
+  font-weight: 100 900;
   font-display: swap;
-  src: url('../fonts/archivo-var-latin.woff2') format('woff2');
+  src: url('../fonts/geist-var-latin.woff2') format('woff2');
 }
