@@ -2,7 +2,7 @@
 
 > A music player that shows the song as black ferrofluid around the MacBook notch.
 
-Magnetite is a free, MIT-licensed, open-source macOS app by scryst. It needs macOS 26 or later on Apple silicon and controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch get a floating pill. The product page plays a film of the app's own panel, rendered frame by frame from a CC BY track. The audio that drives the visualiser stays in memory on the Mac. There are no trackers and no Magnetite accounts.
+Magnetite is a free, MIT-licensed, open-source macOS app by scryst. It needs macOS 26 or later on Apple silicon and controls the Spotify and Apple Music desktop apps through local Apple Events. Displays without a notch get a floating pill. The product page plays a screen recording of the running app playing a CC BY track. The audio that drives the visualiser stays in memory on the Mac. There are no trackers and no Magnetite accounts.
 
 The optional Spotify Web API connection supports liked songs, shuffle and repeat. It uses PKCE and keeps a refresh token in a file only the owner can read. The current track's artwork may be downloaded from the URL the player supplies. The app asks for Automation and system-audio permissions separately.
 

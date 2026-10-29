@@ -6,3 +6,5 @@ __pycache__/
 .claude/
 # Built from tools/notchrec.swift: swiftc -O tools/notchrec.swift -o tools/notchrec
 tools/notchrec
+# Built from tools/notchtake.swift: swiftc -O tools/notchtake.swift -o tools/notchtake
+tools/notchtake

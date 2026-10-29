@@ -4,7 +4,7 @@ Free, open-source Spotify and Apple Music controls in your MacBook notch, with f
 
 [![Magnetite open under the MacBook notch, playing Encryption by Beat Mekanik, with black ferrofluid pulling down from the notch](docs/media/player.webp)](https://magnetite.app/media/demo.mp4)
 
-The film on [magnetite.app](https://magnetite.app) is the app's own panel, rendered frame by frame from [“Encryption”](https://freemusicarchive.org/music/beat-mekanik/single/encryption/) by [Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+The film on [magnetite.app](https://magnetite.app) is a screen recording of the running app, playing [“Encryption”](https://freemusicarchive.org/music/beat-mekanik/single/encryption/) by [Beat Mekanik](https://freemusicarchive.org/music/beat-mekanik/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 
 [![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT licence](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
 
