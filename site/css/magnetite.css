@@ -238,12 +238,7 @@ b { font-weight: 600; }
 .moves b { color: var(--ink); font-weight: 600; }
 @media (min-width: 720px) { .moves { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; } }
 
-.stage__foot {
-  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px;
-}
-.demo__credit { margin: 0; max-width: 60ch; color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
-.demo__credit a { white-space: nowrap; }
-.stage__controls { display: flex; align-items: center; gap: 8px; }
+.stage__foot { display: flex; align-items: center; gap: 8px; }
 .sound {
   display: inline-flex; align-items: center; gap: 9px;
   min-height: 44px; padding: 0 18px 0 15px; border-radius: 999px;
@@ -269,7 +264,14 @@ b { font-weight: 600; }
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .journey {
-      --macw: calc(var(--film) * 1.9531);
+      /* Pushed in, the film, the gesture under it and the film's controls are
+         one group, centered in the window: --stack is what sits under the
+         film, and the film gives up width before the group leaves the window. */
+      --stack: 180px;
+      --fh: min(var(--film) / 1.5625, 100svh - var(--stack) - 80px);
+      --fw: calc(var(--fh) * 1.5625);
+      --top: calc((100svh - var(--fh) - var(--stack)) / 2);
+      --macw: calc(var(--fw) * 1.9531);
       /* The take is 400 points, so on this lid it is half the film's width;
          the camera ends --zoom times closer than the lid's own size, which
          costs nothing to draw where a lid twice as large halved the frame rate. */
@@ -297,7 +299,7 @@ b { font-weight: 600; }
       overflow: clip;
     }
     .mac {
-      position: absolute; top: 0; left: 50%;
+      position: absolute; top: var(--top); left: 50%;
       width: var(--macw); max-width: none;
       margin: calc(var(--macw) * -0.01615) 0 0 calc(var(--macw) / -2);
       transform-origin: 50% calc(var(--macw) * 0.01615);
@@ -311,12 +313,18 @@ b { font-weight: 600; }
       animation-timeline: --journey;
       animation-range: contain 28% contain 46%;
     }
-    /* The lid's metal rim goes with it, so on a tall phone no chin is left
-       floating under the screen. */
+    /* The lid's metal rim and edges go first, before the camera brings its
+       top edge into the margin over the film, and so on a tall phone no chin
+       is left floating under the screen. */
+    .mac__edge {
+      animation: fade linear both;
+      animation-timeline: --journey;
+      animation-range: contain 18% contain 32%;
+    }
     .mac__lid {
       animation: hinge ease-in-out both, rim linear both;
       animation-timeline: --journey, --journey;
-      animation-range: contain 0% contain 40%, contain 28% contain 46%;
+      animation-range: contain 0% contain 40%, contain 18% contain 32%;
     }
     .pitch {
       position: absolute; left: var(--gutter); right: var(--gutter);
@@ -329,7 +337,7 @@ b { font-weight: 600; }
     }
     .moves {
       position: absolute; left: 50%; width: var(--col); margin-left: calc(var(--col) / -2);
-      top: calc(var(--film) * 0.64 + clamp(32px, 7svh, 88px));
+      top: calc(var(--top) + var(--fh) + 40px);
       display: block; text-align: center;
     }
     .moves li {
@@ -341,14 +349,13 @@ b { font-weight: 600; }
     .moves li:nth-child(1) { animation-range: contain 50% contain 70%; }
     .moves li:nth-child(2) { animation-range: contain 68% contain 86%; }
     .moves li:nth-child(3) { animation: say-last linear both; animation-timeline: --journey; animation-range: contain 84% contain 96%; }
+    /* The film's controls close the group, and come in with the film. */
     .stage__foot {
-      position: absolute; left: var(--gutter); right: var(--gutter); bottom: max(16px, env(safe-area-inset-bottom));
-    }
-    /* On a phone the pitch fills the window first; the film's controls follow it. */
-    .stage__foot {
+      position: absolute; left: var(--gutter); right: var(--gutter); bottom: var(--top);
+      justify-content: center;
       animation: lift linear both reverse;
       animation-timeline: --journey;
-      animation-range: contain 20% contain 30%;
+      animation-range: contain 48% contain 56%;
     }
   }
   @media (prefers-reduced-motion: no-preference) and (min-width: 900px) {
@@ -359,14 +366,9 @@ b { font-weight: 600; }
     }
     .pitch { top: 50%; right: auto; width: min(34vw, 460px); translate: 0 -50%; }
     /* Each gesture on one line across the window, not wrapped to the film's
-       width: two lines reach the credit in a short window. */
+       width: --stack holds one line. */
     .moves { left: var(--gutter); right: var(--gutter); width: auto; margin-left: 0; }
     .moves li { font-size: clamp(30px, min(4.2vw, 6.4svh), 56px); text-wrap: balance; }
-    /* The film's controls step aside while the base sweeps down through them. */
-    .stage__foot {
-      left: 50%; right: auto; width: var(--film); margin-left: calc(var(--film) / -2);
-      animation: dip linear both; animation-timeline: --journey; animation-range: contain 16% contain 48%;
-    }
   }
   @media (prefers-reduced-motion: no-preference) and (min-width: 900px) and (max-height: 760px) {
     .journey { --s0: 0.27; }
@@ -374,7 +376,7 @@ b { font-weight: 600; }
 }
 @keyframes push {
   from {
-    transform: translate3d(var(--x0), var(--y0), var(--z0))
+    transform: translate3d(var(--x0), calc(var(--y0) - var(--top)), var(--z0))
       rotateX(calc(var(--rx0) * -1)) rotateY(var(--ry0));
   }
   /* A dolly, not a scale: perspective p / (p - z) is --zoom. */
@@ -389,7 +391,7 @@ b { font-weight: 600; }
 /* The eye moves with the MacBook, so it is always looked at square on. */
 @keyframes eye {
   from { perspective-origin: calc(50% + var(--x0)) var(--y0); }
-  to { perspective-origin: 50% 0; }
+  to { perspective-origin: 50% var(--top); }
 }
 @keyframes hinge {
   from { transform: rotateX(var(--lid0)); }
@@ -400,9 +402,6 @@ b { font-weight: 600; }
 }
 @keyframes back {
   to { opacity: 1; transform: none; visibility: visible; }
-}
-@keyframes dip {
-  20%, 85% { opacity: 0; visibility: hidden; }
 }
 @keyframes say {
   0% { opacity: 0; transform: translateY(16px); visibility: hidden; }
@@ -486,3 +485,5 @@ b { font-weight: 600; }
 .foot__links { display: flex; flex-wrap: wrap; gap: 4px 24px; }
 .foot__links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
 .foot__credit { margin: 12px 0 0; max-width: 72ch; }
+.demo__credit { max-width: 58ch; }
+.demo__credit a { white-space: nowrap; }
