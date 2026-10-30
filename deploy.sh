@@ -189,17 +189,21 @@ else
     --field 'cname=magnetite.app' >/dev/null
 fi
 
-# The page AND the installer: a deploy that changed only install.sh used to
-# "verify" instantly against the old site, since index.html was all it read.
-# Both URLs carry the commit as a query string so a CDN or browser cache holding
+# The page, its styles and script, AND the installer: a deploy that changed only
+# install.sh used to "verify" instantly against the old site, since index.html was
+# all it read, and one that changed only site.js and the CSS did the same (10-30).
+# Every URL carries the commit as a query string so a CDN or browser cache holding
 # the previous deploy cannot answer for this one.
+CHECKED=(index.html install.sh $(cd "$STAGE" && ls css/*.css js/*.js))
 served() {
-  local index installer
-  index="$(curl -fsSL --max-time 20 "$PROD_URL/?v=$SHORT" | shasum -a 256 | cut -d' ' -f1)" || return 1
-  installer="$(curl -fsSL --max-time 20 "$PROD_URL/install.sh?v=$SHORT" | shasum -a 256 | cut -d' ' -f1)" || return 1
-  echo "$index+$installer"
+  local f sum out=""
+  for f in "${CHECKED[@]}"; do
+    sum="$(curl -fsSL --max-time 20 "$PROD_URL/$f?v=$SHORT" | shasum -a 256 | cut -d' ' -f1)" || return 1
+    out+="$sum+"
+  done
+  echo "$out"
 }
-WANT="$(shasum -a 256 "$STAGE/index.html" | cut -d' ' -f1)+$(shasum -a 256 "$STAGE/install.sh" | cut -d' ' -f1)"
+WANT="$(for f in "${CHECKED[@]}"; do printf '%s+' "$(shasum -a 256 "$STAGE/$f" | cut -d' ' -f1)"; done)"
 GOT=""
 # GitHub Pages can take a couple of minutes: 36 tries, 5 seconds apart.
 for _ in {1..36}; do
