@@ -9,7 +9,8 @@
 # The film's songs change at 7.4, 20 and 37.9 s; site.js names them by those times.
 #
 # Bakes a soft glow per song from the film's own frame: the panel's colors,
-# the band of bare panel under the controls, averaged to a few cells, brightened, under a round falloff with alpha.
+# the band of bare panel under the controls, averaged to a few cells, brightened;
+# glow-mask.webp is the round falloff they share.
 import sys, math
 from PIL import Image, ImageEnhance, ImageFilter
 media = sys.argv[1]; out = sys.argv[2]
@@ -25,16 +26,20 @@ for song in ['pop', 'sunsetz', 'artdeco', 'hush']:
             h, s, v = px[x, y]
             px[x, y] = (h, min(190, max(90, int(s * 2))), 205)
     big = hsv.convert('RGB').resize((W, H), Image.BICUBIC).filter(ImageFilter.GaussianBlur(10))
-    a = Image.new('L', (W, H))
-    px = a.load()
-    for y in range(H):
-        for x in range(W):
-            dx = (x + .5 - W / 2) / (W / 2); dy = (y + .5 - H / 2) / (H / 2)
-            r2 = dx * dx + dy * dy
-            px[x, y] = int(255 * 0.85 * math.exp(-r2 * 2.6) * max(0, 1 - r2) ** 0.5)
-    big.putalpha(a)
     big.save(f'{out}/glow-{song}.webp', 'WEBP', quality=90, method=6)
     print(song, cells.resize((1, 1), Image.BOX).getpixel((0, 0)))
+# The falloff is one mask over all four (magnetite.css), so the songs crossfade
+# as opaque colors: two lights at half opacity, one over the other, would
+# dim the glow mid-change.
+a = Image.new('L', (W, H))
+px = a.load()
+for y in range(H):
+    for x in range(W):
+        dx = (x + .5 - W / 2) / (W / 2); dy = (y + .5 - H / 2) / (H / 2)
+        r2 = dx * dx + dy * dy
+        px[x, y] = int(255 * 0.85 * math.exp(-r2 * 2.6) * max(0, 1 - r2) ** 0.5)
+mask = Image.new('RGBA', (W, H), (255, 255, 255, 0)); mask.putalpha(a)
+mask.save(f'{out}/glow-mask.webp', 'WEBP', lossless=True)
 
 # The screen's desktop: the cover's own color layout, as the app's expanded card
 # draws it (CoverField), averaged to 4 x 4 and blurred into a field that
