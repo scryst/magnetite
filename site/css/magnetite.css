@@ -243,9 +243,13 @@ body::after {
    the journey scrolls (47 vs 68 fps, 4x-throttled). Lighter and brighter on a
    normal blend reads the same. */
 @media (max-width: 899px) { .mac__wall [data-for]::after { mix-blend-mode: normal; opacity: 0.4; filter: hue-rotate(28deg) saturate(1.25) brightness(1.8); } }
-/* A desktop that is neither on nor going is not seen: it holds still, so a phone
-   turns two desktops while the page scrolls, not four. */
-.mac__wall :not(.on, .was), .mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { animation-play-state: paused; }
+/* A desktop that is neither on nor going is not seen: it holds still and has no
+   turning copies. Four desktops' copies held some 300 MB of layers on a phone
+   (Chrome, 390 wide), past what Android keeps drawn, and it showed blocks of the
+   page mid-scroll. The copies of the song coming in are drawn at the change,
+   which waits for the scroll to rest, while it fades in over the one going. */
+.mac__wall :not(.on, .was) { animation-play-state: paused; }
+.mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { content: none; }
 @media (prefers-reduced-motion: reduce) { .mac__wall [data-for], .mac__wall [data-for]::before, .mac__wall [data-for]::after { animation: none; } }
 /* lighten: the recording's black is the bare screen, so the desktop shows through it. */
 .mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; mix-blend-mode: lighten; }

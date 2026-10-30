@@ -262,6 +262,7 @@ const CHECKS = {
 
   // No simulations. The page runs one module, site.js, which drives the film's
   // two buttons; the old canvas sims cost a fan spin and a second of main thread.
+  // 4.3 KB holds the film, the songs and their layer release (10-30), not a sim.
   script() {
     const out = [];
     const scripts = tags.filter((t) => t.name === 'script' && t.attrs.type !== 'application/ld+json');
@@ -270,7 +271,7 @@ const CHECKS = {
     if (js.join() !== 'site.js') out.push(`site/js holds ${js.join(', ')}`);
     const code = read('js/site.js');
     if (/canvas|requestAnimationFrame|AudioContext|Worklet/i.test(code)) out.push('site.js draws or listens to audio again');
-    if (statSync(join(site, 'js/site.js')).size > 4000) out.push('site.js grew past 4 KB');
+    if (statSync(join(site, 'js/site.js')).size > 4300) out.push('site.js grew past 4.3 KB');
     return out;
   },
 
@@ -341,7 +342,11 @@ const CHECKS = {
     // Laks, 10-30, on a phone: "i see spazzing if im scrolling when the song colors change".
     const js = read('js/site.js');
     if (!/song === shown \|\| performance\.now\(\) - moved < \d+\) return/.test(js) || !/const later = \(\) => \{ moved = performance\.now\(\);/.test(js)) out.push('a song change does not wait for the scroll to rest');
-    if (!css.includes('.mac__wall :not(.on, .was), .mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { animation-play-state: paused; }')) out.push('the unseen desktops still turn while the page scrolls');
+    if (!css.includes('.mac__wall :not(.on, .was) { animation-play-state: paused; }')) out.push('the unseen desktops still turn while the page scrolls');
+    // Laks, 10-30, on an Android phone in Chrome: blocks of the page mid-scroll.
+    // Four desktops' turning copies held some 300 MB of layers at 390 wide.
+    if (!css.includes('.mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { content: none; }')) out.push('the unseen desktops keep their turning copies');
+    if (!/gone = setTimeout\(\(\) => lights\.forEach\(\(i\) => i\.classList\.remove\('was'\)\), \d+\);/.test(js)) out.push('the song gone keeps its layers after the fade');
     for (const sel of ['.glow', '.shot__media::before']) {
       const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
       if (!/(?:^|\s)mask: url\(\.\.\/media\/glow-mask\.webp\)/.test(body)) out.push(`${sel} has no glow-mask.webp; the glows are flat blocks without it`);

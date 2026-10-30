@@ -39,15 +39,19 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); });
 label();
 
-// The light and the desktop take the film's song (magnetite.css fades was to on),
-// once the scroll rests: a change mid-scroll made a phone's page judder.
+// The light and the desktop take the film's song (magnetite.css fades was to on)
+// once the scroll rests: a change mid-scroll made a phone's page judder. After
+// the fade the song gone lets its layers go.
 const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
-let shown = 'pop', moved = 0;
+const lights = document.querySelectorAll('[data-glow] i');
+let shown = 'pop', moved = 0, gone = 0;
 video.addEventListener('timeupdate', () => {
   const song = songs.find(([end]) => video.currentTime < end)[1];
   if (song === shown || performance.now() - moved < 400) return;
-  for (const i of document.querySelectorAll('[data-glow] i')) i.className = i.dataset.for === song ? 'on' : i.dataset.for === shown ? 'was' : '';
+  for (const i of lights) i.className = i.dataset.for === song ? 'on' : i.dataset.for === shown ? 'was' : '';
   shown = song;
+  clearTimeout(gone);
+  gone = setTimeout(() => lights.forEach((i) => i.classList.remove('was')), 2000);
 });
 
 // The clips play only on screen, and never under Reduce Motion.
