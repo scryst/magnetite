@@ -302,6 +302,21 @@ const CHECKS = {
     return out;
   },
 
+  // Close up, the recording is the one color in the window too: the screen's
+  // song field drains to gray as the camera arrives, and is gray before the
+  // first gesture is named. Behind the player the field read as a brown
+  // gradient, and Laks liked the gray, which makes the player pop (2026-10-29).
+  gray() {
+    const wall = css.match(/\.mac__wall \{\s*animation: (\w+) [^}]*animation-timeline: --journey;\s*animation-range: contain ([\d.]+)% contain ([\d.]+)%/);
+    if (!wall) return ['.mac__wall has no animation on the journey'];
+    const out = [];
+    if (!new RegExp(`@keyframes ${wall[1]} \\{\\s*to \\{ filter: grayscale\\(1\\); \\}`).test(css)) out.push(`@keyframes ${wall[1]} does not end in filter: grayscale(1)`);
+    const first = css.match(/\.moves li:nth-child\(1\) \{[^}]*animation-range: contain ([\d.]+)%/);
+    if (!first) out.push('no range for the first gesture');
+    else if (Number(wall[3]) > Number(first[1])) out.push(`the screen is gray only at ${wall[3]}%, after the first gesture comes at ${first[1]}%`);
+    return out;
+  },
+
   // The MacBook is drawn to Apple's measurements, not by eye. These are read
   // off Apple's top-down store photo of the 14-inch (mbp14-spaceblack-gallery2,
   // the body 1298 px wide) in hundredths of the body's width. The grilles were
@@ -359,6 +374,19 @@ const CHECKS = {
     return out;
   },
 
+  // The gestures under the film take turns: each line has gone before the next
+  // comes, so no scroll position shows two on top of each other. Overlapping
+  // ranges put "Drag" over "Swipe" mid-scroll (2026-10-29).
+  moves() {
+    const ranges = [...css.matchAll(/\.moves li:nth-child\((\d)\) \{[^}]*animation-range: contain ([\d.]+)% contain ([\d.]+)%/g)].map((m) => m.slice(1).map(Number));
+    if (ranges.length !== 3) return [`found ${ranges.length} gesture ranges, expected 3`];
+    const out = [];
+    for (let i = 1; i < ranges.length; i++) {
+      if (ranges[i][1] < ranges[i - 1][2]) out.push(`gesture ${ranges[i][0]} comes at ${ranges[i][1]}%, before gesture ${ranges[i - 1][0]} has gone at ${ranges[i - 1][2]}%`);
+    }
+    return out;
+  },
+
   // The product's name is on screen from the first frame and on the dock that
   // follows the reader; the page had it only in the footer.
   name() {
@@ -373,6 +401,16 @@ const CHECKS = {
       if (!/class="legal__home"[^>]*>(?:<img[^>]*>)?Magnetite</.test(read(page))) out.push(`${page} has no Magnetite link home`);
     }
     return out;
+  },
+
+  // The dock counts only a Download button that can be seen. The hero's stays
+  // inside the window while the film holds it, faded out, and an
+  // IntersectionObserver counted it: no way to the download for the whole
+  // journey (2026-10-29).
+  dock() {
+    const code = read('js/site.js');
+    if (/checkVisibility\?\.\(\{[^}]*opacityProperty: true[^}]*visibilityProperty: true/.test(code)) return [];
+    return ['site.js does not ask checkVisibility whether a Download button is faded or hidden'];
   },
 
   // Every local href and src on every page is a file that ships. deploy.sh drops

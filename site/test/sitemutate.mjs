@@ -48,6 +48,8 @@ const MUTATIONS = [
   ['type', 'the font ships without its license', 'site/css/type.css', 'OFL: fonts/OFL-Geist.txt', 'OFL: fonts/OFL-Archivo.txt'],
   ['spelling', 'British spelling comes back', 'site/index.html', 'MIT license', 'MIT licence'], // us-spelling: ok
   ['spelling', 'the British visualizer comes back', 'site/llms.txt', 'visualizer', 'visualiser'], // us-spelling: ok
+  ['gray', 'the screen keeps its color close up', 'site/css/magnetite.css', 'to { filter: grayscale(1); }', 'to { filter: grayscale(0.3); }'],
+  ['gray', 'the screen grays only after the first gesture', 'site/css/magnetite.css', 'animation-range: contain 6% contain 30%;', 'animation-range: contain 6% contain 45%;'],
   ['deck', 'the grilles shrink back to a guess', 'site/css/magnetite.css', 'grid-template-columns: 4.4cqw 89.4cqw 4.4cqw', 'grid-template-columns: 2.4cqw 89.4cqw 2.4cqw'],
   ['deck', 'the trackpad is drawn wider than Apple makes it', 'site/css/magnetite.css', 'width: 41.4cqw; height: 25.9cqw;', 'width: 47.3cqw; height: 25.9cqw;'],
   ['accent', 'a colored flair comes back', 'site/css/magnetite.css', '  --bg: #000;\n', '  --bg: #000;\n  --pink: #FF4FA3;\n'],
@@ -56,8 +58,10 @@ const MUTATIONS = [
   ['credit', 'credit names wrap', 'site/css/magnetite.css', '.demo__credit a { white-space: nowrap; }', ''],
   ['scale', 'the film is placed at twice its size', 'site/css/magnetite.css', 'left: 36.772%; width: 26.455%;', 'left: 23.545%; width: 52.91%;'],
   ['scale', 'the camera stops at the lid\'s own size', 'site/css/magnetite.css', '--zoom: 2;', '--zoom: 1;'],
+  ['moves', 'two gestures share the screen', 'site/css/magnetite.css', 'contain 60% contain 82%', 'contain 57% contain 82%'],
+  ['dock', 'the dock counts a faded button', 'site/js/site.js', 'opacityProperty: true, ', ''],
   ['name', 'the wordmark leaves the top of the page', 'site/index.html', '<a class="brand" href="#top">', '<a class="brandless" href="#top">'],
-  ['name', 'the dock forgets the name', 'site/index.html', '>Download Magnetite</a>', '>Download for Mac</a>'],
+  ['name', 'the dock forgets the name', 'site/index.html', '>Get Magnetite</a></div>', '>Get it</a></div>'],
   ['name', 'a legal page loses its way home', 'site/privacy.html', 'alt="" width="22" height="22">Magnetite</a>', 'alt="" width="22" height="22">Home</a>'],
   ['mark', 'the inline glyph is edited by hand', 'site/index.html', '<path fill="currentColor" d="M272.5 283C', '<path fill="currentColor" d="M272.5 284C'],
   ['mark', 'the symbol sheet takes room on the page', 'site/css/magnetite.css', '.defs { position: absolute; width: 0; height: 0;', '.defs { position: absolute;'],
@@ -69,7 +73,7 @@ const MUTATIONS = [
   ['script', 'a simulation script comes back', 'site/index.html', '<script type="module" src="js/site.js"></script>', '<script type="module" src="js/site.js"></script>\n<script type="module" src="js/sim.js"></script>'],
   ['script', 'site.js starts drawing', 'site/js/site.js', 'label();\n', 'label();\nrequestAnimationFrame(() => {});\n'],
   ['links', 'a link into test/', 'site/index.html', '<a href="privacy.html">Privacy</a>', '<a href="test/og.html">Privacy</a> <a href="privacy.html">Privacy</a>'],
-  ['links', 'an anchor no element carries', 'site/index.html', '<a class="dock" href="#download" data-dock hidden>', '<a class="dock" href="#get" data-dock hidden>'],
+  ['links', 'an anchor no element carries', 'site/index.html', '<div class="dock" data-dock hidden><a class="button" href="#download">', '<div class="dock" data-dock hidden><a class="button" href="#get">'],
 ];
 
 const checks = [...readFileSync(check, 'utf8').matchAll(/^  (?:async )?(\w+)\(\) \{$/gm)].map((m) => m[1]);

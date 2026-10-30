@@ -55,14 +55,21 @@ const clips = new IntersectionObserver((entries) => {
 }, { threshold: 0.4 });
 for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip);
 
-// The dock shows once no Download button is on screen.
+// The dock shows once no Download button can be seen. The hero's stays inside
+// the window while the film holds it, faded out, so a faded one does not count.
 const dock = document.querySelector('[data-dock]');
-const showing = new Set();
-const io = new IntersectionObserver((entries) => {
-  for (const e of entries) e.isIntersecting ? showing.add(e.target) : showing.delete(e.target);
-  dock.toggleAttribute('data-shown', showing.size === 0);
-});
-for (const target of document.querySelectorAll('[data-download]')) io.observe(target);
+const downloads = [...document.querySelectorAll('[data-download]')];
+const inSight = (b) => {
+  const r = b.getBoundingClientRect();
+  return r.bottom > 0 && r.top < innerHeight
+    && (b.checkVisibility?.({ opacityProperty: true, visibilityProperty: true, checkOpacity: true, checkVisibilityCSS: true }) ?? true);
+};
+let due = 0;
+const dockSync = () => { due = 0; dock.toggleAttribute('data-shown', !downloads.some(inSight)); };
+const later = () => { due ||= setTimeout(dockSync, 120); };
+addEventListener('scroll', later, { passive: true });
+addEventListener('resize', later);
+dockSync();
 
 // A phone can't run a Mac app: the button sends the page to the Mac instead.
 const phone = /iPhone|iPad|iPod|Android/.test(navigator.userAgent)
