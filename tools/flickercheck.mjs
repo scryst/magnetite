@@ -15,7 +15,7 @@
 //        [--css=FILE] [--hide=SEL,SEL] [--y0=PX --y1=PX] [--reverse] [--quiet] [--selftest]
 //        [--live [--speed=800] [--live-theta=30] [--max-frames=240] [--ref-step=6] [--lag-max=120]
 //                [--live-time=freeze|run] [--live-song=free] [--mask=SEL,SEL]]
-//        [--idle [--idle-ms=3000] [--idle-at=0,5,10,...]]
+//        [--idle [--idle-ms=3000] [--idle-at=0,5,10,...] [--film-at=SEC]]
 //        [--dump=Y0:Y1:STEP [--dump-crop=x,y,w,h] [--dump-up=SCALE]]
 //        [--channel=chrome|msedge] [--exe=PATH] [--launch-args="--flag --flag"]
 //
@@ -570,6 +570,8 @@ async function idleSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
     const y = Math.max(0, Math.min(y1, Math.round(j0 + (j1 - j0) * (p / 100))));
     await page.evaluate((v) => window.scrollTo({ top: v, behavior: 'instant' }), y); await raf2(page); await page.waitForTimeout(OPT.settle + 700);
     const where = await maskRects(page);
+    // --film-at=SEC: the film is cued a little before a cut, so the park sees a song change
+    if (args['film-at']) await page.evaluate(async (t) => { for (const v of document.querySelectorAll('video.mac__film')) { v.muted = true; v.currentTime = t; await v.play().catch(() => {}); } }, +args['film-at']);
     await cast.start(); await page.waitForTimeout(OPT.idleMs); await cast.stop();
     const seq = cast.got();
     const st = { pct: p, y, ...gapStats(seq) };

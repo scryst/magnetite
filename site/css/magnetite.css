@@ -124,19 +124,29 @@ b { font-weight: 600; }
 /* The light behind the MacBook: the panel's color for the song on its screen,
    one baked layer per song (test/bake-glow.py), crossfaded as the film moves
    on. Still, it sits behind the MacBook's place in the grid. */
-.glow { position: absolute; grid-area: 2 / 1; inset: -30% -25%; pointer-events: none; }
+.glow {
+  position: absolute; grid-area: 2 / 1; inset: -30% -25%; pointer-events: none;
+  -webkit-mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
+  mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
+}
+/* The song coming in fades in over the one going, which stays whole until
+   it is covered: two layers both half faded would dim the light mid-change.
+   A song that has gone is hidden once it is covered. */
+[data-glow] { --fade: 1.6s; }
 .glow i, .mac__wall i {
-  position: absolute; inset: 0; opacity: 0;
+  position: absolute; inset: 0; opacity: 0; visibility: hidden;
   background: 0 0 / 100% 100% no-repeat;
-  transition: opacity 1.6s ease;
+  transition: opacity 0s var(--fade), visibility 0s var(--fade);
 }
 [data-glow] [data-for="pop"] { background-image: url(../media/glow-pop.webp); }
 [data-glow] [data-for="sunsetz"] { background-image: url(../media/glow-sunsetz.webp); }
 [data-glow] [data-for="artdeco"] { background-image: url(../media/glow-artdeco.webp); }
 [data-glow] [data-for="hush"] { background-image: url(../media/glow-hush.webp); }
 [data-glow][data-song="pop"] [data-for="pop"], [data-glow][data-song="sunsetz"] [data-for="sunsetz"],
-[data-glow][data-song="artdeco"] [data-for="artdeco"], [data-glow][data-song="hush"] [data-for="hush"] { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .glow i, .mac__wall i { transition: none; } }
+[data-glow][data-song="artdeco"] [data-for="artdeco"], [data-glow][data-song="hush"] [data-for="hush"] {
+  opacity: 1; visibility: visible; z-index: 1; transition: opacity var(--fade) ease;
+}
+@media (prefers-reduced-motion: reduce) { [data-glow] { --fade: 0s; } }
 .journey__pin > .mac { grid-area: 2 / 1; }
 
 /* Film grain over the whole page, so the black reads as a print, not a void.
@@ -210,7 +220,7 @@ body::after {
    turn against each other at unrelated rates while the whole swells, so the
    colors keep folding through each other like ink in water. Dark under the
    menu bar, so the recording's panel stays the brightest thing up there. */
-.mac__wall { position: absolute; inset: 0; pointer-events: none; }
+.mac__wall { position: absolute; inset: 0; pointer-events: none; isolation: isolate; }
 .mac__wall [data-for] { background: none; animation: swell 13s ease-in-out infinite alternate; }
 .mac__wall [data-for]::before, .mac__wall [data-for]::after {
   content: ''; position: absolute; inset: -60% -20%;
@@ -222,9 +232,13 @@ body::after {
 .mac__wall [data-for="sunsetz"] { --field: url(../media/field-sunsetz.webp); }
 .mac__wall [data-for="artdeco"] { --field: url(../media/field-artdeco.webp); }
 .mac__wall [data-for="hush"] { --field: url(../media/field-hush.webp); }
-.mac__wall::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
+.mac__wall::after { content: ''; position: absolute; inset: 0; z-index: 2; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
 @keyframes turn { to { rotate: 360deg; } }
 @keyframes swell { from { scale: 1; translate: -4% 2%; } to { scale: 1.18; translate: 5% -3%; } }
+/* Phones: a screen blend over two turning layers costs a fifth of the frames while
+   the journey scrolls (47 vs 68 fps, 4x-throttled). Lighter and brighter on a
+   normal blend reads the same. */
+@media (max-width: 899px) { .mac__wall [data-for]::after { mix-blend-mode: normal; opacity: 0.4; filter: hue-rotate(28deg) saturate(1.25) brightness(1.8); } }
 @media (prefers-reduced-motion: reduce) { .mac__wall [data-for], .mac__wall [data-for]::before, .mac__wall [data-for]::after { animation: none; } }
 /* lighten: the recording's black is the bare screen, so the desktop shows through it. */
 .mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; mix-blend-mode: lighten; }
