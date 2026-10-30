@@ -565,7 +565,7 @@ body::after {
   40%, 100% { opacity: 1; transform: none; }
 }
 
-/* What's in it, filmed: two clips and the four colors, each a stage of its own
+/* What's in it, filmed: the liquid up close, two clips and the four colors, each a stage of its own
    with the line that names it over the clip that shows it, then the rest in the
    gestures' voice. The clips are the recording's own black, so they sit on the
    page as screens, with their light around them. */
@@ -579,6 +579,7 @@ body::after {
 .shot figcaption span { display: block; max-width: 44ch; margin: 0 auto; text-wrap: balance; }
 .shot__media, .tints { width: 100%; margin-top: clamp(40px, 5vw, 64px); }
 .shot__media { position: relative; isolation: isolate; }
+.shot--liquid .shot__media { max-width: 880px; }
 .shot--lyrics .shot__media { max-width: 720px; }
 .shot--closed .shot__media { max-width: 640px; }
 .shot__media::before {
@@ -588,6 +589,7 @@ body::after {
   -webkit-mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
   mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
 }
+.shot__media--pop::before { background-image: url(../media/glow-pop.webp); inset: -70% -12%; }
 .shot__media--hush::before { background-image: url(../media/glow-hush.webp); }
 .shot__media--artdeco::before { background-image: url(../media/glow-artdeco.webp); inset: -160% -12%; }
 .shot video { width: 100%; height: auto; border-radius: 18px; background: #000; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }

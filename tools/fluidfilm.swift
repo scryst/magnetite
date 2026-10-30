@@ -5,7 +5,7 @@
 // AUDIO is raw mono float32 at 48 kHz. It is fed to the real AudioTap in 512-frame
 // chunks, sampled at AudioLevels' 60 Hz, and stepped through FerrofluidSim at the
 // render clock's 60 Hz, so a frame here is a frame the app would draw. Each frame is
-// written as OUTDIR/NNNNN.png at 2x. No display, pointer, player or capture grant is
+// written as OUTDIR/NNNNN.png at 2x, or at FLUIDFILM_SCALE for the site's close-ups. No display, pointer, player or capture grant is
 // involved, which makes before/after clips of a physics change exact: same audio,
 // same frames, only the code differs.
 import AudioToolbox
@@ -29,6 +29,7 @@ enum FluidFilm {
         _ = samples.withUnsafeMutableBytes { data.copyBytes(to: $0) }
         let seconds = args.count > 3 ? Double(args[3]) ?? 0 : Double(samples.count) / 48000
         let ticks = levels(samples, ticks: Int(seconds * 60))
+        let scale = Double(ProcessInfo.processInfo.environment["FLUIDFILM_SCALE"] ?? "") ?? 2
 
         let sim = FerrofluidSim()
         let silence = [Float](repeating: 0, count: AudioTap.bandCount)
@@ -37,7 +38,17 @@ enum FluidFilm {
 
         let notch = CGSize(width: 185, height: 32)
         let panel = CGSize(width: ChromeRules.panelWidth, height: notch.height + ChromeRules.expandedBody)
-        let tint = Color(red: 0.42, green: 0.55, blue: 0.95)
+        // FLUIDFILM_TINT "r,g,b" and FLUIDFILM_BACK "r,g,b;r,g,b" (0-1) dress the frame as one
+        // song's panel; the defaults are the neutral blue the physics checks were filmed in.
+        let env = ProcessInfo.processInfo.environment
+        let rgb = { (text: String?, fallback: Color) -> Color in
+            let c = (text ?? "").split(separator: ",").compactMap { Double($0) }
+            return c.count == 3 ? Color(red: c[0], green: c[1], blue: c[2]) : fallback
+        }
+        let back = (env["FLUIDFILM_BACK"] ?? "").split(separator: ";").map(String.init)
+        let top = rgb(back.first, Color(red: 0.10, green: 0.13, blue: 0.27))
+        let bottom = rgb(back.count > 1 ? back[1] : nil, Color(red: 0.05, green: 0.06, blue: 0.13))
+        let tint = rgb(env["FLUIDFILM_TINT"], Color(red: 0.42, green: 0.55, blue: 0.95))
         // How many ink pixels changed since the last frame, one line per frame, so a
         // physics change can be measured as well as watched.
         var previous: [Bool] = []
@@ -45,14 +56,12 @@ enum FluidFilm {
         for frame in 0..<ticks.count {
             sim.advance(levels: ticks[frame], dt: 1.0 / 60)
             let view = ZStack(alignment: .top) {
-                LinearGradient(colors: [Color(red: 0.10, green: 0.13, blue: 0.27),
-                                        Color(red: 0.05, green: 0.06, blue: 0.13)],
-                               startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
                 FerrofluidView(sim: sim, notchSize: notch, panelSize: panel, openness: 1, tint: tint)
             }
             .frame(width: panel.width, height: panel.height)
             let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
+            renderer.scale = scale
             guard let image = renderer.cgImage else { exit(3) }
             let mask = inkMask(image)
             let changed = previous.isEmpty ? 0 : zip(mask, previous).filter { $0 != $1 }.count
@@ -60,7 +69,7 @@ enum FluidFilm {
             let lowest = (0..<image.height).last { row in
                 (0..<image.width).contains { mask[row * image.width + $0] }
             } ?? 0
-            let depth = Double(lowest + 1) / 2
+            let depth = Double(lowest + 1) / scale
             previous = mask
             motion += "\(frame) \(changed) " + String(format: "%.1f %.3f %.3f %.3f %.3f\n", depth, sim.swell, sim.impact,
                                                          sim.raised, sim.sites.map(\.height).max() ?? 0)

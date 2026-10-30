@@ -46,6 +46,11 @@ const tags = [...html.matchAll(/<([a-z][\w-]*)((?:\s+[\w:-]+(?:="[^"]*")?)*)\s*\
   attrs: Object.fromEntries([...m[2].matchAll(/([\w:-]+)(?:="([^"]*)")?/g)].map((a) => [a[1], a[2] ?? ''])),
 }));
 const byId = (id) => tags.find((t) => t.attrs.id === id);
+// aria-describedby is a list of ids; a description counts only if every one is on the page.
+const described = (tag) => {
+  const ids = (tag.attrs['aria-describedby'] ?? '').split(/\s+/).filter(Boolean);
+  return ids.length > 0 && ids.every((id) => byId(id));
+};
 // The text of the element whose start tag is `tag`, up to its matching close.
 const textOf = (tag) => {
   const close = html.indexOf(`</${tag.name}>`, tag.at);
@@ -233,7 +238,7 @@ const CHECKS = {
     if (`${pw}×${ph}` !== `${fw}×${fh}`) out.push(`the poster is ${pw}×${ph}, the film ${fw}×${fh}`);
     if (statSync(film).size > 6e6) out.push(`the film is ${(statSync(film).size / 1e6).toFixed(1)} MB; keep it under 6`);
     for (const attr of ['muted', 'playsinline', 'loop']) if (!(attr in video.attrs)) out.push(`the video is not ${attr}`);
-    if (!video.attrs['aria-describedby'] || !byId(video.attrs['aria-describedby'])) out.push('the video has no description');
+    if (!described(video)) out.push('the video has no description');
     for (const hook of ['data-demo-play', 'data-demo-sound']) if (!tags.some((t) => t.name === 'button' && hook in t.attrs)) out.push(`no button[${hook}]`);
     return out;
   },
@@ -255,7 +260,7 @@ const CHECKS = {
       if (statSync(join(site, src)).size > 1e6) out.push(`${src} is over 1 MB`);
       for (const attr of ['muted', 'playsinline', 'loop']) if (!(attr in clip.attrs)) out.push(`${src} is not ${attr}`);
       if ('autoplay' in clip.attrs) out.push(`${src} autoplays; site.js plays it on screen and not under Reduce Motion`);
-      if (!byId(clip.attrs['aria-describedby'] ?? '')) out.push(`${src} has no description`);
+      if (!described(clip)) out.push(`${src} has no description`);
     }
     return out;
   },
