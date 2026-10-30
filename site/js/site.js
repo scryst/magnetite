@@ -40,13 +40,14 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); });
 label();
 
-// The light behind the MacBook follows the song on its screen (the film's cuts).
-// The screen's desktop takes the same light.
-const glows = document.querySelectorAll('[data-glow]');
+// The light and the screen's desktop take the film's song; magnetite.css fades was to on.
 const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
+let shown = 'pop';
 video.addEventListener('timeupdate', () => {
   const song = songs.find(([end]) => video.currentTime < end)[1];
-  for (const glow of glows) glow.dataset.song = song;
+  if (song === shown) return;
+  for (const i of document.querySelectorAll('[data-glow] i')) i.className = i.dataset.for === song ? 'on' : i.dataset.for === shown ? 'was' : '';
+  shown = song;
 });
 
 // The clips under the film play only while on screen, and never under Reduce Motion.

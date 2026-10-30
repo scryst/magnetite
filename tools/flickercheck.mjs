@@ -239,8 +239,8 @@ async function freeze(page) {
   });
 }
 const PIN = `(() => {
-  const pin = () => { for (const g of document.querySelectorAll('[data-glow]')) if (g.dataset.song && g.dataset.song !== 'pop') g.dataset.song = 'pop'; };
-  new MutationObserver(pin).observe(document, { attributes: true, subtree: true, attributeFilter: ['data-song'] });
+  const pin = () => { for (const i of document.querySelectorAll('[data-glow] i')) { const c = i.dataset.for === 'pop' ? 'on' : ''; if (i.className !== c) i.className = c; } };
+  new MutationObserver(pin).observe(document, { attributes: true, subtree: true, attributeFilter: ['class'] });
 })();`;
 const raf2 = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 
