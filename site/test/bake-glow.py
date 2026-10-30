@@ -35,3 +35,26 @@ for song in ['pop', 'sunsetz', 'artdeco', 'hush']:
     big.putalpha(a)
     big.save(f'{out}/glow-{song}.webp', 'WEBP', quality=90, method=6)
     print(song, cells.resize((1, 1), Image.BOX).getpixel((0, 0)))
+
+# The screen's desktop: the cover's own color layout, as the app's expanded card
+# draws it (CoverField), averaged to 4 x 4 and blurred into a field that
+# magnetite.css turns slowly in two layers. The panel's band joins as a fifth row,
+# so a nearly black sleeve still lights in the panel's color.
+FW, FH = 160, 160
+for song in ['pop', 'sunsetz', 'artdeco', 'hush']:
+    im = Image.open(f'{media}/tint-{song}.webp').convert('RGB')
+    cover = im.crop((60, 110, 235, 275)).resize((4, 4), Image.BOX)
+    band = im.crop((40, 290, 760, 350)).resize((4, 1), Image.BOX)
+    grid = Image.new('RGB', (4, 5)); grid.paste(cover, (0, 0)); grid.paste(band, (0, 4))
+    hsv = grid.convert('HSV'); px = hsv.load()
+    vs = [px[x, y][2] for y in range(hsv.height) for x in range(hsv.width)]
+    lo, hi = min(vs), max(max(vs), min(vs) + 1)
+    for y in range(hsv.height):
+        for x in range(hsv.width):
+            h, s, v = px[x, y]
+            # Keep each cell's hue and lift its color; stretch the sleeve's own
+            # light and dark to one band, so a flat sleeve still has shape and the
+            # field glows without outshining the panel over it.
+            px[x, y] = (h, min(210, max(80, int(s * 2.2))), 50 + (v - lo) * 135 // (hi - lo))
+    field = hsv.convert('RGB').resize((FW, FH), Image.BICUBIC).filter(ImageFilter.GaussianBlur(14))
+    field.save(f'{out}/field-{song}.webp', 'WEBP', quality=88, method=6)

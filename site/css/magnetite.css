@@ -201,10 +201,29 @@ body::after {
   border-radius: 0.64cqw 0.64cqw 0 0;
   background: #000;
 }
-/* The desktop: the song's light rising from the foot of the screen, dim, and
-   gone by the top quarter where the recording hangs. */
-.mac__wall { position: absolute; inset: 18% -30% -70%; pointer-events: none; }
-.mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; }
+/* The desktop: the song's cover, as the app's expanded card draws it, a field of
+   the sleeve's own colors (test/bake-glow.py) that never holds still. Two copies
+   turn against each other at unrelated rates while the whole swells, so the
+   colors keep folding through each other like ink in water. Dark under the
+   menu bar, so the recording's panel stays the brightest thing up there. */
+.mac__wall { position: absolute; inset: 0; pointer-events: none; }
+.mac__wall [data-for] { background: none; animation: swell 13s ease-in-out infinite alternate; }
+.mac__wall [data-for]::before, .mac__wall [data-for]::after {
+  content: ''; position: absolute; inset: -60% -20%;
+  background: var(--field) 50% 50% / 100% 100%;
+  animation: turn 47s linear infinite;
+}
+.mac__wall [data-for]::after { inset: -90% -40%; mix-blend-mode: screen; opacity: 0.7; filter: hue-rotate(28deg) saturate(1.3); animation-duration: 76s; animation-direction: reverse; }
+.mac__wall [data-for="pop"] { --field: url(../media/field-pop.webp); }
+.mac__wall [data-for="sunsetz"] { --field: url(../media/field-sunsetz.webp); }
+.mac__wall [data-for="artdeco"] { --field: url(../media/field-artdeco.webp); }
+.mac__wall [data-for="hush"] { --field: url(../media/field-hush.webp); }
+.mac__wall::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
+@keyframes turn { to { rotate: 360deg; } }
+@keyframes swell { from { scale: 1; translate: -4% 2%; } to { scale: 1.18; translate: 5% -3%; } }
+@media (prefers-reduced-motion: reduce) { .mac__wall [data-for], .mac__wall [data-for]::before, .mac__wall [data-for]::after { animation: none; } }
+/* lighten: the recording's black is the bare screen, so the desktop shows through it. */
+.mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; mix-blend-mode: lighten; }
 .mac__notch {
   position: absolute; top: 0; left: 43.88%; width: 12.24%; height: 3.26%;
   border-radius: 0 0 0.58cqw 0.58cqw;
@@ -351,11 +370,6 @@ body::after {
       width: calc(var(--w0) * 3); height: calc(var(--w0) * 2.1);
       translate: -50% -50%;
       animation: glow-out linear both;
-      animation-timeline: --journey;
-      animation-range: contain 6% contain 30%;
-    }
-    .mac__wall {
-      animation: fade linear both;
       animation-timeline: --journey;
       animation-range: contain 6% contain 30%;
     }
