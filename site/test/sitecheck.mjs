@@ -338,6 +338,10 @@ const CHECKS = {
     }
     if (!css.includes('[data-glow] .was:has(~ .on) { transition: opacity 0s var(--fade); }')) out.push('the song going does not stay whole until it is covered');
     if (!css.includes('[data-glow] .on:has(~ .was) { transition: none; }')) out.push('at the loop the first song is not whole under the last');
+    // Laks, 10-30, on a phone: "i see spazzing if im scrolling when the song colors change".
+    const js = read('js/site.js');
+    if (!/song === shown \|\| performance\.now\(\) - moved < \d+\) return/.test(js) || !/const later = \(\) => \{ moved = performance\.now\(\);/.test(js)) out.push('a song change does not wait for the scroll to rest');
+    if (!css.includes('.mac__wall :not(.on, .was), .mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { animation-play-state: paused; }')) out.push('the unseen desktops still turn while the page scrolls');
     for (const sel of ['.glow', '.shot__media::before']) {
       const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
       if (!/(?:^|\s)mask: url\(\.\.\/media\/glow-mask\.webp\)/.test(body)) out.push(`${sel} has no glow-mask.webp; the glows are flat blocks without it`);
