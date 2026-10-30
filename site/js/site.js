@@ -40,6 +40,19 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); });
 label();
 
+// The light behind the MacBook follows the song on its screen (the film's cuts).
+const glow = document.querySelector('[data-glow]');
+const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
+video.addEventListener('timeupdate', () => {
+  glow.dataset.song = songs.find(([end]) => video.currentTime < end)[1];
+});
+
+// The clips under the film play only while on screen, and never under Reduce Motion.
+const clips = new IntersectionObserver((entries) => {
+  for (const e of entries) e.isIntersecting && !still.matches ? e.target.play().catch(() => {}) : e.target.pause();
+}, { threshold: 0.4 });
+for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip);
+
 // The dock shows once no Download button is on screen.
 const dock = document.querySelector('[data-dock]');
 const showing = new Set();
