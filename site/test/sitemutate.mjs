@@ -64,6 +64,8 @@ const MUTATIONS = [
   ['songs', 'a song changes mid-scroll', 'site/js/site.js', ' || performance.now() - moved < 400) return;', ') return;'],
   ['songs', 'the scroll does not mark the time it moved', 'site/js/site.js', 'const later = () => { moved = performance.now(); ', 'const later = () => { '],
   ['songs', 'the unseen desktops keep turning', 'site/css/magnetite.css', '{ animation-play-state: paused; }', '{ }'],
+  ['songs', 'the unseen desktops keep their turning copies', 'site/css/magnetite.css', '.mac__wall :not(.on, .was)::after { content: none; }', '.mac__wall :not(.on, .was)::after { }'],
+  ['songs', 'the song gone keeps its layers', 'site/js/site.js', "i.classList.remove('was')), 2000);", "i), 2000);"],
   ['songs', 'a tour glow loses its falloff', 'site/css/magnetite.css', '  -webkit-mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;\n  mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;\n}\n.shot__media--hush', '}\n.shot__media--hush'],
   ['flicker', 'the blur comes on partway down the journey', 'site/css/magnetite.css', 'from { filter: blur(0); }\n  ', ''],
   ['flicker', 'the screen goes back in the lid\'s plane', 'site/css/magnetite.css', "behind the lid's black for a frame. */\n  transform: translateZ(1px);\n", "behind the lid's black for a frame. */\n"],
