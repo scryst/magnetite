@@ -202,45 +202,46 @@
        each a crossfade loop (test/bake-glow.py has the glow stills). Every line is a shipped feature or a real
        limit (APP.md, README.md, the M menu). -->
   <section class="tour" id="features" aria-labelledby="tour-title">
-    <h2 class="tour__title" id="tour-title">What’s in Magnetite</h2>
+    <h2 class="visually-hidden" id="tour-title">What’s in Magnetite</h2>
 
     <figure class="shot shot--lyrics">
+      <figcaption id="lyrics-text"><b>Lyrics, in time.</b> <span>Synced lyrics from LRCLIB scroll under the controls, if you want them.</span></figcaption>
       <div class="shot__media shot__media--hush">
         <video data-clip muted loop playsinline preload="none" width="800" height="512"
                src="media/lyrics.mp4" poster="media/lyrics-poster.webp" aria-describedby="lyrics-text"></video>
       </div>
-      <figcaption id="lyrics-text"><b>Lyrics, in time.</b> Synced lyrics from LRCLIB scroll under the controls, if you want them.</figcaption>
     </figure>
 
     <figure class="shot shot--closed">
+      <figcaption id="closed-text"><b>Folded, still playing.</b> <span>Move away and it tucks back into the notch, keeping the cover, the elapsed time and the liquid beside the camera.</span></figcaption>
       <div class="shot__media shot__media--artdeco">
         <video data-clip muted loop playsinline preload="none" width="640" height="72"
                src="media/closed.mp4" poster="media/closed-poster.webp" aria-describedby="closed-text"></video>
       </div>
-      <figcaption id="closed-text"><b>Folded, still playing.</b> Move away and it tucks back into the notch, keeping the cover, the elapsed time and the liquid beside the camera.</figcaption>
     </figure>
 
     <figure class="shot shot--tints">
+      <figcaption><b>Every song, its own color.</b> <span>The panel’s colors come from the cover, and slowly turn.</span></figcaption>
       <ul class="tints">
         <li><img src="media/tint-pop.webp" width="800" height="512" loading="lazy" alt="The player in a dusty rose, under the cover of Pop by ILLIT."><span>Pop</span></li>
         <li><img src="media/tint-sunsetz.webp" width="800" height="512" loading="lazy" alt="The player in a dark green, under the cover of Sunsetz by Cigarettes After Sex."><span>Sunsetz</span></li>
         <li><img src="media/tint-artdeco.webp" width="800" height="512" loading="lazy" alt="The player in a pale violet, under the cover of Art Deco by Lana Del Rey."><span>Art Deco</span></li>
         <li><img src="media/tint-hush.webp" width="800" height="512" loading="lazy" alt="The player in a deep red, under the cover of Hush by The Marías."><span>Hush</span></li>
       </ul>
-      <figcaption><b>Every song, its own color.</b> The panel’s colors come from the cover, and slowly turn.</figcaption>
     </figure>
 
     <ul class="also" aria-label="Also">
-      <li>Spotify and Apple Music only: not browser tabs, YouTube or Podcasts</li>
-      <li>Favorites in Apple Music; likes, shuffle and repeat in Spotify</li>
-      <li>Volume and brightness shown in the notch</li>
-      <li>A floating pill on displays without a notch</li>
-      <li>Hides on the lock screen and over detected fullscreen apps</li>
+      <li><b>Spotify and Apple Music</b> only: not browser tabs, YouTube or Podcasts.</li>
+      <li><b>Favorites</b> in Apple Music; likes, shuffle and repeat in Spotify.</li>
+      <li><b>Volume and brightness</b> shown in the notch.</li>
+      <li><b>A floating pill</b> on displays without a notch.</li>
+      <li><b>Hides</b> on the lock screen and over detected fullscreen apps.</li>
     </ul>
   </section>
 
   <section class="get" id="download" aria-labelledby="get-title">
     <div class="get__main">
+      <img class="get__icon" src="media/icon.webp" width="128" height="128" loading="lazy" decoding="async" alt="">
       <h2 class="get__title" id="get-title">Get Magnetite</h2>
       <a class="button button--big" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.14/Magnetite-0.1.14.zip"
          aria-describedby="requires"><span data-share-label>Download v0.1.14</span><span class="visually-hidden"> ZIP from GitHub</span></a>
@@ -293,7 +294,7 @@
 </main>
 
 <!-- One way to the download from anywhere on the page; it steps aside while a Download button is in view. -->
-<a class="dock" href="#download" data-dock hidden>Download Magnetite</a>
+<div class="dock" data-dock hidden><a class="button" href="#download">Get Magnetite</a></div>
 
 <footer class="foot">
   <p class="foot__brand"><svg class="foot__mark" aria-hidden="true"><use href="#mark" width="100%" height="100%"/></svg>Magnetite</p>

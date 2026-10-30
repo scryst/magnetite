@@ -91,15 +91,15 @@ b { font-weight: 600; }
 }
 
 /* Buttons: one solid pill for the download, outlined for the soundtrack. */
-.button, .dock {
+.button {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 48px; padding: 0 24px; border-radius: 999px;
   background: var(--ink); color: var(--bg);
   font: 600 16px/1 var(--sans); text-decoration: none; white-space: nowrap;
   transition: background-color var(--drain), transform var(--drain);
 }
-.button:hover, .dock:hover { background: #fff; transition-duration: 140ms; }
-.button:active, .dock:active { transform: scale(0.97); transition: transform var(--pour); }
+.button:hover { background: #fff; transition-duration: 140ms; }
+.button:active { transform: scale(0.97); transition: transform var(--pour); }
 .button--big { min-height: 56px; padding: 0 30px; font-size: 18px; }
 
 /* The journey. Without scroll timelines, or under Reduce Motion, it is a still
@@ -341,18 +341,28 @@ body::after {
       --p: calc(var(--macw) * 2.4);
       --z0: calc(var(--p) * (1 - 1 / var(--s0)));
       --rx0: 10deg; --ry0: -20deg; --lid0: 14deg;
-      height: 280svh;
+      height: 340svh;
       view-timeline: --journey block;
     }
     .journey__pin {
       perspective: var(--p);
       animation: eye ease-in-out both;
       animation-timeline: --journey;
-      animation-range: contain 0% contain 52%;
+      animation-range: contain 0% contain 39%;
       position: sticky; top: 0;
       display: block; width: auto; height: 100svh; margin: 0; padding: 0;
       overflow: clip;
     }
+    /* Pushed in, the screen's light falls to the page's black toward the floor:
+       the gesture reads on black, and the pin leaves no edge as the page moves on. */
+    .journey__pin::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(transparent 52%, rgb(0 0 0 / 0.7) 72%, #000 94%);
+      animation: dusk linear both;
+      animation-timeline: --journey;
+      animation-range: contain 22.5% contain 36%;
+    }
+    .pitch, .moves, .stage__foot { z-index: 1; }
     .mac {
       position: absolute; top: var(--top); left: 50%;
       width: var(--macw); max-width: none;
@@ -360,7 +370,7 @@ body::after {
       transform-origin: 50% calc(var(--macw) * 0.01615);
       animation: push ease-in-out both;
       animation-timeline: --journey;
-      animation-range: contain 0% contain 52%;
+      animation-range: contain 0% contain 39%;
     }
     /* The light is behind the MacBook while it is an object in the room, and
        goes out as the camera reaches its screen, where the film's own black
@@ -371,13 +381,20 @@ body::after {
       translate: -50% -50%;
       animation: glow-out linear both;
       animation-timeline: --journey;
+      animation-range: contain 4.5% contain 22.5%;
+    }
+    /* Close up, the desktop's colors drain to gray, so the player is the one
+       color in the window. */
+    .mac__wall {
+      animation: gray linear both;
+      animation-timeline: --journey;
       animation-range: contain 6% contain 30%;
     }
     /* Once the camera faces the screen, the base falls away into the dark. */
     .mac__base > * {
       animation: fade linear both;
       animation-timeline: --journey;
-      animation-range: contain 28% contain 46%;
+      animation-range: contain 21% contain 34.5%;
     }
     /* The lid's metal rim and edges go first, before the camera brings its
        top edge into the margin over the film, and so on a tall phone no chin
@@ -385,12 +402,12 @@ body::after {
     .mac__edge {
       animation: fade linear both;
       animation-timeline: --journey;
-      animation-range: contain 18% contain 32%;
+      animation-range: contain 13.5% contain 24%;
     }
     .mac__lid {
       animation: hinge ease-in-out both, rim linear both;
       animation-timeline: --journey, --journey;
-      animation-range: contain 0% contain 40%, contain 18% contain 32%;
+      animation-range: contain 0% contain 30%, contain 13.5% contain 24%;
     }
     .pitch {
       position: absolute; left: var(--gutter); right: var(--gutter);
@@ -399,7 +416,7 @@ body::after {
          headline and its button are back for the keyboard and screen readers. */
       animation: lift linear both, back linear forwards;
       animation-timeline: --journey, --journey;
-      animation-range: contain 0% contain 18%, exit 99% exit 100%;
+      animation-range: contain 0% contain 13.5%, exit 99% exit 100%;
     }
     .moves {
       position: absolute; left: 50%; width: var(--col); margin-left: calc(var(--col) / -2);
@@ -412,16 +429,17 @@ body::after {
       animation: say linear both;
       animation-timeline: --journey;
     }
-    .moves li:nth-child(1) { animation-range: contain 50% contain 70%; }
-    .moves li:nth-child(2) { animation-range: contain 68% contain 86%; }
-    .moves li:nth-child(3) { animation: say-last linear both; animation-timeline: --journey; animation-range: contain 84% contain 96%; }
+    /* They take turns: each has gone before the next comes, never two at once. */
+    .moves li:nth-child(1) { animation-range: contain 37.5% contain 60%; }
+    .moves li:nth-child(2) { animation-range: contain 60% contain 82%; }
+    .moves li:nth-child(3) { animation: say-last linear both; animation-timeline: --journey; animation-range: contain 82% contain 96%; }
     /* The film's controls close the group, and come in with the film. */
     .stage__foot {
       position: absolute; left: var(--gutter); right: var(--gutter); bottom: var(--top);
       justify-content: center;
       animation: lift linear both reverse;
       animation-timeline: --journey;
-      animation-range: contain 48% contain 56%;
+      animation-range: contain 36% contain 42%;
     }
   }
   @media (prefers-reduced-motion: no-preference) and (min-width: 900px) {
@@ -451,8 +469,14 @@ body::after {
 @keyframes glow-out {
   to { opacity: 0; transform: scale(1.5); visibility: hidden; }
 }
+@keyframes gray {
+  to { filter: grayscale(1); }
+}
 @keyframes fade {
   to { opacity: 0; visibility: hidden; }
+}
+@keyframes dusk {
+  from { opacity: 0; }
 }
 @keyframes rim {
   to { box-shadow: inset 0 0 0 0.4cqw transparent, inset 0 0 0 calc(0.4cqw + 1px) transparent; }
@@ -482,15 +506,22 @@ body::after {
   40%, 100% { opacity: 1; transform: none; visibility: visible; }
 }
 
-/* What's in it, filmed: two clips and the four colors, each on its own light,
-   then the rest as a plain list. The clips are the recording's own black, so
-   they sit on the page as screens, with their light around them. */
-.tour { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: 72px; }
-.tour__title { margin: 0 0 -24px; font: 600 clamp(36px, 4.4vw, 60px)/1 var(--display); letter-spacing: -0.045em; }
-.shot { margin: 0; display: grid; gap: 22px; }
-.shot figcaption { max-width: 40ch; color: var(--ink-soft); font-size: 17px; }
-.shot figcaption b { display: block; margin-bottom: 4px; color: var(--ink); font: 600 clamp(22px, 2.2vw, 28px)/1.15 var(--display); letter-spacing: -0.03em; }
+/* What's in it, filmed: two clips and the four colors, each a stage of its own
+   with the line that names it over the clip that shows it, then the rest in the
+   gestures' voice. The clips are the recording's own black, so they sit on the
+   page as screens, with their light around them. */
+.tour { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: clamp(120px, 15vw, 200px); }
+.shot { margin: 0; display: grid; justify-items: center; text-align: center; }
+.shot figcaption { color: var(--ink-soft); font-size: clamp(17px, 1.5vw, 19px); }
+.shot figcaption b {
+  display: block; margin-bottom: 18px;
+  color: var(--ink); font: 600 clamp(40px, 5.6vw, 76px)/1 var(--display); letter-spacing: -0.05em; text-wrap: balance;
+}
+.shot figcaption span { display: block; max-width: 44ch; margin: 0 auto; text-wrap: balance; }
+.shot__media, .tints { width: 100%; margin-top: clamp(40px, 5vw, 64px); }
 .shot__media { position: relative; isolation: isolate; }
+.shot--lyrics .shot__media { max-width: 720px; }
+.shot--closed .shot__media { max-width: 640px; }
 .shot__media::before {
   content: ''; position: absolute; inset: -28% -18%; z-index: -1; pointer-events: none;
   background: 0 0 / 100% 100% no-repeat;
@@ -499,20 +530,15 @@ body::after {
 .shot__media--artdeco::before { background-image: url(../media/glow-artdeco.webp); inset: -160% -12%; }
 .shot video { width: 100%; height: auto; border-radius: 18px; background: #000; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }
 .shot--closed video { border-radius: 14px; }
-@media (min-width: 900px) {
-  .shot--lyrics, .shot--closed { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 56px; align-items: center; }
-  .shot--closed { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); }
-  .shot--closed .shot__media { order: 2; }
-}
-.tints { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (min-width: 720px) { .tints { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; } }
-.tints li { display: grid; gap: 8px; }
+/* Two by two, large enough to read each panel, not a row of swatches. */
+.tints { list-style: none; margin-bottom: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 12px; }
+@media (min-width: 720px) { .tints { gap: 36px 20px; } }
+.tints li { display: grid; gap: 10px; }
 .tints img { width: 100%; height: auto; border-radius: 12px; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }
 .tints span { color: var(--ink-soft); font-size: 14px; }
-.also { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-@media (min-width: 900px) { .also { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 64px; } }
-.also li { position: relative; padding-left: 22px; max-width: 46ch; font-size: 16px; }
-.also li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.also { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; justify-items: center; text-align: center; }
+.also li { max-width: 36ch; color: var(--ink-soft); font: 500 clamp(19px, 1.9vw, 24px)/1.3 var(--display); letter-spacing: -0.02em; text-wrap: balance; }
+.also b { color: var(--ink); }
 
 /* Download, with the honest part beside it. */
 .get {
@@ -520,6 +546,8 @@ body::after {
   display: grid; gap: 56px;
 }
 @media (min-width: 900px) { .get { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; } }
+/* The icon's square is a tenth padding on each side, so the tile itself sits on the column's edge. */
+.get__icon { --size: clamp(96px, 9vw, 120px); width: var(--size); height: auto; margin: 0 0 20px calc(var(--size) * -0.0977); }
 .get__title, .faq__title {
   margin: 0 0 28px;
   font: 600 clamp(36px, 4.4vw, 60px)/1 var(--display); letter-spacing: -0.045em;
@@ -558,17 +586,24 @@ body::after {
 .faq dd p { margin: 0; }
 .faq dd p + p { margin-top: 10px; }
 
-/* The dock: the download from anywhere, out of the way while a Download button shows. */
+/* The dock: the download from anywhere, gone while a Download button can be
+   seen. From 900 px it is a pill in the margin beside the column; on a phone,
+   where the column is the window's width, a bar the page fades into. */
 .dock {
-  position: fixed; right: var(--gutter); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 10;
-  opacity: 0; transform: translateY(12px); pointer-events: none;
-  transition: opacity var(--drain), transform var(--drain), background-color var(--drain);
+  position: fixed; right: var(--gutter); bottom: max(24px, env(safe-area-inset-bottom)); z-index: 10;
+  opacity: 0; transform: translateY(12px); visibility: hidden;
+  transition: opacity var(--drain), transform var(--drain), visibility 0s 400ms;
 }
-.dock[data-shown] { opacity: 1; transform: none; pointer-events: auto; transition: opacity var(--pour), transform var(--pour), background-color var(--drain); }
+.dock[data-shown] { opacity: 1; transform: none; visibility: visible; transition: opacity var(--pour), transform var(--pour); }
+@media (max-width: 899px) {
+  .dock { left: 0; right: 0; bottom: 0; padding: 8px var(--gutter) max(16px, env(safe-area-inset-bottom)); background: #000; }
+  .dock::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 28px; background: linear-gradient(transparent, #000); pointer-events: none; }
+  .dock .button { width: 100%; }
+}
 @media (prefers-reduced-motion: reduce) { .dock, .dock[data-shown] { transform: none; } }
 
 .foot {
-  width: var(--col); margin: var(--gap) auto 0; padding-bottom: 96px;
+  width: var(--col); margin: var(--gap) auto 0; padding-bottom: calc(108px + env(safe-area-inset-bottom));
   color: var(--ink-soft); font-size: 14px;
 }
 .foot__brand {
