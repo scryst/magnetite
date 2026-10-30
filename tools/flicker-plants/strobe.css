@@ -1,0 +1,2 @@
+h1 { animation: fc-blink 50ms steps(1) infinite !important; }
+@keyframes fc-blink { 0% { opacity: 1 } 50% { opacity: 0 } }

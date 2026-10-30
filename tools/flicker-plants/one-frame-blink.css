@@ -1,0 +1,2 @@
+h1 { animation: fc-pop 400ms linear infinite !important; }
+@keyframes fc-pop { 0%, 3.5% { opacity: 0 } 4%, 100% { opacity: 1 } }
