@@ -38,6 +38,9 @@
 // one frame and right again is a flip. Time is frozen unless --live-time=run; the song is pinned
 // unless --live-song=free, and --mask's elements (default: the screen, the dock, the download
 // buttons) are left out of the comparison.
+// A live or idle 0 counts only once the same build flags a plant: --live --live-time=run
+// --css=tools/flicker-plants/one-frame-blink.css and --idle --css=tools/flicker-plants/strobe.css must both
+// report h1#hero-title (10-30: frozen time hid a blink, and a three-frame blink is not a one-frame flip).
 // --idle parks the camera at several points of the journey with time running and looks for
 // blocks that strobe from frame to frame. --dump writes the frames of a scroll range (cropped
 // to --dump-crop in CSS px, scaled by --dump-up) to OUT/frames, for a before/after strip.
@@ -451,12 +454,21 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
   const stride = got.length > OPT.maxFrames ? got.length / OPT.maxFrames : 1;
   const picks = []; for (let q = 0; q < got.length; q += stride) picks.push(got[Math.floor(q)]);
 
-  // the settled pictures, one every --ref-step px (block means only: 400 PNGs would not fit in memory)
+  // the settled pictures, one every --ref-step px (block means only: 400 PNGs would not fit in memory),
+  // at the screencast's own size: what clip.scale means differs between Chrome builds (at 390x844@3 Mac
+  // Chrome gave 130x281 against 390x844 live frames, so no frame matched and the sweep crashed, 10-30).
+  const pngW = (b64) => Buffer.from(b64, 'base64').readUInt32BE(16);
+  const shotAt = (where, scale) => cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true, clip: { x: where.px, y: where.py, width: cfg.w, height: cfg.h, scale } });
+  let refScale = 1 / cfg.dpr;
+  if (got.length) { const w0 = pngW(got[0].data), wr = pngW((await shotAt(await maskRects(page), refScale)).data); if (wr !== w0) refScale *= w0 / wr; }
   const refs = [];
-  for (let y = y0; y <= y1; y += OPT.refStep) {
+  // Pixels run up to --lag-max px ahead of the offset a frame reports, so the settled pictures reach that far past
+  // both ends; otherwise frames at the turn of a pass (still a real scroll position) read as torn (10-30).
+  const maxY = await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight);
+  for (let y = Math.max(0, y0 - OPT.lagMax); y <= Math.min(maxY, y1 + OPT.lagMax); y += OPT.refStep) {
     await at(y);
     const where = await maskRects(page);
-    const shot = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true, clip: { x: where.px, y: where.py, width: cfg.w, height: cfg.h, scale: 1 / cfg.dpr } });
+    const shot = await shotAt(where, refScale);
     const R = blockMeans(Buffer.from(shot.data, 'base64'), 1, OPT.block);
     const valid = new Uint8Array(R.bw * R.bh).fill(1); maskFine(valid, R, where.rects);
     refs.push({ y, c: coarsenMasked(R.means, valid, R.bw, R.bh, F), R });
@@ -464,6 +476,7 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
   say(`  live: ${refs.length} settled pictures in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 
   const cap = OPT.liveTheta, hits = [], flips = [], lag = [], costs = [];
+  let masked = 0;
   const frames = [];
   let geom = null;
   for (let n = 0; n < picks.length; n++) {
@@ -471,6 +484,10 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
     if (L.bw !== refs[0].R.bw || L.bh !== refs[0].R.bh) continue;
     geom ||= L;
     const lc = coarsen(L.means, L.bw, L.bh, F);
+    // Where the mask (the playing film) covers most of the settled page there is nothing to compare, and the
+    // nearest picture that has something is far enough off to read the film as torn (390x844 past y 2142, 10-30).
+    const near = refs.reduce((a, r, i) => (Math.abs(r.y - picks[n].y) < Math.abs(refs[a].y - picks[n].y) ? i : a), 0);
+    if (refs[near].c.full.reduce((p, q) => p + (q ? 1 : 0), 0) < 0.25 * refs[near].c.full.length) { masked++; continue; }
     let best = -1, bestCost = Infinity;
     for (let r = 0; r < refs.length; r++) {
       if (Math.abs(refs[r].y - picks[n].y) > OPT.lagMax) continue;
@@ -492,13 +509,16 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
       if (!(cA[i] && cB[i] && cC[i])) continue;
       const d1 = bdist(A.lc.means, i, B.lc.means, i), d2 = bdist(B.lc.means, i, C.lc.means, i);
       if (d1 < OPT.theta || d2 < OPT.theta) continue;
+      // B matching the settled page at its own offset is content that moved, not a flip (a 3D deck scrolled 40 px a frame).
+      if (bdist(B.lc.means, i, refs[B.best].c.means, i) < OPT.theta) continue;
       if (bdist(A.lc.means, i, C.lc.means, i) <= Math.max(OPT.eps, 0.25 * Math.min(d1, d2))) flips.push({ k: B.n, i, amp: Math.min(d1, d2), run: 1 });
     }
   }
   const sorted = (a) => [...a].sort((p, q) => p - q), pct = (a, f) => (a.length ? sorted(a)[Math.min(a.length - 1, Math.floor(a.length * f))] : 0);
   res.live.match = { frames: frames.length, lagPx: { median: pct(lag.map(Math.abs), 0.5), p95: pct(lag.map(Math.abs), 0.95), max: Math.max(0, ...lag.map(Math.abs)) },
-    cost: { median: +pct(costs, 0.5).toFixed(2), p95: +pct(costs, 0.95).toFixed(2), max: +Math.max(0, ...costs).toFixed(2) }, refStep: OPT.refStep };
+    cost: { median: +pct(costs, 0.5).toFixed(2), p95: +pct(costs, 0.95).toFixed(2), max: +Math.max(0, ...costs).toFixed(2) }, refStep: OPT.refStep, maskedFrames: masked };
   res.steps = picks.length; res.seconds = (Date.now() - t0) / 1000; res.range = [y0, y1];
+  if (!geom) die(`live: none of ${picks.length} frames matched a settled picture's size`);
   const bw2 = Math.ceil(geom.bw / F), sc = geom.B * F;
   const all = [], counts = {};
   const cl = [...cluster(hits, bw2, 'torn'), ...cluster(flips, bw2, 'flip')].filter((c) => c.blocks >= 1).map((c) => ({ ...c, scale: sc })).sort((x, y) => y.hits * y.peak - x.hits * x.peak);
@@ -524,7 +544,7 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
       for (const kk of [k - 1, k, k + 1].filter((q) => q >= 0 && q < picks.length)) crops.push({ k: kk, y: picks[kk].y, img: decodePNG(Buffer.from(picks[kk].data, 'base64')), label: `LIVE ${Math.round(picks[kk].y)}${kk === k ? ' <' : ''}` });
       await at(h.bestY);
       const where = await maskRects(page);
-      const shot = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, fromSurface: true, clip: { x: where.px, y: where.py, width: cfg.w, height: cfg.h, scale: 1 / cfg.dpr } });
+      const shot = await shotAt(where, refScale);
       crops.push({ k, y: h.bestY, img: decodePNG(Buffer.from(shot.data, 'base64')), label: `SETTLED ${Math.round(h.bestY)}` });
       rows.push({ h, hi, crops });
       if (hi === 0) {
