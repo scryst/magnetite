@@ -200,6 +200,10 @@ body::after {
   aspect-ratio: 1512 / 982;
   border-radius: 0.64cqw 0.64cqw 0 0;
   background: #000;
+  /* A pixel above the lid's face. In the same plane, Chrome orders the screen and
+     the lid by rounding noise, and at some scroll positions half the screen goes
+     behind the lid's black for a frame. */
+  transform: translateZ(1px);
 }
 /* The desktop: the song's cover, as the app's expanded card draws it, a field of
    the sleeve's own colors (test/bake-glow.py) that never holds still. Two copies
@@ -392,9 +396,9 @@ body::after {
     }
     /* Once the camera faces the screen, the base falls away into the dark. */
     .mac__base > * {
-      animation: fade linear both;
-      animation-timeline: --journey;
-      animation-range: contain 21% contain 34.5%;
+      animation: fade linear both, soften linear both;
+      animation-timeline: --journey, --journey;
+      animation-range: contain 21% contain 34.5%, contain 6% contain 22%;
     }
     /* The lid's metal rim and edges go first, before the camera brings its
        top edge into the margin over the film, and so on a tall phone no chin
@@ -474,6 +478,12 @@ body::after {
 }
 @keyframes fade {
   to { opacity: 0; visibility: hidden; }
+}
+/* The deck's halftone is finer than the pixels it lands on once the camera sees
+   it edge-on, and the compositor samples without mipmaps, so it would crawl as
+   moire. Blurring the print first, as the deck foreshortens, leaves its tone. */
+@keyframes soften {
+  to { filter: blur(3px); }
 }
 @keyframes dusk {
   from { opacity: 0; }

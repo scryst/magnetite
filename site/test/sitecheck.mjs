@@ -350,6 +350,29 @@ const CHECKS = {
     return out;
   },
 
+  // Chrome sorts the faces of the 3D MacBook itself, and two faces in one plane
+  // are ordered by rounding noise: at some scroll positions half the screen went
+  // behind the lid's black for one frame (tools/flickercheck.mjs, 2026-10-29), so
+  // the screen sits a pixel above the lid. The deck's halftone is finer than the
+  // pixels it lands on once the camera lays it edge-on and is sampled without
+  // mipmaps, so it crawls as moire unless it is blurred as the camera arrives;
+  // 3px, started by 6% of the journey, was the least that held at 1280 wide.
+  flicker() {
+    const out = [];
+    const rule = (sel) => css.match(new RegExp(`(?:^|\\s)${sel.replace(/[.>*]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
+    const lift = rule('.mac__screen').match(/(?:^|[\s;])transform:\s*translateZ\(\s*([\d.]+)px\s*\)/)?.[1];
+    if (!lift || Number(lift) < 0.5) out.push(".mac__screen sits in the lid's plane; keep it translateZ(1px) above, so the two never swap places");
+    const base = css.match(/\.mac__base > \* \{\s*animation: ([^;]+);\s*animation-timeline: ([^;]+);\s*animation-range: ([^;]+);/);
+    if (!base) return [...out, '.mac__base > * has no animation on the journey'];
+    const at = base[1].split(',').map((a) => a.trim().split(/\s+/)[0]).indexOf('soften');
+    if (at < 0) return [...out, 'the deck is not softened as the camera lays it edge-on'];
+    const range = base[3].split(',')[at]?.match(/contain ([\d.]+)% contain ([\d.]+)%/);
+    if (!range || Number(range[1]) > 6) out.push(`the softening starts at ${range?.[1] ?? '?'}% of the journey; it has to start by 6%`);
+    const blur = css.match(/@keyframes soften \{\s*to \{ filter: blur\(([\d.]+)px\); \}/)?.[1];
+    if (!blur || Number(blur) < 3) out.push(`the deck is blurred to ${blur ?? '?'}px; 2px left the moire at 1280 wide, 3px held`);
+    return out;
+  },
+
   // The film sits on the drawn screen at the size it was filmed, so its notch is
   // the drawn notch. 0.1.13 placed a 400-point take as if it were 800 points wide,
   // and the notch on the MacBook read twice its real size.
