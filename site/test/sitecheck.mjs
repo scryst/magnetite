@@ -238,6 +238,28 @@ const CHECKS = {
     return out;
   },
 
+  // The clips under the film are cut from it (test/bake-glow.py): h264, the box
+  // and poster their own size, silent, and played by site.js only on screen.
+  clips() {
+    const out = [];
+    const clips = tags.filter((t) => t.name === 'video' && 'data-clip' in t.attrs);
+    if (clips.length < 2) out.push(`${clips.length} clips under the film`);
+    for (const clip of clips) {
+      const src = clip.attrs.src ?? '';
+      if (!existsSync(join(site, src))) { out.push(`clip ${src} is not a file`); continue; }
+      const [codec, fw, fh] = mp4Video(readFileSync(join(site, src)));
+      if (codec !== 'h264') out.push(`${src} is ${codec}, not h264`);
+      if (`${fw}×${fh}` !== `${clip.attrs.width}×${clip.attrs.height}`) out.push(`${src} is ${fw}×${fh}, its tag says ${clip.attrs.width}×${clip.attrs.height}`);
+      const [pw, ph] = webpSize(readFileSync(join(site, clip.attrs.poster ?? '')));
+      if (`${pw}×${ph}` !== `${fw}×${fh}`) out.push(`${src}'s poster is ${pw}×${ph}`);
+      if (statSync(join(site, src)).size > 1e6) out.push(`${src} is over 1 MB`);
+      for (const attr of ['muted', 'playsinline', 'loop']) if (!(attr in clip.attrs)) out.push(`${src} is not ${attr}`);
+      if ('autoplay' in clip.attrs) out.push(`${src} autoplays; site.js plays it on screen and not under Reduce Motion`);
+      if (!byId(clip.attrs['aria-describedby'] ?? '')) out.push(`${src} has no description`);
+    }
+    return out;
+  },
+
   // No simulations. The page runs one module, site.js, which drives the film's
   // two buttons; the old canvas sims cost a fan spin and a second of main thread.
   script() {

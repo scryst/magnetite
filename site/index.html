@@ -112,13 +112,19 @@
   <a class="brand" href="#top"><svg class="brand__mark" aria-hidden="true"><use href="#mark" width="100%" height="100%"/></svg>Magnetite</a>
 </header>
 
-<main id="main">
+<!-- main clips the lights that spill past the window (magnetite.css). -->
+<main id="main" data-render-check-allow="clipped">
   <!-- The journey: a drawn MacBook with the real recording on its screen. Scrolled
        through, the camera swings round to face it and pushes in until the screen's notch is the top of the
        window, then names the three gestures. CSS scroll timelines only; without
        them, or under Reduce Motion, it is a still MacBook and a list. -->
   <section class="hero journey" id="top" aria-labelledby="hero-title">
     <div class="journey__pin" data-render-check-allow="clipped">
+      <!-- The light behind the MacBook, in the color of the song on its screen.
+           site.js names the song; test/bake-glow.py bakes each light from the film. -->
+      <div class="glow" data-glow data-song="pop" aria-hidden="true">
+        <i data-for="pop"></i><i data-for="sunsetz"></i><i data-for="artdeco"></i><i data-for="hush"></i>
+      </div>
       <div class="pitch">
         <h1 class="hero__title" id="hero-title">Your MacBook’s notch, now a music&nbsp;player.</h1>
         <p class="pitch__lede">Hover it for Spotify or Apple Music controls, with black liquid that moves to the&nbsp;song.</p>
@@ -187,12 +193,40 @@
     </div>
   </section>
 
-  <!-- Every line here is a shipped feature or a real limit (APP.md, README.md, the M menu). -->
-  <section class="facts" aria-labelledby="facts-title">
-    <h2 class="facts__title" id="facts-title">What’s in Magnetite</h2>
-    <ul>
+  <!-- What it does, shown in clips cut from the same recording as the film
+       (test/bake-glow.py has the cuts). Every line is a shipped feature or a real
+       limit (APP.md, README.md, the M menu). -->
+  <section class="tour" id="features" aria-labelledby="tour-title">
+    <h2 class="tour__title" id="tour-title">What’s in Magnetite</h2>
+
+    <figure class="shot shot--lyrics">
+      <div class="shot__media shot__media--hush">
+        <video data-clip muted loop playsinline preload="none" width="800" height="512"
+               src="media/lyrics.mp4" poster="media/lyrics-poster.webp" aria-describedby="lyrics-text"></video>
+      </div>
+      <figcaption id="lyrics-text"><b>Lyrics, in time.</b> Synced lyrics from LRCLIB scroll under the controls, if you want them.</figcaption>
+    </figure>
+
+    <figure class="shot shot--closed">
+      <div class="shot__media shot__media--artdeco">
+        <video data-clip muted loop playsinline preload="none" width="640" height="72"
+               src="media/closed.mp4" poster="media/closed-poster.webp" aria-describedby="closed-text"></video>
+      </div>
+      <figcaption id="closed-text"><b>Folded, still playing.</b> Move away and it tucks back into the notch, keeping the cover, the elapsed time and the liquid beside the camera.</figcaption>
+    </figure>
+
+    <figure class="shot shot--tints">
+      <ul class="tints">
+        <li><img src="media/tint-pop.webp" width="800" height="512" loading="lazy" alt="The player in a dusty rose, under the cover of Pop by ILLIT."><span>Pop</span></li>
+        <li><img src="media/tint-sunsetz.webp" width="800" height="512" loading="lazy" alt="The player in a dark green, under the cover of Sunsetz by Cigarettes After Sex."><span>Sunsetz</span></li>
+        <li><img src="media/tint-artdeco.webp" width="800" height="512" loading="lazy" alt="The player in a pale violet, under the cover of Art Deco by Lana Del Rey."><span>Art Deco</span></li>
+        <li><img src="media/tint-hush.webp" width="800" height="512" loading="lazy" alt="The player in a deep red, under the cover of Hush by The Marías."><span>Hush</span></li>
+      </ul>
+      <figcaption><b>Every song, its own color.</b> The panel’s colors come from the cover, and slowly turn.</figcaption>
+    </figure>
+
+    <ul class="also" aria-label="Also">
       <li>Spotify and Apple Music only: not browser tabs, YouTube or Podcasts</li>
-      <li>Time-synced lyrics from LRCLIB, if you want them</li>
       <li>Favorites in Apple Music; likes, shuffle and repeat in Spotify</li>
       <li>Volume and brightness shown in the notch</li>
       <li>A floating pill on displays without a notch</li>

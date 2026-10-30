@@ -4,7 +4,8 @@
  * recording of the running app, and scrolling pushes the camera into its notch
  * until the recording hangs from the top of the window. The liquid in the film
  * is the only thing that moves on its own; everything else answers a scroll.
- * The page has no color of its own; the only color is the recording's. Geist is the display face;
+ * The page has no color of its own; the only color is the recording's, and
+ * the light behind the MacBook is baked from its frames. Geist is the display face;
  * the rest is the Mac's own face.
  */
 
@@ -50,6 +51,9 @@ a { color: inherit; text-underline-offset: 3px; text-decoration-color: var(--lin
 a:hover { text-decoration-color: currentColor; transition-duration: 140ms; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
 img, video { display: block; max-width: 100%; }
+/* The lights spill past the window's sides. Clipped here, not on body: body's
+   overflow passes to the viewport, and a phone then widens the page to fit. */
+main { overflow-x: clip; }
 b { font-weight: 600; }
 
 .skip-link {
@@ -99,20 +103,47 @@ b { font-weight: 600; }
 /* The journey. Without scroll timelines, or under Reduce Motion, it is a still
    page: the pitch, the MacBook, the three gestures and the film's controls. */
 .journey__pin {
+  position: relative;
   display: grid; gap: 40px;
   width: var(--col); margin: 0 auto; padding-top: 96px;
 }
 .pitch { max-width: 560px; }
 .hero__title {
-  margin: 0; max-width: 14ch;
-  font: 600 clamp(34px, 4.6vw, 64px)/1 var(--display);
-  letter-spacing: -0.045em; text-wrap: balance;
+  margin: 0; max-width: 12ch;
+  font: 600 clamp(42px, 5.6vw, 84px)/0.96 var(--display);
+  letter-spacing: -0.05em; text-wrap: balance;
 }
 .pitch__lede { margin: 16px 0 0; max-width: 32ch; color: var(--ink-soft); font-size: clamp(16px, 1.5vw, 20px); line-height: 1.45; }
 .pitch__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-top: 24px; }
 .pitch__meta { margin: 14px 0 0; color: var(--ink-soft); font-size: 14px; }
 .pitch__meta a { position: relative; }
 .pitch__meta a::after { content: ''; position: absolute; inset: -12px 0; }
+
+/* The light behind the MacBook: the panel's color for the song on its screen,
+   one baked layer per song (test/bake-glow.py), crossfaded as the film moves
+   on. Still, it sits behind the MacBook's place in the grid. */
+.glow { position: absolute; grid-area: 2 / 1; inset: -30% -25%; pointer-events: none; }
+.glow i {
+  position: absolute; inset: 0; opacity: 0;
+  background: 0 0 / 100% 100% no-repeat;
+  transition: opacity 1.6s ease;
+}
+.glow [data-for="pop"] { background-image: url(../media/glow-pop.webp); }
+.glow [data-for="sunsetz"] { background-image: url(../media/glow-sunsetz.webp); }
+.glow [data-for="artdeco"] { background-image: url(../media/glow-artdeco.webp); }
+.glow [data-for="hush"] { background-image: url(../media/glow-hush.webp); }
+.glow[data-song="pop"] [data-for="pop"], .glow[data-song="sunsetz"] [data-for="sunsetz"],
+.glow[data-song="artdeco"] [data-for="artdeco"], .glow[data-song="hush"] [data-for="hush"] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .glow i { transition: none; } }
+.journey__pin > .mac { grid-area: 2 / 1; }
+
+/* Film grain over the whole page, so the black reads as a print, not a void.
+   It is one still tile; nothing in it moves. */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 2.2 -0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 220px 220px;
+  opacity: 0.09;
+}
 
 /* The MacBook Pro 14-inch (M5), from Apple's own numbers: the lid is 312.6 mm
    wide and the screen 302.5 × 196.4 mm (3024 × 1964 pixels), so the glass border
@@ -307,6 +338,17 @@ b { font-weight: 600; }
       animation-timeline: --journey;
       animation-range: contain 0% contain 52%;
     }
+    /* The light is behind the MacBook while it is an object in the room, and
+       goes out as the camera reaches its screen, where the film's own black
+       has to meet the page's. */
+    .glow {
+      inset: auto; left: calc(50% + var(--x0)); top: calc(var(--y0) + var(--w0) * 0.36);
+      width: calc(var(--w0) * 3); height: calc(var(--w0) * 2.1);
+      translate: -50% -50%;
+      animation: glow-out linear both;
+      animation-timeline: --journey;
+      animation-range: contain 6% contain 30%;
+    }
     /* Once the camera faces the screen, the base falls away into the dark. */
     .mac__base > * {
       animation: fade linear both;
@@ -364,7 +406,7 @@ b { font-weight: 600; }
       --x0: calc(50vw - var(--gutter) - var(--w0) * 0.597);
       --y0: calc(50svh - var(--w0) * 0.445);
     }
-    .pitch { top: 50%; right: auto; width: min(34vw, 460px); translate: 0 -50%; }
+    .pitch { top: 50%; right: auto; width: min(40vw, 600px); translate: 0 -50%; }
     /* Each gesture on one line across the window, not wrapped to the film's
        width: --stack holds one line. */
     .moves { left: var(--gutter); right: var(--gutter); width: auto; margin-left: 0; }
@@ -381,6 +423,9 @@ b { font-weight: 600; }
   }
   /* A dolly, not a scale: perspective p / (p - z) is --zoom. */
   to { transform: translateZ(calc(var(--p) * (1 - 1 / var(--zoom)))); }
+}
+@keyframes glow-out {
+  to { opacity: 0; transform: scale(1.5); visibility: hidden; }
 }
 @keyframes fade {
   to { opacity: 0; visibility: hidden; }
@@ -413,12 +458,37 @@ b { font-weight: 600; }
   40%, 100% { opacity: 1; transform: none; visibility: visible; }
 }
 
-/* What's in it: one plain list, its one limit first. */
-.facts { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: 28px; }
-.facts__title { margin: 0; font: 600 clamp(36px, 4.4vw, 60px)/1 var(--display); letter-spacing: -0.045em; }
-.facts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-.facts li { position: relative; padding-left: 22px; max-width: 46ch; font-size: 16px; }
-.facts li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+/* What's in it, filmed: two clips and the four colors, each on its own light,
+   then the rest as a plain list. The clips are the recording's own black, so
+   they sit on the page as screens, with their light around them. */
+.tour { width: var(--col); margin: var(--gap) auto 0; display: grid; gap: 72px; }
+.tour__title { margin: 0 0 -24px; font: 600 clamp(36px, 4.4vw, 60px)/1 var(--display); letter-spacing: -0.045em; }
+.shot { margin: 0; display: grid; gap: 22px; }
+.shot figcaption { max-width: 40ch; color: var(--ink-soft); font-size: 17px; }
+.shot figcaption b { display: block; margin-bottom: 4px; color: var(--ink); font: 600 clamp(22px, 2.2vw, 28px)/1.15 var(--display); letter-spacing: -0.03em; }
+.shot__media { position: relative; isolation: isolate; }
+.shot__media::before {
+  content: ''; position: absolute; inset: -28% -18%; z-index: -1; pointer-events: none;
+  background: 0 0 / 100% 100% no-repeat;
+}
+.shot__media--hush::before { background-image: url(../media/glow-hush.webp); }
+.shot__media--artdeco::before { background-image: url(../media/glow-artdeco.webp); inset: -160% -12%; }
+.shot video { width: 100%; height: auto; border-radius: 18px; background: #000; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }
+.shot--closed video { border-radius: 14px; }
+@media (min-width: 900px) {
+  .shot--lyrics, .shot--closed { grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 56px; align-items: center; }
+  .shot--closed { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); }
+  .shot--closed .shot__media { order: 2; }
+}
+.tints { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 720px) { .tints { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; } }
+.tints li { display: grid; gap: 8px; }
+.tints img { width: 100%; height: auto; border-radius: 12px; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }
+.tints span { color: var(--ink-soft); font-size: 14px; }
+.also { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+@media (min-width: 900px) { .also { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 64px; } }
+.also li { position: relative; padding-left: 22px; max-width: 46ch; font-size: 16px; }
+.also li::before { content: ''; position: absolute; left: 0; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
 
 /* Download, with the honest part beside it. */
 .get {

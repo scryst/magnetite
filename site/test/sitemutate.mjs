@@ -64,6 +64,8 @@ const MUTATIONS = [
   ['mark', 'the menu-bar icon is edited by hand', 'Sources/NotchApp/App/MagnetiteMark.swift', 'static let aspect: CGFloat = ', 'static let aspect: CGFloat = 1.0 * '],
   ['demo', 'the box is not the film size', 'site/index.html', 'width="800" height="512"', 'width="800" height="450"'],
   ['demo', 'the film can make sound by itself', 'site/index.html', 'data-demo muted loop', 'data-demo loop'],
+  ['clips', 'a clip plays off screen and under Reduce Motion', 'site/index.html', 'data-clip muted loop playsinline preload="none" width="800"', 'data-clip muted loop playsinline autoplay preload="none" width="800"'],
+  ['clips', 'the folded clip box is not its size', 'site/index.html', 'width="640" height="72"', 'width="640" height="80"'],
   ['script', 'a simulation script comes back', 'site/index.html', '<script type="module" src="js/site.js"></script>', '<script type="module" src="js/site.js"></script>\n<script type="module" src="js/sim.js"></script>'],
   ['script', 'site.js starts drawing', 'site/js/site.js', 'label();\n', 'label();\nrequestAnimationFrame(() => {});\n'],
   ['links', 'a link into test/', 'site/index.html', '<a href="privacy.html">Privacy</a>', '<a href="test/og.html">Privacy</a> <a href="privacy.html">Privacy</a>'],
