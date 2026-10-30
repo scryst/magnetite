@@ -310,7 +310,9 @@ const CHECKS = {
     const wall = css.match(/\.mac__wall \{\s*animation: (\w+) [^}]*animation-timeline: --journey;\s*animation-range: contain ([\d.]+)% contain ([\d.]+)%/);
     if (!wall) return ['.mac__wall has no animation on the journey'];
     const out = [];
-    if (!new RegExp(`@keyframes ${wall[1]} \\{\\s*to \\{ filter: grayscale\\(1\\); \\}`).test(css)) out.push(`@keyframes ${wall[1]} does not end in filter: grayscale(1)`);
+    // From grayscale(0), not none: a filter that comes on partway down the journey
+    // rebuilds the layer, and a phone redraws the screen mid-scroll (Laks, 10-30, mobile).
+    if (!new RegExp(`@keyframes ${wall[1]} \\{\\s*from \\{ filter: grayscale\\(0\\); \\}\\s*to \\{ filter: grayscale\\(1\\); \\}`).test(css)) out.push(`@keyframes ${wall[1]} has to run from filter: grayscale(0) to grayscale(1)`);
     const first = css.match(/\.moves li:nth-child\(1\) \{[^}]*animation-range: contain ([\d.]+)%/);
     if (!first) out.push('no range for the first gesture');
     else if (Number(wall[3]) > Number(first[1])) out.push(`the screen is gray only at ${wall[3]}%, after the first gesture comes at ${first[1]}%`);
@@ -321,6 +323,27 @@ const CHECKS = {
   // off Apple's top-down store photo of the 14-inch (mbp14-spaceblack-gallery2,
   // the body 1298 px wide) in hundredths of the body's width. The grilles were
   // drawn at half their width and Laks caught it (2026-10-29).
+  // Song changes (Laks, 10-30, on a phone: "whenever colors switch i see a flash
+  // of black"). The song layers only change opacity: a phone redraws a layer that
+  // is shown again (visibility) or restacked (z-index), black until it has. The
+  // song going stays whole until the next covers it, so the light never dims
+  // mid-change. Every glow is opaque color under glow-mask.webp: the tour's lost
+  // its falloff to it once and drew flat blocks of color around the clips.
+  songs() {
+    const out = [];
+    for (const [, sel, body] of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+      if (!/\[data-glow\]|\.glow i|\.mac__wall i/.test(sel)) continue;
+      const prop = body.match(/(?:^|[\s;])(visibility|z-index)\s*:/)?.[1];
+      if (prop) out.push(`${sel.trim()} sets ${prop}; a song layer only changes opacity`);
+    }
+    if (!css.includes('[data-glow] .was:has(~ .on) { transition: opacity 0s var(--fade); }')) out.push('the song going does not stay whole until it is covered');
+    if (!css.includes('[data-glow] .on:has(~ .was) { transition: none; }')) out.push('at the loop the first song is not whole under the last');
+    for (const sel of ['.glow', '.shot__media::before']) {
+      const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
+      if (!/(?:^|\s)mask: url\(\.\.\/media\/glow-mask\.webp\)/.test(body)) out.push(`${sel} has no glow-mask.webp; the glows are flat blocks without it`);
+    }
+    return out;
+  },
   deck() {
     const out = [];
     const text = read('css/magnetite.css');
@@ -368,8 +391,8 @@ const CHECKS = {
     if (at < 0) return [...out, 'the deck is not softened as the camera lays it edge-on'];
     const range = base[3].split(',')[at]?.match(/contain ([\d.]+)% contain ([\d.]+)%/);
     if (!range || Number(range[1]) > 6) out.push(`the softening starts at ${range?.[1] ?? '?'}% of the journey; it has to start by 6%`);
-    const blur = css.match(/@keyframes soften \{\s*to \{ filter: blur\(([\d.]+)px\); \}/)?.[1];
-    if (!blur || Number(blur) < 3) out.push(`the deck is blurred to ${blur ?? '?'}px; 2px left the moire at 1280 wide, 3px held`);
+    const blur = css.match(/@keyframes soften \{\s*from \{ filter: blur\(0\); \}\s*to \{ filter: blur\(([\d.]+)px\); \}/)?.[1];
+    if (!blur || Number(blur) < 3) out.push(`the deck is blurred from blur(0) to ${blur ?? '?'}px; 2px left the moire at 1280 wide, 3px held`);
     return out;
   },
 
