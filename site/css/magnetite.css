@@ -194,7 +194,13 @@ body::after {
   padding: 1.615cqw 1.615cqw 3.8cqw;
   border-radius: 2.25cqw 2.25cqw 0.8cqw 0.8cqw;
   background: #000;
+}
+/* The lid's metal rim, a pixel above its face like the screen, so the camera
+   fades it out without the lid being drawn again on every frame. */
+.mac__lid::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   box-shadow: inset 0 0 0 0.4cqw #8a8a8a, inset 0 0 0 calc(0.4cqw + 1px) #000;
+  transform: translateZ(1px);
 }
 .mac__edge, .mac__back, .mac__base > * { position: absolute; }
 .mac__edge--top {
@@ -374,10 +380,6 @@ body::after {
       view-timeline: --journey block;
     }
     .journey__pin {
-      perspective: var(--p);
-      animation: eye ease-in-out both;
-      animation-timeline: --journey;
-      animation-range: contain 0% contain 39%;
       position: sticky; top: 0;
       display: block; width: auto; height: 100svh; margin: 0; padding: 0;
       overflow: clip;
@@ -408,7 +410,7 @@ body::after {
       inset: auto; left: calc(50% + var(--x0)); top: calc(var(--y0) + var(--w0) * 0.36);
       width: calc(var(--w0) * 3); height: calc(var(--w0) * 2.1);
       translate: -50% -50%;
-      animation: glow-out linear both;
+      animation: glow-out linear both, gone linear both;
       animation-timeline: --journey;
       animation-range: contain 4.5% contain 22.5%;
     }
@@ -421,31 +423,33 @@ body::after {
     }
     /* Once the camera faces the screen, the base falls away into the dark. */
     .mac__base > * {
-      animation: fade linear both, soften linear both;
-      animation-timeline: --journey, --journey;
-      animation-range: contain 21% contain 34.5%, contain 6% contain 22%;
+      animation: fade linear both, soften linear both, gone linear both;
+      animation-timeline: --journey;
+      animation-range: contain 21% contain 34.5%, contain 6% contain 22%, contain 21% contain 34.5%;
     }
     /* The lid's metal rim and edges go first, before the camera brings its
        top edge into the margin over the film, and so on a tall phone no chin
        is left floating under the screen. */
-    .mac__edge {
-      animation: fade linear both;
+    .mac__edge, .mac__lid::after {
+      animation: fade linear both, gone linear both;
       animation-timeline: --journey;
       animation-range: contain 13.5% contain 24%;
     }
     .mac__lid {
-      animation: hinge ease-in-out both, rim linear both;
-      animation-timeline: --journey, --journey;
-      animation-range: contain 0% contain 30%, contain 13.5% contain 24%;
+      animation: hinge ease-in-out both;
+      animation-timeline: --journey;
+      animation-range: contain 0% contain 30%;
     }
     .pitch {
       position: absolute; left: var(--gutter); right: var(--gutter);
       top: calc(var(--y0) + var(--w0) + 16px);
       /* Hidden only while the camera holds the window, so past the journey the
-         headline and its button are back for the keyboard and screen readers. */
-      animation: lift linear both, back linear forwards;
-      animation-timeline: --journey, --journey;
-      animation-range: contain 0% contain 13.5%, exit 99% exit 100%;
+         headline and its button are back for the keyboard and screen readers.
+         One animation does both: two on the same properties can't be composited
+         together, and the headline trailed the camera. */
+      animation: pitch linear both, gone linear both, seen linear forwards;
+      animation-timeline: --journey;
+      animation-range: contain 0% exit 100%, contain 0% contain 13.5%, exit 99% exit 100%;
     }
     .moves {
       position: absolute; left: 50%; width: var(--col); margin-left: calc(var(--col) / -2);
@@ -455,18 +459,18 @@ body::after {
     .moves li {
       position: absolute; inset: 0 0 auto; max-width: none;
       font-size: clamp(30px, 4.2vw, 56px); color: var(--ink-soft);
-      animation: say linear both;
+      animation: say linear both, said linear both;
       animation-timeline: --journey;
     }
     /* They take turns: each has gone before the next comes, never two at once. */
     .moves li:nth-child(1) { animation-range: contain 37.5% contain 60%; }
     .moves li:nth-child(2) { animation-range: contain 60% contain 82%; }
-    .moves li:nth-child(3) { animation: say-last linear both; animation-timeline: --journey; animation-range: contain 82% contain 96%; }
+    .moves li:nth-child(3) { animation: say-last linear both, seen linear both; animation-timeline: --journey; animation-range: contain 82% contain 96%; }
     /* The film's controls close the group, and come in with the film. */
     .stage__foot {
       position: absolute; left: var(--gutter); right: var(--gutter); bottom: var(--top);
       justify-content: center;
-      animation: lift linear both reverse;
+      animation: lift linear both reverse, gone linear both reverse;
       animation-timeline: --journey;
       animation-range: contain 36% contain 42%;
     }
@@ -487,16 +491,40 @@ body::after {
     .journey { --s0: 0.27; }
   }
 }
+/* The camera's eye is in the MacBook's own transform, on the notch the whole way,
+   so the MacBook is always looked at square on. The eye was the pin's
+   perspective-origin, which a phone animates on the page's thread: behind the
+   camera's move whenever that thread was busy, and the MacBook jumped. */
 @keyframes push {
   from {
-    transform: translate3d(var(--x0), calc(var(--y0) - var(--top)), var(--z0))
-      rotateX(calc(var(--rx0) * -1)) rotateY(var(--ry0));
+    transform: translate(var(--x0), calc(var(--y0) - var(--top))) perspective(var(--p))
+      translateZ(var(--z0)) rotateX(calc(var(--rx0) * -1)) rotateY(var(--ry0));
   }
   /* A dolly, not a scale: perspective p / (p - z) is --zoom. */
-  to { transform: translateZ(calc(var(--p) * (1 - 1 / var(--zoom)))); }
+  to {
+    transform: translate(0, 0) perspective(var(--p))
+      translateZ(calc(var(--p) * (1 - 1 / var(--zoom)))) rotateX(0deg) rotateY(0deg);
+  }
+}
+/* Every move on the journey is opacity, transform or filter, which the phone's
+   compositor draws in step with the scroll. Visibility can't be: a keyframe with
+   it moves the whole animation to the page's thread, and on a phone the words
+   showed a whole range behind the camera (10-30). So what hides is hidden by its
+   own animation, which only flips at the end of the range, where it is already
+   out of sight. */
+@keyframes gone {
+  to { visibility: hidden; }
+}
+@keyframes seen {
+  from { visibility: hidden; }
+  to { visibility: visible; }
+}
+@keyframes said {
+  0%, 100% { visibility: hidden; }
+  50% { visibility: visible; }
 }
 @keyframes glow-out {
-  to { opacity: 0; transform: scale(1.5); visibility: hidden; }
+  to { opacity: 0; transform: scale(1.5); }
 }
 /* Both filters are on from the top of the journey, at zero: a filter that starts
    partway down changes how a phone builds the layer, and it redraws it mid-scroll. */
@@ -505,7 +533,7 @@ body::after {
   to { filter: grayscale(1); }
 }
 @keyframes fade {
-  to { opacity: 0; visibility: hidden; }
+  to { opacity: 0; }
 }
 /* The deck's halftone is finer than the pixels it lands on once the camera sees
    it edge-on, and the compositor samples without mipmaps, so it would crawl as
@@ -517,32 +545,24 @@ body::after {
 @keyframes dusk {
   from { opacity: 0; }
 }
-@keyframes rim {
-  to { box-shadow: inset 0 0 0 0.4cqw transparent, inset 0 0 0 calc(0.4cqw + 1px) transparent; }
-}
-/* The eye moves with the MacBook, so it is always looked at square on. */
-@keyframes eye {
-  from { perspective-origin: calc(50% + var(--x0)) var(--y0); }
-  to { perspective-origin: 50% var(--top); }
-}
 @keyframes hinge {
   from { transform: rotateX(var(--lid0)); }
   to { transform: none; }
 }
 @keyframes lift {
-  to { opacity: 0; transform: translateY(-24px); visibility: hidden; }
+  to { opacity: 0; transform: translateY(-24px); }
 }
-@keyframes back {
-  to { opacity: 1; transform: none; visibility: visible; }
+@keyframes pitch {
+  contain 13.5%, exit 99% { opacity: 0; transform: translateY(-24px); }
 }
 @keyframes say {
-  0% { opacity: 0; transform: translateY(16px); visibility: hidden; }
-  25%, 75% { opacity: 1; transform: none; visibility: visible; }
-  100% { opacity: 0; transform: translateY(-16px); visibility: hidden; }
+  0% { opacity: 0; transform: translateY(16px); }
+  25%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-16px); }
 }
 @keyframes say-last {
-  0% { opacity: 0; transform: translateY(16px); visibility: hidden; }
-  40%, 100% { opacity: 1; transform: none; visibility: visible; }
+  0% { opacity: 0; transform: translateY(16px); }
+  40%, 100% { opacity: 1; transform: none; }
 }
 
 /* What's in it, filmed: two clips and the four colors, each a stage of its own
