@@ -171,11 +171,12 @@ const CHECKS = {
     return out;
   },
 
-  // Every song heard in the film is named under it, title and artist, linked to
-  // the track. A credit is never split mid-name.
+  // Every song heard in the film is named on the page (in the footer, so the
+  // film's stage holds only the film), title and artist, linked to the track.
+  // A credit is never split mid-name.
   credit() {
     const out = [];
-    const tag = tags.find((t) => t.attrs.class === 'demo__credit');
+    const tag = tags.find((t) => /\bdemo__credit\b/.test(t.attrs.class ?? ''));
     if (!tag) return ['no .demo__credit'];
     const block = html.slice(tag.at, html.indexOf('</p>', tag.at));
     for (const [track, words] of [
@@ -325,10 +326,10 @@ const CHECKS = {
     const pct = (prop) => Number(film.match(new RegExp(`[\\s;{]${prop}:\\s*([\\d.]+)%`))?.[1]);
     if (Math.abs(pct('left') - (x / 1512) * 100) > 0.05) out.push(`.mac__film left is ${pct('left')}%; the take starts at ${x} of 1512 points`);
     if (Math.abs(pct('width') - (w / 1512) * 100) > 0.05) out.push(`.mac__film width is ${pct('width')}%; the take is ${w} of 1512 points`);
-    // Pushed in, the film fills --film, so the lid is (1512 / w) films of screen
+    // Pushed in, the film fills --fw, so the lid is (1512 / w) films of screen
     // and the 312.6 mm lid holds the 302.5 mm screen.
     // The camera's last push (--zoom) counts toward it.
-    const macw = Number(css.match(/--macw: calc\(var\(--film\) \* ([\d.]+)\)/)?.[1]);
+    const macw = Number(css.match(/--macw: calc\(var\(--fw\) \* ([\d.]+)\)/)?.[1]);
     const zoom = Number(css.match(/--zoom: ([\d.]+);/)?.[1] ?? 1);
     if (!/@keyframes push \{[^@]*translateZ\(calc\(var\(--p\) \* \(1 - 1 \/ var\(--zoom\)\)\)\)/.test(css)) out.push('the push no longer ends at --zoom');
     const want = (1512 / w) * (312.6 / 302.5);
