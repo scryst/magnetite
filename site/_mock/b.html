@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B · Liner notes</title><link rel="stylesheet" href="base.css">
+<style>
+:root { --paper: #ebe8e1; --ink: #141413; --soft: #6c6963; --pink: #ff4fa3; }
+body { background: var(--paper); color: var(--ink); }
+.top { display: flex; justify-content: space-between; gap: 16px; padding: 44px 40px 0; font-size: 14px; }
+.top b { font: 800 15px/1 'Archivo'; font-stretch: 125%; letter-spacing: -0.02em; }
+.top span { color: var(--soft); }
+.record { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; padding: 40px 40px 12vh; align-items: start; }
+.sleeve { position: relative; aspect-ratio: 1; background: var(--ink); overflow: hidden; }
+.sleeve img { position: absolute; top: 0; left: 50%; translate: -50% 0; width: 84%; }
+.sleeve figcaption { position: absolute; left: 24px; bottom: 20px; right: 24px; display: flex; justify-content: space-between; color: #b9b5ad; font-size: 13px; }
+.sleeve h1 { position: absolute; left: 22px; bottom: 44px; margin: 0; color: var(--paper); font: 900 clamp(48px, 7.6vw, 116px)/0.82 'Archivo'; font-stretch: 125%; letter-spacing: -0.05em; mix-blend-mode: normal; }
+.notes h2 { margin: 0; font: 800 clamp(30px, 3.4vw, 46px)/1 'Archivo'; font-stretch: 112%; letter-spacing: -0.035em; max-width: 15ch; }
+.notes p.lede { margin: 18px 0 28px; color: var(--soft); max-width: 36ch; font-size: 18px; }
+.cta { display: inline-flex; align-items: center; height: 48px; padding: 0 22px; border-radius: 24px; background: var(--ink); color: var(--paper); font: 600 16px/1 -apple-system, system-ui; text-decoration: none; }
+.meta { display: block; margin-top: 12px; color: var(--soft); font-size: 13px; }
+.tracks { list-style: none; margin: 44px 0 0; padding: 0; counter-reset: t; }
+.tracks li { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1.5px solid var(--ink); font-size: 17px; }
+.tracks li:last-child { border-bottom: 1.5px solid var(--ink); }
+.tracks li i { font: 700 15px/1 'Archivo'; font-style: normal; font-stretch: 112%; }
+.tracks li b { font-weight: 600; }
+.tracks li span { color: var(--soft); font-size: 15px; }
+.tracks li[aria-current] i { color: var(--pink); }
+.side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; padding: 0 40px 14vh; align-items: center; }
+.side .label { font: 700 15px/1 'Archivo'; font-stretch: 112%; }
+.side h3 { margin: 10px 0 14px; font: 900 clamp(56px, 8vw, 128px)/0.84 'Archivo'; font-stretch: 125%; letter-spacing: -0.05em; }
+.side h3 em { font-style: normal; color: var(--pink); mix-blend-mode: multiply; }
+.side p { color: var(--soft); max-width: 32ch; font-size: 18px; }
+.film { aspect-ratio: 1140/1320; max-height: 76vh; overflow: hidden; background: var(--ink); }
+.film video { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 719px) {
+  .top { padding: 40px 20px 0; } .top span { display: none; }
+  .record, .side { grid-template-columns: 1fr; gap: 28px; padding-left: 20px; padding-right: 20px; }
+  .tracks li { grid-template-columns: 36px 1fr; } .tracks li span { grid-column: 2; }
+}
+</style>
+<div class="notch"></div>
+<header class="top"><b>Magnetite</b><span>MGN 0.1.11 · for MacBooks with a notch</span><span>Source on GitHub</span></header>
+<section class="record">
+  <figure class="sleeve" style="margin:0">
+    <img src="../media/player-cut.webp" alt="Magnetite open under the notch playing Chrome Funk by Punch Deck">
+    <h1>Magne&shy;tite</h1>
+    <figcaption><span>Side A plays Encryption, Beat Mekanik</span><span>▶ Play</span></figcaption>
+  </figure>
+  <div class="notes">
+    <h2>Spotify and Apple Music, in your MacBook’s notch.</h2>
+    <p class="lede">And a drop of ferrofluid that moves to whatever is playing.</p>
+    <a class="cta" href="#">Download for Mac</a>
+    <span class="meta">Free and open source · macOS 26 · Apple silicon · 742 KB</span>
+    <ol class="tracks">
+      <li aria-current="true"><i>A1</i><b>Hover</b><span>the player pours out</span></li>
+      <li><i>A2</i><b>Scrub</b><span>seek along its edge</span></li>
+      <li><i>A3</i><b>Swipe</b><span>skip, pause, play</span></li>
+      <li><i>B1</i><b>Opening it the first time</b><span>four steps, once</span></li>
+      <li><i>B2</i><b>What stays on your Mac</b><span>all of it</span></li>
+      <li><i>B3</i><b>Questions</b><span>six answers</span></li>
+    </ol>
+  </div>
+</section>
+<section class="side">
+  <div><span class="label">A1</span><h3>Hover<em>.</em></h3><p>Bring the pointer to the notch and the player pours out of it. Move away and it drains back in.</p></div>
+  <div class="film"><video src="../media/film.mp4" poster="../media/film-poster.webp" muted autoplay loop playsinline></video></div>
+</section>

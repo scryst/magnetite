@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C · Instrument</title><link rel="stylesheet" href="base.css">
+<style>
+:root { --ground: #d9d7d2; --ink: #121212; --soft: #5f5d59; --pink: #ff4fa3; }
+body { background: var(--ground); color: var(--ink); }
+.top { display: flex; justify-content: space-between; align-items: center; padding: 48px 40px 0; }
+.top b { font: 800 15px/1 'Archivo'; font-stretch: 125%; letter-spacing: -0.02em; }
+.cta { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--ink); color: var(--ground); font: 600 15px/1 -apple-system, system-ui; text-decoration: none; }
+.object { position: relative; margin: 6vh auto 0; width: min(1040px, calc(100% - 80px)); }
+.lid { position: relative; aspect-ratio: 16/10; background: #0b0b0c; border-radius: 22px 22px 6px 6px; padding: 14px; box-shadow: 0 0 0 2px #2a2a2c inset; }
+.lid .screen { position: relative; height: 100%; border-radius: 10px; overflow: hidden; background: #050506; }
+.lid .screen img { position: absolute; top: 0; left: 50%; translate: -50% 0; width: 46%; }
+.callout { position: absolute; display: grid; gap: 4px; width: 210px; font-size: 15px; }
+.callout i { font: 700 13px/1 'Archivo'; font-style: normal; font-stretch: 112%; color: var(--pink); mix-blend-mode: multiply; }
+.callout b { font-weight: 600; }
+.callout span { color: var(--soft); }
+.callout::before { content: ''; position: absolute; height: 1.5px; background: var(--ink); width: 64px; top: 7px; }
+.c1 { left: -250px; top: 2%; } .c1::before { right: -76px; }
+.c2 { right: -250px; top: 10%; } .c2::before { left: -76px; }
+.c3 { left: -250px; top: 34%; } .c3::before { right: -76px; }
+.title { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 40px; align-items: end; padding: 7vh 40px 12vh; }
+h1 { margin: 0; font: 900 clamp(52px, 8.6vw, 136px)/0.86 'Archivo'; font-stretch: 125%; letter-spacing: -0.05em; }
+.title p { margin: 0 0 16px; color: var(--soft); font-size: 18px; max-width: 30ch; }
+.meta { display: block; margin-top: 12px; color: var(--soft); font-size: 13px; }
+.spec { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; padding: 0 40px 14vh; }
+.spec div b { display: block; font: 800 22px/1.1 'Archivo'; font-stretch: 112%; letter-spacing: -0.02em; }
+.spec div span { color: var(--soft); font-size: 15px; }
+@media (max-width: 1399px) { .object { width: min(700px, calc(100% - 560px)); } }
+@media (max-width: 719px) {
+  .top { padding: 40px 20px 0; }
+  .object { width: calc(100% - 40px); }
+  .callout { position: static; width: auto; margin-top: 16px; }
+  .callout::before { display: none; }
+  .callouts { padding: 8px 20px 0; }
+  .title { grid-template-columns: 1fr; padding: 6vh 20px 10vh; }
+  .spec { grid-template-columns: 1fr 1fr; padding: 0 20px 10vh; }
+}
+@media (min-width: 720px) { .callouts { position: absolute; inset: 0; } }
+</style>
+<div class="notch"></div>
+<header class="top"><b>Magnetite</b><a class="cta" href="#">Download for Mac</a></header>
+<section class="object">
+  <div class="lid"><div class="screen"><img src="../media/player-cut.webp" alt="Magnetite open under the notch playing Chrome Funk by Punch Deck"></div></div>
+  <div class="callouts">
+    <p class="callout c1"><i>1</i><b>The notch</b><span>Hover and the player pours out of it.</span></p>
+    <p class="callout c2"><i>2</i><b>The drop</b><span>Ferrofluid that moves to whatever is playing.</span></p>
+    <p class="callout c3"><i>3</i><b>The edge</b><span>Drag it to seek. Two fingers skip.</span></p>
+  </div>
+</section>
+<section class="title">
+  <h1>Magnetite</h1>
+  <div><p>Spotify and Apple Music, in your MacBook’s notch.</p><a class="cta" href="#">Download for Mac</a><span class="meta">Free and open source · macOS 26 · Apple silicon · 742 KB</span></div>
+</section>
+<section class="spec">
+  <div><b>742 KB</b><span>Smaller than one album cover.</span></div>
+  <div><b>Two players</b><span>Spotify and Apple Music.</span></div>
+  <div><b>No account</b><span>Nothing leaves your Mac.</span></div>
+  <div><b>Open source</b><span>Read every line on GitHub.</span></div>
+</section>

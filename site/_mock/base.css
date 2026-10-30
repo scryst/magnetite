@@ -1,0 +1,7 @@
+@font-face { font-family: 'Archivo'; src: url('../fonts/archivo-var-latin.woff2') format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; }
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; font: 400 17px/1.5 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; }
+img, video { display: block; max-width: 100%; }
+a { color: inherit; }
+.notch { position: fixed; top: 0; left: 50%; translate: -50% 0; width: 200px; height: 32px; background: #000; border-radius: 0 0 14px 14px; z-index: 20; }
