@@ -405,6 +405,41 @@ const CHECKS = {
     return out;
   },
 
+  // A phone's compositor moves opacity, transform and filter in step with the
+  // scroll; any other property in a keyframe sends that whole animation to the
+  // page's thread, which on a phone ran a range behind the camera: the headline
+  // showed over a zoomed-in MacBook and the MacBook jumped (2026-10-30). So a
+  // keyframe that moves something animates only those, and what has to hide
+  // does it in a visibility-only keyframe of its own.
+  compositor() {
+    const out = [];
+    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const moving = new Set(['opacity', 'transform', 'filter', 'rotate', 'scale', 'translate']);
+    for (const m of bare.matchAll(/@keyframes ([\w-]+) \{((?:[^{}]*\{[^}]*\})*)\s*\}/g)) {
+      const props = [...new Set([...m[2].matchAll(/([a-z-]+)\s*:/g)].map((x) => x[1]))];
+      if (props.length === 1 && props[0] === 'visibility') continue;
+      const off = props.filter((x) => !moving.has(x));
+      if (off.length) out.push(`@keyframes ${m[1]} animates ${off.join(', ')}, which a phone can't composite`);
+    }
+    if (/\.journey__pin \{[^}]*perspective/.test(bare)) out.push('the pin has its own perspective; keep the eye in the MacBook\'s transform');
+    // Two animations on one element that move the same property can't be
+    // composited together: the headline's fade and its return ran on the
+    // page's thread and it trailed the camera.
+    const moves = {};
+    for (const m of bare.matchAll(/@keyframes ([\w-]+) \{((?:[^{}]*\{[^}]*\})*)\s*\}/g)) {
+      moves[m[1]] = [...m[2].matchAll(/([a-z-]+)\s*:/g)].map((x) => x[1]).filter((x) => moving.has(x));
+    }
+    for (const m of bare.matchAll(/([^{}]+)\{[^}]*?(?:^|[\s;])animation:\s*([^;}]+)/g)) {
+      const names = m[2].split(',').map((a) => a.trim().split(/\s+/)[0]);
+      const seen = new Map();
+      for (const n of names) for (const p of moves[n] ?? []) {
+        if (seen.has(p) && seen.get(p) !== n) out.push(`${m[1].trim()} moves ${p} in both ${seen.get(p)} and ${n}; one animation per property, or neither is composited`);
+        seen.set(p, n);
+      }
+    }
+    return out;
+  },
+
   // The film sits on the drawn screen at the size it was filmed, so its notch is
   // the drawn notch. 0.1.13 placed a 400-point take as if it were 800 points wide,
   // and the notch on the MacBook read twice its real size.

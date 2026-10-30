@@ -14,7 +14,7 @@
 //        [--top=8] [--block=16] [--theta=24] [--eps=8] [--min-blocks=3] [--scales=1,3]
 //        [--css=FILE] [--hide=SEL,SEL] [--y0=PX --y1=PX] [--reverse] [--quiet] [--selftest]
 //        [--live [--speed=800] [--live-theta=30] [--max-frames=240] [--ref-step=6] [--lag-max=120]
-//                [--live-time=freeze|run] [--live-song=free] [--mask=SEL,SEL]]
+//                [--live-time=freeze|run] [--live-song=free] [--mask=SEL,SEL] [--cpu=N]]
 //        [--idle [--idle-ms=3000] [--idle-at=0,5,10,...] [--film-at=SEC]]
 //        [--dump=Y0:Y1:STEP [--dump-crop=x,y,w,h] [--dump-up=SCALE]]
 //        [--channel=chrome|msedge] [--exe=PATH] [--launch-args="--flag --flag"]
@@ -36,7 +36,9 @@
 // within --lag-max px (the offset a frame reports is the main thread's, a frame or two behind
 // the pixels). A frame no settled picture explains is torn or stale; a block that is wrong for
 // one frame and right again is a flip. Time is frozen unless --live-time=run; the song is pinned
-// unless --live-song=free, and --mask's elements (default: the screen, the dock, the download
+// unless --live-song=free. --cpu=N slows the page's main thread N times (as a phone's is) while the
+// compositor keeps the scroll, so anything the main thread draws falls behind what the compositor
+// draws: a phone's frames showed the hero's words a whole range behind its camera (10-30). And --mask's elements (default: the screen, the dock, the download
 // buttons) are left out of the comparison.
 // A live or idle 0 counts only once the same build flags a plant: --live --live-time=run
 // --css=tools/flicker-plants/one-frame-blink.css and --idle --css=tools/flicker-plants/strobe.css must both
@@ -76,7 +78,7 @@ const OPT = {
   settle: num('settle', 140), strict: args['fail-on'] !== 'coarse',
   scales: String(args.scales || '1,3').split(',').map(Number),
   live: !!args.live, speed: num('speed', 800), liveTheta: num('live-theta', 30), maxFrames: num('max-frames', 240),
-  dump: args.dump || '', idle: !!args.idle, idleMs: num('idle-ms', 3000), refStep: num('ref-step', 6), liveTime: args['live-time'] || 'freeze', lagMax: num('lag-max', 120),
+  dump: args.dump || '', idle: !!args.idle, idleMs: num('idle-ms', 3000), refStep: num('ref-step', 6), cpu: num('cpu', 1), liveTime: args['live-time'] || 'freeze', lagMax: num('lag-max', 120),
   mask: String(args.mask || '.mac__screen,[data-dock],[data-download]'),
 };
 const OUT = resolve(args.out || join(HERE, '..', '.build', 'flickercheck'));
@@ -441,6 +443,7 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
   const at = async (y) => { await page.evaluate((v) => window.scrollTo({ top: v, behavior: 'instant' }), y); await raf2(page); if (OPT.settle) await page.waitForTimeout(OPT.settle); };
   const F = Math.max(...OPT.scales), t0 = Date.now();
   await at(y0); await page.waitForTimeout(900);
+  if (OPT.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: OPT.cpu });
   await cast.start();
   const passes = [[y0, y1]]; if (OPT.reverse) passes.push([y1, y0]);
   for (const [a, b] of passes) {
@@ -448,8 +451,9 @@ async function liveSweep(ctx, page, cfg, res, { y0, y1, j0, j1 }) {
     await page.waitForTimeout(500);
   }
   await cast.stop();
+  if (OPT.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   const got = cast.got();
-  res.live = { ...gapStats(got), from: got.length ? got[0].y : null, to: got.length ? got[got.length - 1].y : null, speed: OPT.speed };
+  res.live = { ...gapStats(got), from: got.length ? got[0].y : null, to: got.length ? got[got.length - 1].y : null, speed: OPT.speed, cpu: OPT.cpu };
   say(`  live: ${got.length} frames at ${res.live.fps} fps (median gap ${res.live.medianGapMs} ms, max ${res.live.maxGapMs} ms), scroll ${res.live.from} -> ${res.live.to}`);
   const stride = got.length > OPT.maxFrames ? got.length / OPT.maxFrames : 1;
   const picks = []; for (let q = 0; q < got.length; q += stride) picks.push(got[Math.floor(q)]);
