@@ -82,6 +82,9 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 # Neither is read from a file and neither is ever printed here. Set them in the
 # shell that runs a release and nowhere else.
 ENTITLEMENTS="Resources/Magnetite.entitlements"
+# The self-signed certificate in the owner's login keychain that local builds
+# sign with when it is there (made 2026-10-29; codesign may use it, nothing else).
+LOCAL_IDENTITY="Magnetite Local Signing"
 
 if [[ -n "${MAGNETITE_IDENTITY:-}" ]]; then
   echo "==> codesign (Developer ID, hardened runtime)"
@@ -92,6 +95,14 @@ if [[ -n "${MAGNETITE_IDENTITY:-}" ]]; then
     --entitlements "$ENTITLEMENTS" \
     --sign "$MAGNETITE_IDENTITY" "$APP"
   codesign --verify --deep --strict --verbose=2 "$APP"
+elif [[ "$STAGE_RELEASE" != "--stage-release" ]] &&
+     security find-certificate -c "$LOCAL_IDENTITY" >/dev/null 2>&1; then
+  # A local build signed by the owner's self-signed certificate: its designated
+  # requirement names that certificate, not the binary's hash, so macOS keeps
+  # the audio-capture and Automation grants across rebuilds. Releases stay
+  # ad-hoc; to Gatekeeper this signature is no better than ad-hoc.
+  echo "==> codesign ($LOCAL_IDENTITY, local build)"
+  codesign --force --deep --sign "$LOCAL_IDENTITY" "$APP"
 else
   echo "==> codesign (ad-hoc — Gatekeeper will reject this build)"
   codesign --force --deep --sign - "$APP"
