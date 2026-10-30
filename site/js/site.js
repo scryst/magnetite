@@ -1,6 +1,5 @@
-// The film's two buttons, the dock, and the download on a phone.
-// The film plays muted while it is on screen; Reduce Motion holds its first
-// frame until someone presses Play. Sound is offered, never assumed.
+// The film plays muted while on screen; Reduce Motion holds its first frame
+// until Play is pressed. Sound is offered, never assumed.
 const video = document.querySelector('[data-demo]');
 const play = document.querySelector('[data-demo-play]');
 const sound = document.querySelector('[data-demo-sound]');
@@ -11,7 +10,7 @@ let wanted = !still.matches;
 let seen = false;
 
 function sync() {
-  // With sound on the film is the soundtrack, so it keeps playing off screen.
+  // With sound on, the film plays on off screen.
   if (wanted && (seen || !video.muted)) video.play().catch(() => { wanted = false; label(); });
   else video.pause();
   label();
@@ -40,24 +39,25 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); });
 label();
 
-// The light and the screen's desktop take the film's song; magnetite.css fades was to on.
+// The light and the desktop take the film's song (magnetite.css fades was to on),
+// once the scroll rests: a change mid-scroll made a phone's page judder.
 const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
-let shown = 'pop';
+let shown = 'pop', moved = 0;
 video.addEventListener('timeupdate', () => {
   const song = songs.find(([end]) => video.currentTime < end)[1];
-  if (song === shown) return;
+  if (song === shown || performance.now() - moved < 400) return;
   for (const i of document.querySelectorAll('[data-glow] i')) i.className = i.dataset.for === song ? 'on' : i.dataset.for === shown ? 'was' : '';
   shown = song;
 });
 
-// The clips under the film play only while on screen, and never under Reduce Motion.
+// The clips play only on screen, and never under Reduce Motion.
 const clips = new IntersectionObserver((entries) => {
   for (const e of entries) e.isIntersecting && !still.matches ? e.target.play().catch(() => {}) : e.target.pause();
 }, { threshold: 0.4 });
 for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip);
 
-// The dock shows once no Download button can be seen. The hero's stays inside
-// the window while the film holds it, faded out, so a faded one does not count.
+// The dock shows once no Download button is seen. The hero's stays in the window,
+// faded out, while the film holds it, so a faded one does not count.
 const dock = document.querySelector('[data-dock]');
 const downloads = [...document.querySelectorAll('[data-download]')];
 const inSight = (b) => {
@@ -67,7 +67,7 @@ const inSight = (b) => {
 };
 let due = 0;
 const dockSync = () => { due = 0; dock.toggleAttribute('data-shown', !downloads.some(inSight)); };
-const later = () => { due ||= setTimeout(dockSync, 120); };
+const later = () => { moved = performance.now(); due ||= setTimeout(dockSync, 120); };
 addEventListener('scroll', later, { passive: true });
 addEventListener('resize', later);
 dockSync();
