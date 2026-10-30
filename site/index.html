@@ -137,14 +137,20 @@
 
       <!-- The MacBook is drawn; the player on its screen is a screen recording of the
            running app, filmed by tools/notchtake (docs/media/README.md). The recording
-           holds only the player, so the rest of the screen is left dark. -->
+           holds only the player; the rest of the screen is lit in the song's color. -->
       <div class="mac" data-render-check-allow="spills">
         <div class="mac__lid">
           <span class="mac__edge mac__edge--top" aria-hidden="true"></span>
           <span class="mac__edge mac__edge--left" aria-hidden="true"></span>
           <span class="mac__edge mac__edge--right" aria-hidden="true"></span>
           <span class="mac__back" aria-hidden="true"></span>
-          <div class="mac__screen">
+          <div class="mac__screen" data-render-check-allow="clipped">
+            <!-- The desktop under the player: the same light as behind the MacBook,
+                 rising from the screen's foot so the recording's black meets black.
+                 The light is wider than the screen on purpose; the screen clips it. -->
+            <span class="mac__wall" data-glow data-song="pop" aria-hidden="true">
+              <i data-for="pop"></i><i data-for="sunsetz"></i><i data-for="artdeco"></i><i data-for="hush"></i>
+            </span>
             <video class="mac__film" data-demo muted loop playsinline autoplay preload="metadata"
                    width="800" height="512" poster="media/demo-poster.webp" aria-describedby="demo-description">
               <source src="media/demo.mp4" type="video/mp4">
@@ -193,8 +199,8 @@
     </div>
   </section>
 
-  <!-- What it does, shown in clips cut from the same recording as the film
-       (test/bake-glow.py has the cuts). Every line is a shipped feature or a real
+  <!-- What it does, shown in clips filmed for each section from the running app,
+       each a crossfade loop (test/bake-glow.py has the glow stills). Every line is a shipped feature or a real
        limit (APP.md, README.md, the M menu). -->
   <section class="tour" id="features" aria-labelledby="tour-title">
     <h2 class="tour__title" id="tour-title">What’s in Magnetite</h2>
@@ -230,7 +236,7 @@
       <li>Favorites in Apple Music; likes, shuffle and repeat in Spotify</li>
       <li>Volume and brightness shown in the notch</li>
       <li>A floating pill on displays without a notch</li>
-      <li>Hides for fullscreen apps and the lock screen</li>
+      <li>Hides on the lock screen and over detected fullscreen apps</li>
     </ul>
   </section>
 
