@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open an app from an unidentified developer on Mac — Magnetite</title>
+<meta name="description" content="Click Open Anyway in System Settings, Privacy &amp; Security, after macOS blocks Magnetite. You do this once. Free, macOS 26 on Apple silicon.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://magnetite.app/open-unidentified-developer-mac.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Magnetite">
+<meta property="og:title" content="Open an app from an unidentified developer on Mac — Magnetite">
+<meta property="og:description" content="Click Open Anyway in System Settings, Privacy &amp; Security, after macOS blocks Magnetite. You do this once. Free, macOS 26 on Apple silicon.">
+<meta property="og:url" content="https://magnetite.app/open-unidentified-developer-mac.html">
+<meta property="og:image" content="https://magnetite.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Magnetite's player open under a MacBook notch, with black ferrofluid around the notch.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Open an app from an unidentified developer on Mac — Magnetite">
+<meta name="twitter:description" content="Click Open Anyway in System Settings, Privacy &amp; Security, after macOS blocks Magnetite. You do this once. Free, macOS 26 on Apple silicon.">
+<meta name="twitter:image" content="https://magnetite.app/og.png">
+<meta name="twitter:image:alt" content="Magnetite's player open under a MacBook notch, with black ferrofluid around the notch.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Open an app from an unidentified developer on Mac",
+  "url": "https://magnetite.app/open-unidentified-developer-mac.html",
+  "description": "Click Open Anyway in System Settings, Privacy & Security, after macOS blocks Magnetite. You do this once. Free, macOS 26 on Apple silicon.",
+  "datePublished": "2026-10-31",
+  "about": { "@type": "SoftwareApplication", "name": "Magnetite", "url": "https://magnetite.app/" }
+}
+</script>
+<link rel="stylesheet" href="css/type.css">
+<link rel="stylesheet" href="css/legal.css">
+</head>
+<body>
+<main class="legal" data-guide>
+  <a class="legal__home" href="./"><img src="favicon.svg" alt="" width="22" height="22">Magnetite</a>
+  <h1>Open an app from an unidentified developer on Mac</h1>
+  <p class="legal__date">Updated 31 October 2026</p>
+
+  <p class="legal__lede">To open Magnetite on a Mac that blocks it, click Done on the warning, then open System Settings, go to Privacy &amp; Security and click Open Anyway. You do this once. Magnetite is not notarized by Apple, which is why macOS stops the first launch. It needs macOS 26 on Apple silicon. <a href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.14/Magnetite-0.1.14.zip" rel="external">Download Magnetite v0.1.14</a>, a 758 KB ZIP.</p>
+
+  <h2>The steps</h2>
+  <ol>
+    <li>Open the ZIP, drag Magnetite to Applications, and double-click it.</li>
+    <li>macOS says “Magnetite.app” was blocked to protect your Mac. Click Done.</li>
+    <li>Open System Settings, go to Privacy &amp; Security, scroll to Security, and click Open Anyway next to “Magnetite.app”.</li>
+    <li>Play something, hover the notch, and allow the two prompts: Automation, and Screen &amp; System Audio Recording.</li>
+  </ol>
+
+  <figure>
+    <video controls playsinline preload="none" width="1040" height="796" poster="media/gatekeeper-poster.webp" aria-describedby="gatekeeper-caption">
+      <source src="media/gatekeeper.mp4" type="video/mp4">
+    </video>
+    <figcaption id="gatekeeper-caption">Steps 2 and 3, as they look on a Mac.</figcaption>
+  </figure>
+
+  <h2>Why macOS stops it</h2>
+  <p>Magnetite is ad-hoc signed and not notarized by Apple, so macOS can’t verify it. The source is on GitHub under the MIT license, and every release has a SHA-256 checksum. Compare the ZIP’s checksum with the <code data-render-check-ignore>.sha256</code> file on the <a href="https://github.com/scryst/magnetite-releases/releases" rel="external">releases page</a> before you open it.</p>
+
+  <h2>Other apps</h2>
+  <p>The same Privacy &amp; Security button appears for other apps that macOS blocks this way. If Open Anyway isn’t there, try opening the app once more and check again.</p>
+
+  <nav aria-label="Related guides">
+    <p>Related guides</p>
+    <ul>
+      <li><a href="music-player-macbook-notch.html">Music player in the MacBook notch</a></li>
+      <li><a href="spotify-apple-music-controls-notch.html">Control Spotify or Apple Music from the notch</a></li>
+      <li><a href="lyrics-macbook-notch.html">Synced lyrics in the MacBook notch</a></li>
+    </ul>
+  </nav>
+
+  <p class="legal__foot">
+    <a href="./">Magnetite</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="terms.html">Terms</a>
+  </p>
+</main>
+</body>
+</html>

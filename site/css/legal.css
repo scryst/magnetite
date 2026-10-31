@@ -63,6 +63,16 @@ code {
   font-size: 14px;
 }
 
+/* The guides: the answer leads, then a still or clip in the column with its caption, then the steps. */
+.legal__lede { font-size: 19px; line-height: 1.5; }
+.legal ol { margin: 0 0 18px; padding-left: 1.4em; }
+.legal li + li { margin-top: 6px; }
+.legal figure { margin: 32px 0; background: var(--paper); }
+.legal figure img, .legal figure video { display: block; width: 100%; height: auto; border-radius: 12px; }
+.legal figcaption { margin-top: 10px; color: var(--ink-soft); font-size: 15px; }
+.legal nav { margin-top: 40px; background: var(--paper); }
+.legal nav p { margin-bottom: 8px; color: var(--ink-soft); font-size: 15px; }
+
 @media (max-width: 480px) {
   .legal { width: min(calc(100% - 32px), 35em); padding-top: 40px; }
 }

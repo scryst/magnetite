@@ -57,6 +57,20 @@ const textOf = (tag) => {
   return html.slice(tag.at, close).replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 };
 
+// Every page a visitor or a crawler can open, read off the folder, so a new page
+// is held to these checks with no list to forget. A guide marks itself with
+// data-guide on its <main>.
+const pageFiles = () => readdirSync(site).filter((f) => f.endsWith('.html')).sort();
+const pageText = (f) => read(f);
+const guideFiles = () => pageFiles().filter((f) => pageText(f).includes('<main class="legal" data-guide>'));
+// The pages a search engine may index: every page but the noindex 404.
+const indexable = () => pageFiles().filter((f) => !/<meta name="robots" content="noindex"/.test(pageText(f)));
+const canonicalOf = (text) => text.match(/<link rel="canonical" href="([^"]*)"/)?.[1];
+// A <meta> by its property or its name.
+const meta = (text, key) => text.match(new RegExp(`<meta (?:property|name)="${key}" content="([^"]*)"`))?.[1];
+const attrsOf = (str) => Object.fromEntries([...str.matchAll(/([\w:-]+)(?:="([^"]*)")?/g)].map((a) => [a[1], a[2] ?? '']));
+const ldBlocks = (text) => [...text.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+
 const CHECKS = {
   // The page, the app and the installer name one release. 0.1.10 shipped with
   // the page still offering 0.1.9 for a day.
@@ -64,8 +78,12 @@ const CHECKS = {
     const out = [];
     if (!pinned || !pinSha) out.push('install.sh has no PIN_VERSION/PIN_SHA256');
     if (appVersion !== pinned) out.push(`Info.plist says ${appVersion}, install.sh pins ${pinned}`);
-    const versions = new Set([...html.matchAll(/\bv?(\d+\.\d+\.\d+)\b/g)].map((m) => m[1]));
-    for (const v of versions) if (v !== pinned) out.push(`index.html mentions ${v}, install.sh pins ${pinned}`);
+    // Every page, not only the product page: a guide that names an old release is the same lie.
+    for (const f of pageFiles()) {
+      for (const v of new Set([...pageText(f).matchAll(/\bv?(\d+\.\d+\.\d+)\b/g)].map((m) => m[1]))) {
+        if (v !== pinned) out.push(`${f} mentions ${v}, install.sh pins ${pinned}`);
+      }
+    }
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
     if (ld.softwareVersion !== pinned) out.push(`structured data says ${ld.softwareVersion}`);
     if (ld.downloadUrl !== releaseZip) out.push(`structured data downloads ${ld.downloadUrl}`);
@@ -88,8 +106,10 @@ const CHECKS = {
     const sidecar = read(`downloads/Magnetite-${pinned}.sha256`).trim();
     if (sidecar !== `${pinSha}  Magnetite-${pinned}.zip`) out.push(`the .sha256 file says "${sidecar}"`);
     const kb = `${Math.round(bytes.length / 1000)} KB`;
-    for (const m of html.matchAll(/(\d+(?:\.\d+)?) ?([KM]B)\b/g)) {
-      if (`${m[1]} ${m[2]}` !== kb) out.push(`the page says ${m[1]} ${m[2]}, the zip is ${kb}`);
+    for (const f of [...pageFiles(), 'llms.txt']) {
+      for (const m of pageText(f).matchAll(/(\d+(?:\.\d+)?) ?([KM]B)\b/g)) {
+        if (`${m[1]} ${m[2]}` !== kb) out.push(`${f} says ${m[1]} ${m[2]}, the zip is ${kb}`);
+      }
     }
     if (!html.includes(kb)) out.push(`the page never states the download size (${kb})`);
     return out;
@@ -286,7 +306,7 @@ const CHECKS = {
   spelling() {
     const out = [];
     const uk = /\b(licence|colour\w*|favourite\w*|notaris\w*|organis\w*|visualis\w*|authoris\w*|normalis\w*|programme|centre[sd]?|behaviour\w*|catalogue|grey)\b/gi; // us-spelling: ok
-    for (const page of ['index.html', 'privacy.html', 'terms.html', 'llms.txt']) {
+    for (const page of [...pageFiles(), 'llms.txt']) {
       const text = read(page).replace(/https?:\/\/\S+/g, '');
       for (const m of text.matchAll(uk)) out.push(`${page} says "${m[0]}"; write US English`);
     }
@@ -486,7 +506,7 @@ const CHECKS = {
     else if (!/^Magnetite$/.test(textOf(brand))) out.push(`the brand link reads "${textOf(brand)}", not Magnetite`);
     const dock = tags.find((t) => 'data-dock' in t.attrs);
     if (!dock || !/Magnetite/.test(textOf(dock))) out.push('the dock does not name Magnetite');
-    for (const page of ['privacy.html', 'terms.html']) {
+    for (const page of pageFiles().filter((f) => f !== 'index.html')) {
       if (!/class="legal__home"[^>]*>(?:<img[^>]*>)?Magnetite</.test(read(page))) out.push(`${page} has no Magnetite link home`);
     }
     return out;
@@ -506,7 +526,7 @@ const CHECKS = {
   // test/ and downloads/, so a link into either is a 404 in production.
   links() {
     const out = [];
-    for (const page of ['index.html', 'privacy.html', 'terms.html']) {
+    for (const page of pageFiles()) {
       const text = read(page);
       for (const m of text.matchAll(/\b(?:href|src|poster)="([^"#:]+?)(?:#[^"]*)?"/g)) {
         const path = m[1];
@@ -523,6 +543,161 @@ const CHECKS = {
       const used = [html, read('llms.txt'), css, js].some((t) => t.includes(`media/${file}`))
         || (kind && js.includes(`media/${kind}-\${song}.webp`) && js.includes(`'${song}']`));
       if (!used) out.push(`media/${file} ships but nothing uses it`);
+    }
+    return out;
+  },
+
+  // Every page a search result can open names its own address: a canonical, the
+  // same address in og:url, and a share card, so a link pasted anywhere shows the
+  // page it points to. The noindex 404 is the one page left out.
+  share() {
+    const out = [];
+    for (const f of indexable()) {
+      const text = pageText(f);
+      const canon = canonicalOf(text);
+      const want = f === 'index.html' ? 'https://magnetite.app/' : `https://magnetite.app/${f}`;
+      if (canon !== want) out.push(`${f} canonical is ${canon}, want ${want}`);
+      for (const key of ['og:title', 'og:description', 'og:url', 'og:image', 'og:image:alt', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']) {
+        if (meta(text, key) === undefined) out.push(`${f} has no ${key}`);
+      }
+      if (meta(text, 'og:url') !== canon) out.push(`${f} og:url is not its canonical`);
+      const image = meta(text, 'og:image')?.replace('https://magnetite.app/', '');
+      if (!image || !existsSync(join(site, image))) out.push(`${f} og:image ${image} is not a file`);
+    }
+    return out;
+  },
+
+  // A guide answers its query in its first paragraph, with the requirement and the
+  // download, so a search click lands on the answer and on the way to the app. It is
+  // a page of its own: a title that names the product, a description of search length,
+  // and an entry in the sitemap and llms.txt. Its clips wait for a press (a guide has
+  // no script to hold a clip to the screen), and every picture is described and sized.
+  guides() {
+    const out = [];
+    const sitemap = read('sitemap.xml');
+    const llms = read('llms.txt');
+    for (const f of guideFiles()) {
+      const text = pageText(f);
+      const url = `https://magnetite.app/${f}`;
+      if (canonicalOf(text) !== url) out.push(`${f} canonical is ${canonicalOf(text)}, want ${url}`);
+      if (!sitemap.includes(`<loc>${url}</loc>`)) out.push(`${f} is not in sitemap.xml`);
+      if (!llms.includes(`(${url})`)) out.push(`${f} is not in llms.txt`);
+      if (meta(text, 'robots') !== 'index, follow') out.push(`${f} is not marked index, follow`);
+      const title = text.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+      if (!/ — Magnetite$/.test(title) || title.length > 70) out.push(`${f} title "${title}" must end "— Magnetite" and stay under 70 characters`);
+      const desc = meta(text, 'description') ?? '';
+      if (desc.length < 60 || desc.length > 165) out.push(`${f} description is ${desc.length} characters, want 60 to 165`);
+      if ((text.match(/<h1\b/g) ?? []).length !== 1) out.push(`${f} needs exactly one h1`);
+      const lede = text.match(/<p class="legal__lede">([\s\S]*?)<\/p>/);
+      if (!lede) out.push(`${f} has no answer paragraph (p.legal__lede)`);
+      else {
+        if (lede.index > text.indexOf('<h2')) out.push(`${f}'s answer comes after its first heading`);
+        if (!lede[1].includes(releaseZip)) out.push(`${f}'s answer does not link the pinned release ZIP`);
+        for (const need of ['macOS 26', 'Apple silicon']) if (!lede[1].includes(need)) out.push(`${f}'s answer does not say ${need}`);
+      }
+      const clips = [...text.matchAll(/<video\b([^>]*)>\s*<source src="([^"]+)"/g)];
+      if (clips.length !== (text.match(/<video\b/g) ?? []).length) out.push(`${f} has a video with no source line this check reads`);
+      for (const [, tagAttrs, src] of clips) {
+        const a = attrsOf(tagAttrs);
+        if ('autoplay' in a) out.push(`${f}'s ${src} autoplays; a guide has no script to hold it to the screen`);
+        if (a.preload !== 'none') out.push(`${f}'s ${src} preloads (${a.preload ?? 'default'}); want none`);
+        if (!('controls' in a)) out.push(`${f}'s ${src} has no controls to press`);
+        for (const id of (a['aria-describedby'] ?? '').split(/\s+/).filter(Boolean)) {
+          if (!text.includes(`id="${id}"`)) out.push(`${f}'s ${src} is described by #${id}, which is not on the page`);
+        }
+        if (!existsSync(join(site, src))) { out.push(`${f}'s ${src} is not a file`); continue; }
+        const [codec, fw, fh] = mp4Video(readFileSync(join(site, src)));
+        if (codec !== 'h264') out.push(`${src} is ${codec}, not h264`);
+        if (`${fw}×${fh}` !== `${a.width}×${a.height}`) out.push(`${src} is ${fw}×${fh}, its tag says ${a.width}×${a.height}`);
+        const [pw, ph] = webpSize(readFileSync(join(site, a.poster ?? '')));
+        if (`${pw}×${ph}` !== `${fw}×${fh}`) out.push(`${src}'s poster is ${pw}×${ph}, the film ${fw}×${fh}`);
+      }
+      for (const m of text.matchAll(/<img\b([^>]*)>/g)) {
+        const a = attrsOf(m[1]);
+        if (!('alt' in a)) out.push(`${f} has an image with no alt`);
+        if (a.src === 'favicon.svg') continue; // the 22 px mark beside the name is decoration
+        if (!a.alt) out.push(`${f}'s ${a.src} has an empty alt; describe the picture`);
+        if (a.loading !== 'lazy') out.push(`${f}'s ${a.src} is not loading="lazy"`);
+        if (!existsSync(join(site, a.src ?? ''))) { out.push(`${f} shows ${a.src}, which is not a file`); continue; }
+        const [w, h] = webpSize(readFileSync(join(site, a.src)));
+        if (`${w}×${h}` !== `${a.width}×${a.height}`) out.push(`${a.src} is ${w}×${h}, its tag says ${a.width}×${a.height}`);
+      }
+      const page = ldBlocks(text).find((b) => b['@type'] === 'WebPage');
+      if (!page || page.url !== url) out.push(`${f} has no WebPage structured data for its own address`);
+    }
+    return out;
+  },
+
+  // The product's publisher is a named organization the structured data can point
+  // to, with a logo that is a file on the site: the poured-M icon, not a stock image.
+  organization() {
+    const out = [];
+    const blocks = ldBlocks(html);
+    const org = blocks.find((b) => b['@type'] === 'Organization');
+    const app = blocks.find((b) => b['@type'] === 'SoftwareApplication');
+    if (!org) return ['index.html has no Organization structured data'];
+    if (!org.name) out.push('the Organization has no name');
+    const logo = org.logo?.replace('https://magnetite.app/', '');
+    if (!logo || !existsSync(join(site, logo))) out.push(`the Organization logo ${org.logo} is not a file`);
+    if (!org['@id'] || app?.publisher?.['@id'] !== org['@id']) out.push('the SoftwareApplication does not name the Organization as its publisher');
+    return out;
+  },
+
+  // The sitemap lists every page a search engine may index and nothing else: each
+  // entry is a file that ships, and each indexable file is listed.
+  sitemap() {
+    const out = [];
+    const locs = [...read('sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const want = indexable().map((f) => (f === 'index.html' ? 'https://magnetite.app/' : `https://magnetite.app/${f}`));
+    for (const w of want) if (!locs.includes(w)) out.push(`${w} is not in sitemap.xml`);
+    for (const l of locs) {
+      const file = l.replace('https://magnetite.app/', '') || 'index.html';
+      if (!existsSync(join(site, file))) out.push(`sitemap.xml lists ${l}, which is not a file`);
+      else if (!want.includes(l)) out.push(`sitemap.xml lists ${l}, which is noindex`);
+    }
+    return out;
+  },
+
+  // Crawlers are told where the sitemap is, and no rule keeps them from a page that
+  // should be found.
+  robots() {
+    const out = [];
+    const txt = read('robots.txt');
+    if (!/^Sitemap: https:\/\/magnetite\.app\/sitemap\.xml$/m.test(txt)) out.push('robots.txt does not name the sitemap');
+    const disallow = [...txt.matchAll(/^Disallow: (\S+)$/gm)].map((m) => m[1]);
+    for (const f of indexable()) for (const d of disallow) if (`/${f}`.startsWith(d)) out.push(`robots.txt disallows /${f} (${d})`);
+    return out;
+  },
+
+  // No ruled hairlines: the full-width rules are a standing rejection. Sections are
+  // set apart by space, so no stylesheet draws a border and no page has an <hr>.
+  hairline() {
+    const out = [];
+    for (const name of ['css/magnetite.css', 'css/legal.css']) {
+      const bare = read(name).replace(/\/\*[\s\S]*?\*\//g, '');
+      if (/border-(top|bottom|block)\b/.test(bare)) out.push(`${name} draws a border-top, border-bottom or border-block rule`);
+    }
+    for (const f of pageFiles()) if (/<hr\b/.test(pageText(f))) out.push(`${f} has an <hr>, a ruled line`);
+    return out;
+  },
+
+  // Pictures and clips load when they are needed. Every picture bigger than the 22 px
+  // mark is lazy, and every clip waits for a press or for the page's script to see it.
+  // The one exception is the hero film, which is the first picture and is checked by demo().
+  lazy() {
+    const out = [];
+    for (const f of pageFiles()) {
+      const text = pageText(f);
+      for (const m of text.matchAll(/<img\b([^>]*)>/g)) {
+        const a = attrsOf(m[1]);
+        if (Number(a.width ?? 0) > 32 && a.loading !== 'lazy') out.push(`${f}'s ${a.src} is ${a.width} px and not loading="lazy"`);
+      }
+      for (const m of text.matchAll(/<video\b([^>]*)>/g)) {
+        const a = attrsOf(m[1]);
+        if ('data-demo' in a) continue;
+        if ('autoplay' in a) out.push(`${f} has a clip (${a.poster}) that autoplays`);
+        if (a.preload !== 'none') out.push(`${f} has a clip (${a.poster}) with preload ${a.preload ?? 'default'}; want none`);
+      }
     }
     return out;
   },

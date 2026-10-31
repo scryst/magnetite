@@ -17,6 +17,13 @@ The download button links to the release ZIP on GitHub. The app is ad-hoc signed
 - [Film](https://magnetite.app/media/demo.mp4): The open panel with scrolling lyrics and its ferrofluid, playing four songs from Spotify.
 - [Installer source](https://github.com/scryst/magnetite/blob/main/install.sh): The script behind the Terminal install.
 
+## Guides
+
+- [Music player in the MacBook notch](https://magnetite.app/music-player-macbook-notch.html): How the notch player opens, what it controls and what it needs.
+- [Control Spotify or Apple Music from the notch](https://magnetite.app/spotify-apple-music-controls-notch.html): The controls that work from the notch, and the Spotify developer app that likes, shuffle and repeat need.
+- [Synced lyrics in the MacBook notch](https://magnetite.app/lyrics-macbook-notch.html): Lyrics from LRCLIB under the controls, and how to turn them off.
+- [Open an app from an unidentified developer on Mac](https://magnetite.app/open-unidentified-developer-mac.html): Open Anyway in System Settings, Privacy & Security, step by step, for Magnetite's ZIP.
+
 ## Trust
 
 - [Privacy](https://magnetite.app/privacy.html): Audio, Spotify credentials, lyrics lookups, website hosting and aggregate counts.
