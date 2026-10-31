@@ -596,6 +596,10 @@ body::after {
 }
 .first li b { color: var(--ink); }
 .first__once { margin: 24px 0 0 48px; color: var(--ink-soft); font-size: 15px; }
+/* Steps 2 and 3 filmed, across both columns so the notice and the Settings pane can be read. */
+.first__film { grid-column: 1 / -1; justify-self: center; width: 100%; max-width: 880px; margin: 0; }
+.first__film figcaption { margin: 0 0 14px; color: var(--ink-soft); font-size: 15px; }
+.first__film video { display: block; width: 100%; height: auto; border-radius: 14px; background: #000; box-shadow: 0 0 0 1px rgb(242 240 235 / 0.12); }
 
 /* Questions, all open: nothing to click to read an answer. */
 .faq { width: var(--col); margin: var(--gap) auto 0; scroll-margin-top: 40px; }
