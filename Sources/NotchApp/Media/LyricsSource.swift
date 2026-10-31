@@ -3,7 +3,9 @@ import CryptoKit
 
 /// Synced lyrics from LRCLIB (lrclib.net): free, keyless and answering for Spotify and
 /// Music alike by title, artist, album and length, so nobody signs in to anything.
-/// Spotify's own lyrics endpoint is private.
+/// Spotify's own lyrics endpoint is private. NetEase Cloud Music, also keyless, is
+/// asked only when LRCLIB has no synced record or cannot answer, so a day of LRCLIB
+/// outage (502 on every request, 2026-10-31) no longer empties the stage.
 ///
 /// Every answer is kept on disk under Application Support, so a song is asked about
 /// once. A definite "none" is kept for a few days, since LRCLIB grows; a failed request
@@ -22,12 +24,23 @@ enum LyricsSource {
     }
 
     private static let base = URL(string: "https://lrclib.net/api/")!
+    private static let netEase = URL(string: "https://music.163.com/api/")!
     /// LRCLIB asks clients to name themselves.
     private static let agent: String = {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         return "Magnetite \(v) (https://magnetite.app)"
     }()
     private static let missKeptFor: TimeInterval = 3 * 86_400
+    /// No cookies either way. NetEase's first reply sets one (NMTID), and every search
+    /// sent with it answers unrelated songs, so only the first track of a session found
+    /// its words.
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieAcceptPolicy = .never
+        config.httpShouldSetCookies = false
+        config.httpCookieStorage = nil
+        return URLSession(configuration: config)
+    }()
 
     static var folder: URL {
         URL.applicationSupportDirectory
@@ -61,6 +74,14 @@ enum LyricsSource {
     /// `.some(nil)` is a definite miss; `nil` is a failed question.
     private static func fetch(title: String, artist: String, album: String,
                               duration: Double) async -> LyricsRecord?? {
+        let first = await lrclib(title: title, artist: artist, album: album, duration: duration)
+        if case .some(.some) = first { return first }
+        let second = await netEaseLyrics(title: title, artist: artist, album: album, duration: duration)
+        return LyricsRecord.either(first, second)
+    }
+
+    private static func lrclib(title: String, artist: String, album: String,
+                               duration: Double) async -> LyricsRecord?? {
         // The exact lookup first. It answers 404, or 503 when its upstream sources miss,
         // so any failure here falls through to the search, which is the definite answer.
         var items = [URLQueryItem(name: "track_name", value: title),
@@ -92,18 +113,47 @@ enum LyricsSource {
         return settled ? .some(nil) : nil
     }
 
-    /// One request, asked again once after a short wait when LRCLIB is busy or the
+    /// NetEase searches free text, so each title is asked with the first artist and the
+    /// answers are held to that artist and the track's length before any words are
+    /// fetched. Two candidates at most: past those the search is guessing.
+    private static func netEaseLyrics(title: String, artist: String, album: String,
+                                      duration: Double) async -> LyricsRecord?? {
+        for name in LyricsRecord.searchTitles(title) {
+            let query = [URLQueryItem(name: "s", value: "\(name) \(LyricsRecord.searchArtist(artist))"),
+                         URLQueryItem(name: "type", value: "1"),
+                         URLQueryItem(name: "limit", value: "30")]
+            guard let (data, status) = await get("search/get", query, from: netEase), status == 200,
+                  let songs = NetEaseLyrics.songs(fromSearch: data) else { return nil }
+            let picks = NetEaseLyrics.candidates(songs, artist: artist, duration: duration,
+                                                 album: album, title: title)
+            for song in picks.prefix(2) {
+                let ask = [URLQueryItem(name: "id", value: String(song.id)),
+                           URLQueryItem(name: "lv", value: "1")]
+                guard let (data, status) = await get("song/lyric", ask, from: netEase), status == 200,
+                      let words = NetEaseLyrics.lyric(from: data) else { return nil }
+                guard words.instrumental || words.synced != nil else { continue }
+                var record = song.record
+                record.instrumental = words.instrumental
+                record.syncedLyrics = words.synced
+                return .some(record)
+            }
+        }
+        return .some(nil)
+    }
+
+    /// One request, asked again once after a short wait when the server is busy or the
     /// connection dropped (a Mac just off sleep fails its first). A timeout is not
     /// repeated here: the caller asks again later.
-    private static func get(_ path: String, _ items: [URLQueryItem]) async -> (Data, Int)? {
-        var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false)!
+    private static func get(_ path: String, _ items: [URLQueryItem],
+                            from root: URL = base) async -> (Data, Int)? {
+        var components = URLComponents(url: root.appending(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = items
         guard let url = components.url else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 8)
         request.setValue(agent, forHTTPHeaderField: "User-Agent")
         for attempt in 0..<2 {
             do {
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await session.data(for: request)
                 guard let http = response as? HTTPURLResponse else { return nil }
                 if attempt == 0, LyricsRecord.isBusy(status: http.statusCode) {
                     try await Task.sleep(for: .seconds(1.5))
@@ -122,7 +172,7 @@ enum LyricsSource {
                                   duration: Double) -> URL {
         // The leading tag changes whenever lookup improves, so misses cached by an
         // older build are asked again instead of waiting out their three days.
-        let key = ["v3", title, artist, album, String(Int(duration.rounded()))]
+        let key = ["v4", title, artist, album, String(Int(duration.rounded()))]
             .map(LyricsRecord.fold).joined(separator: "\u{1}")
         let digest = SHA256.hash(data: Data(key.utf8)).prefix(16)
             .map { String(format: "%02x", $0) }.joined()

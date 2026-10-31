@@ -42,7 +42,7 @@
   <h1>Synced lyrics in the MacBook notch</h1>
   <p class="legal__date">Updated 31 October 2026</p>
 
-  <p class="legal__lede">Magnetite shows time-synced lyrics for the song that is playing, under the controls in the MacBook notch. The lyrics come from LRCLIB, a free public lyrics database. You can turn them off. The app needs macOS 26 on Apple silicon. <a href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.14/Magnetite-0.1.14.zip" rel="external">Download Magnetite v0.1.14</a>, a 758 KB ZIP.</p>
+  <p class="legal__lede">Magnetite shows time-synced lyrics for the song that is playing, under the controls in the MacBook notch. The lyrics come from LRCLIB, a free public lyrics database, or from NetEase Cloud Music when LRCLIB doesn’t have them. You can turn them off. The app needs macOS 26 on Apple silicon. <a href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.15/Magnetite-0.1.15.zip" rel="external">Download Magnetite v0.1.15</a>, a 783 KB ZIP.</p>
 
   <figure>
     <video controls playsinline preload="none" width="800" height="512" poster="media/lyrics-poster.webp" aria-describedby="lyrics-caption">
@@ -55,7 +55,7 @@
   <p>Lyrics scroll under the controls in the open player, in time with the song. The folded strip doesn’t show them. It keeps the cover, the elapsed time and the liquid.</p>
 
   <h2>Where they come from</h2>
-  <p>Magnetite looks up the current track’s title, artist, album and length on LRCLIB (lrclib.net). It keeps each answer in its Application Support folder, so a song is looked up once. No account and no identifier is sent.</p>
+  <p>Magnetite looks up the current track’s title, artist, album and length on LRCLIB (lrclib.net). When LRCLIB has no synced lyrics for the song or is down, it asks NetEase Cloud Music (music.163.com) for the same title and artist. It keeps each answer in its Application Support folder, so a song is looked up once. No account and no identifier is sent.</p>
 
   <h2>Turn them off</h2>
   <p>Lyrics is a setting under Player in the M menu. Turn it off and Magnetite makes no lookups.</p>

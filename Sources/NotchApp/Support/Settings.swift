@@ -176,7 +176,7 @@ final class Settings {
         get { access(keyPath: \.showsMiniPlayer); return _showsMiniPlayer }
         set { withMutation(keyPath: \.showsMiniPlayer) { _showsMiniPlayer = newValue } }
     }
-    /// Time-synced lyrics under the open player, for songs LRCLIB has them for.
+    /// Time-synced lyrics under the open player, for songs LRCLIB or NetEase has them for.
     var showsLyrics: Bool {
         get { access(keyPath: \.showsLyrics); return _showsLyrics }
         set { withMutation(keyPath: \.showsLyrics) { _showsLyrics = newValue } }

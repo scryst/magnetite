@@ -1,7 +1,8 @@
 import Foundation
 
-/// Headless checks for synced lyrics: LRC parsing, the line at a position and the
-/// choice between LRCLIB's records. Pure data, so no network or player is involved.
+/// Headless checks for synced lyrics: LRC parsing, the line at a position, the choice
+/// between LRCLIB's records and the NetEase fallback. Pure data, so no network or
+/// player is involved.
 @main
 enum LyricsCheck {
     static var failures = 0
@@ -20,6 +21,8 @@ enum LyricsCheck {
         aDecoratedVersionIsAskedForByItsWholeName()
         onlyRealAnswersAreKept()
         creditsAndLabelsAreNotSung()
+        aDownLRCLIBFallsBackToNetEase()
+        netEaseIsHeldToTheArtistAndLength()
         if failures > 0 { exit(1) }
         print("lyricscheck: all checks passed")
     }
@@ -197,5 +200,72 @@ enum LyricsCheck {
                 "credits and labels go, a sung aside stays: \(l.lines.map(\.text))")
         require(SyncedLyrics.isCredit("{Synced by KPopLRCFiles}"), "a braced line is never sung, address or not")
         require(!SyncedLyrics.isCredit("Music by the sea"), "a sung line that starts like a credit stays")
+    }
+
+    /// 2026-10-31 LRCLIB's API answered 502 to every request all day, and with it as
+    /// the only source no song showed lyrics. A failed LRCLIB question now goes to
+    /// NetEase, and only two misses are kept as a miss.
+    static func aDownLRCLIBFallsBackToNetEase() {
+        let found = LyricsRecord(trackName: "T", artistName: "A", albumName: "B", duration: 138,
+                                 instrumental: false, syncedLyrics: "[00:09.08]Moon")
+        let failed: LyricsRecord?? = nil, missed: LyricsRecord?? = .some(nil)
+        require(LyricsRecord.either(failed, .some(found)) == .some(found),
+                "LRCLIB down: NetEase's words must show")
+        require(LyricsRecord.either(missed, .some(found)) == .some(found),
+                "LRCLIB without the song: NetEase's words must show")
+        require(LyricsRecord.either(.some(found), failed) == .some(found), "LRCLIB's record comes first")
+        require(LyricsRecord.either(missed, missed) == .some(nil), "two misses are a miss to keep")
+        require(LyricsRecord.either(failed, missed) == nil && LyricsRecord.either(missed, failed) == nil,
+                "a miss beside a failure is asked again, not kept for three days")
+
+        // The reply shapes music.163.com gave for Mitski's "My Love Mine All Mine".
+        let search = Data(#"""
+            {"result":{"songs":[
+              {"id":2082156813,"name":"My Love Mine All Mine","artists":[{"id":1,"name":"Mitski"}],
+               "album":{"id":2,"name":"The Land Is Inhospitable and So Are We"},"duration":137773},
+              {"id":2614347892,"name":"My Love Mine All Mine","artists":[{"name":"Kastiar"},{"name":"Mitski"}],
+               "album":{"name":"My Love Mine All Mine"},"duration":114335}],"songCount":2},"code":200}
+            """#.utf8)
+        guard let songs = NetEaseLyrics.songs(fromSearch: search) else {
+            return require(false, "a NetEase search reply did not decode")
+        }
+        require(songs.first?.record.duration == 137.773, "NetEase lengths are milliseconds")
+        let lyric = Data(#"""
+            {"lrc":{"version":7,"lyric":"[00:00.000] 作词 : Mitski Miyawaki\n[00:01.000] 作曲 : Mitski Miyawaki\n[00:02.000] 制作人 : Patrick Hyland\n[00:09.082] Moon, a hole of light\n[00:12.716] Through the big top tent up high\n"},"code":200}
+            """#.utf8)
+        let words = NetEaseLyrics.lyric(from: lyric)
+        require(words?.instrumental == false && words?.synced != nil, "NetEase's timed LRC is synced lyrics")
+        let lines = words?.synced.flatMap(SyncedLyrics.init(lrc:))?.lines.filter { !$0.isBreak }.map(\.text)
+        require(lines == ["Moon, a hole of light", "Through the big top tent up high"],
+                "NetEase's credit lines are not sung: \(String(describing: lines))")
+        require(NetEaseLyrics.lyric(from: Data(#"{"uncollected":true,"lrc":{"lyric":""},"code":200}"#.utf8))
+                    .map { $0.synced == nil && !$0.instrumental } == true,
+                "a song NetEase has no words for is a miss")
+        require(NetEaseLyrics.lyric(from: Data(#"{"pureMusic":true,"code":200}"#.utf8))?.instrumental == true,
+                "pure music is an instrumental answer")
+        require(NetEaseLyrics.songs(fromSearch: Data("error code: 502".utf8)) == nil
+                    && NetEaseLyrics.lyric(from: Data(#"{"code":-460}"#.utf8)) == nil,
+                "an error page is a failed question, not a miss")
+    }
+
+    static func netEaseIsHeldToTheArtistAndLength() {
+        func song(_ id: Int, _ name: String, _ artists: String, _ album: String, _ d: Double) -> NetEaseLyrics.Song {
+            NetEaseLyrics.Song(id: id, record: LyricsRecord(trackName: name, artistName: artists, albumName: album,
+                                                            duration: d, instrumental: nil, syncedLyrics: nil))
+        }
+        // ILLIT "Magnetic" (160 s) as NetEase's search returns it: a live take, a remix,
+        // a cover sharing the title, then the single.
+        let found = [song(1, "Magnetic (Live)", "ILLIT", "쿨룩 LIVE", 165),
+                     song(2, "Magnetic", "AUrora", "Magnetic", 159),
+                     song(3, "Magnetic (Ferry Remix)", "ILLIT", "", 173.6),
+                     song(4, "Magnetic", "ILLIT", "SUPER REAL ME", 160.5),
+                     song(5, "Magnetic", "ILLIT", "Magnetic (Sped Up)", 120)]
+        let picks = NetEaseLyrics.candidates(found, artist: "ILLIT", duration: 160,
+                                             album: "SUPER REAL ME", title: "Magnetic")
+        require(picks.map(\.id) == [4], "only ILLIT's recording of this length: \(picks.map(\.id))")
+        let duet = [song(7, "APT.", "Bruno Mars", "APT.", 170), song(8, "APT.", "ROSÉ, Bruno Mars", "APT.", 170)]
+        require(NetEaseLyrics.candidates(duet, artist: "ROSÉ, Bruno Mars", duration: 170, album: "APT.",
+                                         title: "APT.").map(\.id) == [8],
+                "the first credited artist must be on the song, accent folded")
     }
 }

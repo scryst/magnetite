@@ -77,8 +77,8 @@ struct SyncedLyrics: Equatable, Sendable {
     init(lines: [Line]) { self.lines = lines }
 
     /// Lines the uploading site added and nobody sings: "{more ILLIT lyrics at
-    /// lyricsify.com/u/KPopLRCFiles}", a web address, or a credit such as "Lyrics by X"
-    /// or "작사 : X". A sung aside in parentheses is kept.
+    /// lyricsify.com/u/KPopLRCFiles}", a web address, or a credit such as "Lyrics by X",
+    /// "작사 : X" or NetEase's "制作人 : X" (producer). A sung aside in parentheses is kept.
     static func isCredit(_ text: String) -> Bool {
         if text.hasPrefix("{") && text.hasSuffix("}") { return true }
         let t = text.lowercased()
@@ -89,7 +89,7 @@ struct SyncedLyrics: Equatable, Sendable {
             || t.range(of: #"^more .*lyrics (at|on)\b"#, options: .regularExpression) != nil {
             return true
         }
-        let label = #"^(作词|作詞|作曲|编曲|編曲|작사|작곡|편곡|lyrics|lyricist|composer|music|(written|composed|arranged|produced) by)\s*[:：]"#
+        let label = #"^(作词|作詞|作曲|编曲|編曲|制作人|监制|和声|录音|混音|母带|작사|작곡|편곡|lyrics|lyricist|composer|music|producers?|(written|composed|arranged|produced) by)\s*[:：]"#
         return t.range(of: label, options: .regularExpression) != nil
     }
 
@@ -159,17 +159,32 @@ struct LyricsRecord: Codable, Equatable, Sendable {
             else { return false }
             return r.instrumental == true || !(r.syncedLyrics ?? "").isEmpty
         }
-        let album = Self.fold(album)
-        return usable.min { a, b in
-            let da = abs((a.duration ?? 0) - duration), db = abs((b.duration ?? 0) - duration)
-            if abs(da - db) > 0.5 { return da < db }
-            let aa = Self.fold(a.albumName ?? "") == album, ab = Self.fold(b.albumName ?? "") == album
-            if aa != ab { return aa }
-            let ta = titleScore(a.trackName ?? "", title), tb = titleScore(b.trackName ?? "", title)
-            if ta != tb { return ta > tb }
-            // Synced words beat an instrumental flag when both claim the track.
-            return !(a.syncedLyrics ?? "").isEmpty && (b.syncedLyrics ?? "").isEmpty
-        }
+        return usable.min { ranks($0, before: $1, duration: duration, album: album, title: title) }
+    }
+
+    /// Nearest length first, then a matching album, then the closest title.
+    static func ranks(_ a: LyricsRecord, before b: LyricsRecord, duration: Double,
+                      album: String, title: String) -> Bool {
+        let da = abs((a.duration ?? 0) - duration), db = abs((b.duration ?? 0) - duration)
+        if abs(da - db) > 0.5 { return da < db }
+        let album = fold(album)
+        let aa = fold(a.albumName ?? "") == album, ab = fold(b.albumName ?? "") == album
+        if aa != ab { return aa }
+        let ta = titleScore(a.trackName ?? "", title), tb = titleScore(b.trackName ?? "", title)
+        if ta != tb { return ta > tb }
+        // Synced words beat an instrumental flag when both claim the track.
+        return !(a.syncedLyrics ?? "").isEmpty && (b.syncedLyrics ?? "").isEmpty
+    }
+
+    /// One answer from two sources, the first preferred: either's record wins, both
+    /// misses are a miss, and a miss beside a failed question is still a failed
+    /// question, so it is asked again rather than kept for three days. Each argument
+    /// is `.some(nil)` for a definite miss and `nil` for a failed question.
+    static func either(_ first: LyricsRecord??, _ second: LyricsRecord??) -> LyricsRecord?? {
+        if case .some(.some) = first { return first }
+        if case .some(.some) = second { return second }
+        if case .some(.none) = first, case .some(.none) = second { return .some(nil) }
+        return nil
     }
 
     /// Some uploaders give no real length, only their last stamp: Crush's "Seesaw (ft. IU)"
@@ -242,5 +257,78 @@ struct LyricsRecord: Codable, Equatable, Sendable {
         s.replacingOccurrences(of: "\u{2019}", with: "'")
             .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
             .trimmingCharacters(in: .whitespaces)
+    }
+}
+
+/// NetEase Cloud Music's public web API, asked when LRCLIB has no synced record or
+/// cannot answer (its API returned 502 for every request through 2026-10-31). Keyless
+/// like LRCLIB, and its lengths are the recordings' own, in milliseconds.
+enum NetEaseLyrics {
+    struct Song: Equatable, Sendable {
+        var id: Int
+        var record: LyricsRecord
+    }
+
+    private struct Search: Decodable {
+        struct Result: Decodable { var songs: [Item]? }
+        struct Item: Decodable {
+            struct Named: Decodable { var name: String? }
+            var id: Int
+            var name: String?
+            var artists: [Named]?
+            var album: Named?
+            var duration: Double?
+        }
+        var code: Int?
+        var result: Result?
+    }
+
+    private struct Lyric: Decodable {
+        struct Text: Decodable { var lyric: String? }
+        var code: Int?
+        var lrc: Text?
+        var nolyric: Bool?
+        var pureMusic: Bool?
+    }
+
+    /// The search's songs, or nil when the reply is not a search answer.
+    static func songs(fromSearch data: Data) -> [Song]? {
+        guard let reply = try? JSONDecoder().decode(Search.self, from: data), reply.code == 200
+        else { return nil }
+        return (reply.result?.songs ?? []).map { item in
+            Song(id: item.id, record: LyricsRecord(
+                trackName: item.name,
+                artistName: (item.artists ?? []).compactMap(\.name).joined(separator: ", "),
+                albumName: item.album?.name,
+                duration: item.duration.map { $0 / 1000 },
+                instrumental: nil, syncedLyrics: nil))
+        }
+    }
+
+    /// Songs worth asking for words, best first: credited to the track's first artist
+    /// and within `tolerance` seconds of its length. A search for a title by an artist
+    /// also returns covers, remixes and live takes by others.
+    static func candidates(_ songs: [Song], artist: String, duration: Double, album: String,
+                           title: String, tolerance: Double = 3) -> [Song] {
+        let wanted = LyricsRecord.fold(LyricsRecord.searchArtist(artist))
+        return songs.filter { song in
+            guard let d = song.record.duration, abs(d - duration) <= tolerance || duration <= 0
+            else { return false }
+            let credited = (song.record.artistName ?? "").components(separatedBy: ", ")
+                .map(LyricsRecord.fold)
+            return !wanted.isEmpty && credited.contains(wanted)
+        }
+        .sorted { LyricsRecord.ranks($0.record, before: $1.record, duration: duration,
+                                     album: album, title: title) }
+    }
+
+    /// The song's words: its LRC when timed, `instrumental` when NetEase marks it pure
+    /// music. Nil when the reply is not a lyric answer.
+    static func lyric(from data: Data) -> (synced: String?, instrumental: Bool)? {
+        guard let reply = try? JSONDecoder().decode(Lyric.self, from: data), reply.code == 200
+        else { return nil }
+        if reply.pureMusic == true || reply.nolyric == true { return (nil, true) }
+        let lrc = reply.lrc?.lyric ?? ""
+        return (SyncedLyrics(lrc: lrc) == nil ? nil : lrc, false)
     }
 }
