@@ -267,7 +267,8 @@ const CHECKS = {
 
   // No simulations. The page runs one module, site.js, which drives the film's
   // two buttons; the old canvas sims cost a fan spin and a second of main thread.
-  // 4.3 KB holds the film, the songs and their layer release (10-30), not a sim.
+  // It draws only the light and the desktop, from 160 px stills (10-31): 8 KB
+  // holds that, not a sim.
   script() {
     const out = [];
     const scripts = tags.filter((t) => t.name === 'script' && t.attrs.type !== 'application/ld+json');
@@ -275,8 +276,8 @@ const CHECKS = {
     const js = readdirSync(join(site, 'js'));
     if (js.join() !== 'site.js') out.push(`site/js holds ${js.join(', ')}`);
     const code = read('js/site.js');
-    if (/canvas|requestAnimationFrame|AudioContext|Worklet/i.test(code)) out.push('site.js draws or listens to audio again');
-    if (statSync(join(site, 'js/site.js')).size > 4300) out.push('site.js grew past 4.3 KB');
+    if (/AudioContext|Worklet|getContext\('webgl/i.test(code)) out.push('site.js simulates or listens to audio again');
+    if (statSync(join(site, 'js/site.js')).size > 8000) out.push('site.js grew past 8 KB');
     return out;
   },
 
@@ -329,33 +330,26 @@ const CHECKS = {
   // off Apple's top-down store photo of the 14-inch (mbp14-spaceblack-gallery2,
   // the body 1298 px wide) in hundredths of the body's width. The grilles were
   // drawn at half their width and Laks caught it (2026-10-29).
-  // Song changes (Laks, 10-30, on a phone: "whenever colors switch i see a flash
-  // of black"). The song layers only change opacity: a phone redraws a layer that
-  // is shown again (visibility) or restacked (z-index), black until it has. The
-  // song going stays whole until the next covers it, so the light never dims
+  // Song changes. As the page's layers (four lights, four desktops, each
+  // desktop's two turning copies wider than the screen) the songs held some
+  // 500-700 MB on a phone (412 wide), past what Android Chrome keeps drawn, and
+  // it dropped their tiles mid-scroll: blocks of the light and the screen
+  // blinking out, the "spazzing" Laks caught three passes running (10-30). Now
+  // each is one canvas at its stills' size, drawn while on screen. The song
+  // going stays whole under the one coming in, so the light never dims
   // mid-change. Every glow is opaque color under glow-mask.webp: the tour's lost
   // its falloff to it once and drew flat blocks of color around the clips.
   songs() {
     const out = [];
-    for (const [, sel, body] of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
-      if (!/\[data-glow\]|\.glow i|\.mac__wall i/.test(sel)) continue;
-      const prop = body.match(/(?:^|[\s;])(visibility|z-index)\s*:/)?.[1];
-      if (prop) out.push(`${sel.trim()} sets ${prop}; a song layer only changes opacity`);
-    }
-    if (!css.includes('[data-glow] .was:has(~ .on) { transition: opacity 0s var(--fade); }')) out.push('the song going does not stay whole until it is covered');
-    if (!css.includes('[data-glow] .on:has(~ .was) { transition: none; }')) out.push('at the loop the first song is not whole under the last');
-    // Laks, 10-30, on a phone: "i see spazzing if im scrolling when the song colors change".
     const js = read('js/site.js');
-    if (!/song === shown \|\| performance\.now\(\) - moved < \d+\) return/.test(js) || !/const later = \(\) => \{ moved = performance\.now\(\);/.test(js)) out.push('a song change does not wait for the scroll to rest');
-    if (!css.includes('.mac__wall :not(.on, .was) { animation-play-state: paused; }')) out.push('the unseen desktops still turn while the page scrolls');
-    // Laks, 10-30, on an Android phone in Chrome: blocks of the page mid-scroll.
-    // Four desktops' turning copies held some 300 MB of layers at 390 wide.
-    if (!css.includes('.mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { content: none; }')) out.push('the unseen desktops keep their turning copies');
-    if (!/gone = setTimeout\(\(\) => lights\.forEach\(\(i\) => i\.classList\.remove\('was'\)\), \d+\);/.test(js)) out.push('the song gone keeps its layers after the fade');
-    for (const sel of ['.glow', '.shot__media::before']) {
-      const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.:]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
-      if (!/(?:^|\s)mask: url\(\.\.\/media\/glow-mask\.webp\)/.test(body)) out.push(`${sel} has no glow-mask.webp; the glows are flat blocks without it`);
-    }
+    if (!html.includes('<canvas data-glow width="120" height="80">')) out.push('the light is not one canvas the size of its stills');
+    if (!html.includes('<canvas data-wall width="160" height="104">')) out.push('the desktop is not one canvas the size of its stills');
+    if (/data-for=/.test(html) || /\.mac__wall \[data-for\]|\.glow i\b|@keyframes turn/.test(css)) out.push('the songs are drawn as page layers again');
+    if (!js.includes('const layers = k < 1 ? [[went, 1], [shown, k]] : [[shown, 1]];')) out.push('the song going does not stay whole until it is covered');
+    if (!/drawing = requestAnimationFrame\(draw\)/.test(js) || !js.includes('if (onScreen && (lightDue || !still.matches))')) out.push('the desktop is drawn while off screen');
+    if (!js.includes("glow.globalCompositeOperation = 'destination-in'; glow.globalAlpha = 1; glow.drawImage(art.mask")) out.push('the light has no glow-mask.webp; it is a flat block without it');
+    const body = css.match(/(?:^|\n)\.shot__media::before \{([^}]*)\}/)?.[1] ?? '';
+    if (!/(?:^|\s)mask: url\(\.\.\/media\/glow-mask\.webp\)/.test(body)) out.push('.shot__media::before has no glow-mask.webp; the glows are flat blocks without it');
     return out;
   },
   deck() {
@@ -524,7 +518,10 @@ const CHECKS = {
       }
     }
     for (const file of readdirSync(join(site, 'media'))) {
-      const used = [html, read('llms.txt'), css].some((t) => t.includes(`media/${file}`));
+      // site.js names the songs' stills by template: media/field-${song}.webp.
+      const js = read('js/site.js'), [, kind, song] = file.match(/^(field|glow)-(\w+)\.webp$/) ?? [];
+      const used = [html, read('llms.txt'), css, js].some((t) => t.includes(`media/${file}`))
+        || (kind && js.includes(`media/${kind}-\${song}.webp`) && js.includes(`'${song}']`));
       if (!used) out.push(`media/${file} ships but nothing uses it`);
     }
     return out;

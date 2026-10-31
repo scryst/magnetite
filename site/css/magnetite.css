@@ -122,35 +122,11 @@ b { font-weight: 600; }
 .pitch__meta a::after { content: ''; position: absolute; inset: -12px 0; }
 
 /* The light behind the MacBook: the panel's color for the song on its screen,
-   one baked layer per song (test/bake-glow.py), crossfaded as the film moves
-   on. Still, it sits behind the MacBook's place in the grid. */
-.glow {
-  position: absolute; grid-area: 2 / 1; inset: -30% -25%; pointer-events: none;
-  -webkit-mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
-  mask: url(../media/glow-mask.webp) 0 0 / 100% 100% no-repeat;
-}
-/* The songs lie in the film's order, each over the ones before it (site.js
-   marks the one on, and the one it took over from). Going forward, the song
-   coming in fades in over the one going, which stays whole until it is
-   covered: two layers both half faded would dim the light mid-change. At the
-   film's loop back to the first song, the last one fades out over it instead.
-   Only opacity changes, on layers that are always there: a phone redraws a
-   layer that is shown again or restacked, and shows black until it has. */
-[data-glow] { --fade: 1.6s; }
-.glow i, .mac__wall i {
-  position: absolute; inset: 0; opacity: 0;
-  background: 0 0 / 100% 100% no-repeat;
-  transition: opacity var(--fade) ease;
-  will-change: opacity;
-}
-[data-glow] [data-for="pop"] { background-image: url(../media/glow-pop.webp); }
-[data-glow] [data-for="sunsetz"] { background-image: url(../media/glow-sunsetz.webp); }
-[data-glow] [data-for="artdeco"] { background-image: url(../media/glow-artdeco.webp); }
-[data-glow] [data-for="hush"] { background-image: url(../media/glow-hush.webp); }
-[data-glow] .on { opacity: 1; }
-[data-glow] .was:has(~ .on) { transition: opacity 0s var(--fade); }
-[data-glow] .on:has(~ .was) { transition: none; }
-@media (prefers-reduced-motion: reduce) { [data-glow] { --fade: 0s; } }
+   one baked still per song (test/bake-glow.py) that site.js draws into one
+   small canvas, faded through its round mask. Still, it sits behind the
+   MacBook's place in the grid. */
+.glow { position: absolute; grid-area: 2 / 1; inset: -30% -25%; pointer-events: none; }
+.glow canvas, .mac__wall canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .journey__pin > .mac { grid-area: 2 / 1; }
 
 /* Film grain over the whole page, so the black reads as a print, not a void.
@@ -226,37 +202,17 @@ body::after {
   transform: translateZ(1px);
 }
 /* The desktop: the song's cover, as the app's expanded card draws it, a field of
-   the sleeve's own colors (test/bake-glow.py) that never holds still. Two copies
-   turn against each other at unrelated rates while the whole swells, so the
-   colors keep folding through each other like ink in water. Dark under the
-   menu bar, so the recording's panel stays the brightest thing up there. */
-.mac__wall { position: absolute; inset: 0; pointer-events: none; isolation: isolate; }
-.mac__wall [data-for] { background: none; animation: swell 13s ease-in-out infinite alternate; }
-.mac__wall [data-for]::before, .mac__wall [data-for]::after {
-  content: ''; position: absolute; inset: -60% -20%;
-  background: var(--field) 50% 50% / 100% 100%;
-  animation: turn 47s linear infinite;
-}
-.mac__wall [data-for]::after { inset: -90% -40%; mix-blend-mode: screen; opacity: 0.7; filter: hue-rotate(28deg) saturate(1.3); animation-duration: 76s; animation-direction: reverse; }
-.mac__wall [data-for="pop"] { --field: url(../media/field-pop.webp); }
-.mac__wall [data-for="sunsetz"] { --field: url(../media/field-sunsetz.webp); }
-.mac__wall [data-for="artdeco"] { --field: url(../media/field-artdeco.webp); }
-.mac__wall [data-for="hush"] { --field: url(../media/field-hush.webp); }
-.mac__wall::after { content: ''; position: absolute; inset: 0; z-index: 2; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
-@keyframes turn { to { rotate: 360deg; } }
-@keyframes swell { from { scale: 1; translate: -4% 2%; } to { scale: 1.18; translate: 5% -3%; } }
-/* Phones: a screen blend over two turning layers costs a fifth of the frames while
-   the journey scrolls (47 vs 68 fps, 4x-throttled). Lighter and brighter on a
-   normal blend reads the same. */
-@media (max-width: 899px) { .mac__wall [data-for]::after { mix-blend-mode: normal; opacity: 0.4; filter: hue-rotate(28deg) saturate(1.25) brightness(1.8); } }
-/* A desktop that is neither on nor going is not seen: it holds still and has no
-   turning copies. Four desktops' copies held some 300 MB of layers on a phone
-   (Chrome, 390 wide), past what Android keeps drawn, and it showed blocks of the
-   page mid-scroll. The copies of the song coming in are drawn at the change,
-   which waits for the scroll to rest, while it fades in over the one going. */
-.mac__wall :not(.on, .was) { animation-play-state: paused; }
-.mac__wall :not(.on, .was)::before, .mac__wall :not(.on, .was)::after { content: none; }
-@media (prefers-reduced-motion: reduce) { .mac__wall [data-for], .mac__wall [data-for]::before, .mac__wall [data-for]::after { animation: none; } }
+   the sleeve's own colors (test/bake-glow.py) that never holds still. site.js
+   turns two copies against each other at unrelated rates while the whole
+   swells, so the colors keep folding through each other like ink in water, and
+   draws them at the stills' own size, 160 px, into one canvas the screen
+   stretches. As the page's own layers, turning and wider than the screen, the
+   copies and the lights came to 360 MB on a phone (412 wide), past what Android
+   Chrome keeps drawn: it dropped their tiles mid-scroll, blocks of the screen
+   and the light blinking out (10-30). Dark under the menu bar, so the
+   recording's panel stays the brightest thing up there. */
+.mac__wall { position: absolute; inset: 0; pointer-events: none; background: #000; }
+.mac__wall::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
 /* lighten: the recording's black is the bare screen, so the desktop shows through it. */
 .mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; mix-blend-mode: lighten; }
 .mac__notch {
