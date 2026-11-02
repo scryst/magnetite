@@ -124,3 +124,16 @@ node site/test/sitecheck.mjs </dev/null
 echo "==> site mutations"
 node site/test/sitemutate.mjs </dev/null
 CHECK_RUNTIME
+
+# Every film the site ships, frame by frame (filmcheck decodes with ffmpeg, so it
+# runs outside the check runtime). Then the film that taught it: 0.1.13's demo,
+# from git, must still fail, or filmcheck has stopped seeing jumps.
+echo "==> films"
+for film in site/media/*.mp4; do
+  node tools/filmcheck.mjs "$film" --out=.build/checks/film >/dev/null </dev/null
+done
+git show 9b3b619:site/media/demo.mp4 > .build/checks/film-0.1.13.mp4
+if node tools/filmcheck.mjs .build/checks/film-0.1.13.mp4 --out=.build/checks/film >/dev/null </dev/null; then
+  echo "filmcheck passed 0.1.13's jumping demo film" >&2
+  exit 1
+fi

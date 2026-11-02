@@ -142,6 +142,12 @@ git worktree add --detach --quiet "$VERIFY" "$REF"
 (
   cd "$VERIFY"
   node site/test/sitecheck.mjs
+  # A film that jumps or flashes passed every still check: 0.1.13's demo had the
+  # liquid jumping 37 times and shipped (10-29, "recording spazzing out").
+  for film in site/media/*.mp4; do
+    node tools/filmcheck.mjs "$film" --out=.filmcheck >/dev/null ||
+      { echo "deploy: $film fails filmcheck; run it by hand to see the jumps" >&2; exit 1; }
+  done
 )
 
 git archive "$REF:site" | tar -x -C "$STAGE"
