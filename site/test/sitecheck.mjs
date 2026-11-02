@@ -275,6 +275,9 @@ const CHECKS = {
       const [codec, fw, fh] = mp4Video(readFileSync(join(site, src)));
       if (codec !== 'h264') out.push(`${src} is ${codec}, not h264`);
       if (`${fw}×${fh}` !== `${clip.attrs.width}×${clip.attrs.height}`) out.push(`${src} is ${fw}×${fh}, its tag says ${clip.attrs.width}×${clip.attrs.height}`);
+      // The notch's clips are drawn small; 800 px sources read soft on a Retina
+      // screen (11-02 refilm at 2x and 3x).
+      if (/^media\/(lyrics|closed)\.mp4$/.test(src) && fw < 1440) out.push(`${src} is ${fw} px wide, under 1440`);
       const [pw, ph] = webpSize(readFileSync(join(site, clip.attrs.poster ?? '')));
       if (`${pw}×${ph}` !== `${fw}×${fh}`) out.push(`${src}'s poster is ${pw}×${ph}`);
       if (statSync(join(site, src)).size > 1e6) out.push(`${src} is over 1 MB`);
@@ -282,6 +285,29 @@ const CHECKS = {
       if ('autoplay' in clip.attrs) out.push(`${src} autoplays; site.js plays it on screen and not under Reduce Motion`);
       if (!described(clip)) out.push(`${src} has no description`);
     }
+    return out;
+  },
+
+  // The gestures' loops on the journey's screen: one per named gesture, h264 in
+  // the film's own box, silent and small, played by site.js with the film (never
+  // autoplay), hidden from screen readers since the list names each gesture.
+  loops() {
+    const out = [];
+    const moves = tags.filter((t) => t.name === 'video' && 'data-move' in t.attrs);
+    if (moves.length !== 3) out.push(`${moves.length} gesture loops, not 3`);
+    for (const move of moves) {
+      const src = move.attrs.src ?? '';
+      if (!existsSync(join(site, src))) { out.push(`loop ${src} is not a file`); continue; }
+      const [codec, fw, fh] = mp4Video(readFileSync(join(site, src)));
+      if (codec !== 'h264') out.push(`${src} is ${codec}, not h264`);
+      if (`${fw}×${fh}` !== `${move.attrs.width}×${move.attrs.height}`) out.push(`${src} is ${fw}×${fh}, its tag says ${move.attrs.width}×${move.attrs.height}`);
+      if (statSync(join(site, src)).size > 4e5) out.push(`${src} is over 400 KB`);
+      for (const attr of ['muted', 'playsinline', 'loop']) if (!(attr in move.attrs)) out.push(`${src} is not ${attr}`);
+      if ('autoplay' in move.attrs) out.push(`${src} autoplays; site.js plays it with the film`);
+      if (move.attrs['aria-hidden'] !== 'true') out.push(`${src} is not aria-hidden; the list already names the gesture`);
+    }
+    // Started once, then re-armed from each frame: a callback fires only once.
+    if ((read('js/site.js').match(/requestVideoFrameCallback\??\.?\(touch\)/g) ?? []).length < 2) out.push('the trackpad no longer follows the swipe loop');
     return out;
   },
 

@@ -215,6 +215,8 @@ body::after {
 .mac__wall::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#000 9%, rgba(0, 0, 0, 0.6) 24%, rgba(0, 0, 0, 0.1) 58%, transparent 80%); }
 /* lighten: the recording's black is the bare screen, so the desktop shows through it. */
 .mac__film { position: absolute; top: 0; left: 36.772%; width: 26.455%; height: auto; background: #000; mix-blend-mode: lighten; }
+/* The gestures' loops show only on the journey, over the film, each as it is named. */
+.mac__move, .pad { display: none; }
 .mac__notch {
   position: absolute; top: 0; left: 43.88%; width: 12.24%; height: 3.26%;
   border-radius: 0 0 0.58cqw 0.58cqw;
@@ -422,6 +424,30 @@ body::after {
     .moves li:nth-child(1) { animation-range: contain 37.5% contain 60%; }
     .moves li:nth-child(2) { animation-range: contain 60% contain 82%; }
     .moves li:nth-child(3) { animation: say-last linear both, seen linear both; animation-timeline: --journey; animation-range: contain 82% contain 96%; }
+    /* Each gesture's loop comes in over the last as its line is said and holds
+       until the next is in, so the screen is never bare; the film goes with the
+       first and stays, unless its sound is on (site.js sets data-sound). */
+    .mac__move {
+      display: block;
+      animation: move linear both, said linear both;
+      animation-timeline: --journey;
+    }
+    .mac__move:nth-of-type(2) { animation-range: contain 37.5% contain 65.5%; }
+    .mac__move:nth-of-type(3) { animation-range: contain 60% contain 87.5%; }
+    .mac__move:nth-of-type(4) { animation: move-last linear both, seen linear both; animation-timeline: --journey; animation-range: contain 82% contain 96%; }
+    [data-demo] {
+      animation: fade linear both, gone linear both;
+      animation-timeline: --journey;
+      animation-range: contain 37.5% contain 43%;
+    }
+    [data-sound] [data-demo] { animation: none; }
+    [data-sound] .mac__move { display: none; }
+    /* A trackpad beside Swipe, its two fingers moved by site.js in step with the loop. */
+    .pad {
+      display: inline-block; width: 1.5em; height: 0.94em; margin-right: 0.3em; vertical-align: -0.1em;
+      fill: none; stroke: currentColor; stroke-width: 2;
+    }
+    .pad circle { fill: var(--ink); stroke: none; transition: opacity 120ms; }
     /* The film's controls close the group, and come in with the film. */
     .stage__foot {
       position: absolute; left: var(--gutter); right: var(--gutter); bottom: var(--top);
@@ -515,6 +541,14 @@ body::after {
   0% { opacity: 0; transform: translateY(16px); }
   25%, 75% { opacity: 1; transform: none; }
   100% { opacity: 0; transform: translateY(-16px); }
+}
+@keyframes move {
+  0% { opacity: 0; }
+  20%, 100% { opacity: 1; }
+}
+@keyframes move-last {
+  0% { opacity: 0; }
+  40%, 100% { opacity: 1; }
 }
 @keyframes say-last {
   0% { opacity: 0; transform: translateY(16px); }

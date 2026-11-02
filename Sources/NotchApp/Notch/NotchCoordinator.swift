@@ -55,6 +55,13 @@ final class NotchCoordinator {
     /// and 70 pt below the panel. Width covers both sides; height is all below, since
     /// the panel hangs from the screen's top edge.
     private static let margin = CGSize(width: 128, height: 78)
+    /// Site films only: `NOTCH_FILM_SCALE=2` draws the whole window at that many times
+    /// its size, re-rendered rather than enlarged, so a 2x capture of it is as sharp as
+    /// a 4x display would be. Layout, hit regions and the sim stay in unscaled points;
+    /// the window just no longer lines up with the hardware notch, so it is never set
+    /// outside a filming take.
+    private static let filmScale = CGFloat(
+        Double(ProcessInfo.processInfo.environment["NOTCH_FILM_SCALE"] ?? "") ?? 1)
 
     init() {
         observeComfort()
@@ -112,10 +119,12 @@ final class NotchCoordinator {
             let panelSize = CGSize(
                 width: NotchController.maxExpandedSize.width + Self.margin.width,
                 height: NotchController.maxExpandedSize.height + Self.margin.height)
-            let frame = NSRect(x: screen.frame.midX - panelSize.width / 2,
-                               y: screen.frame.maxY - panelSize.height,
-                               width: panelSize.width,
-                               height: panelSize.height)
+            let windowSize = CGSize(width: panelSize.width * Self.filmScale,
+                                    height: panelSize.height * Self.filmScale)
+            let frame = NSRect(x: screen.frame.midX - windowSize.width / 2,
+                               y: screen.frame.maxY - windowSize.height,
+                               width: windowSize.width,
+                               height: windowSize.height)
 
             let panel = NotchPanel(contentRect: frame)
             panel.applyScreenCapturePolicy(hidden: settings.hideFromScreenCapture)
@@ -145,7 +154,18 @@ final class NotchCoordinator {
             // Exactly the drawn shell; keeping the panel open is the hover zone's job.
             hosting.shellSize = { [weak controller] in controller?.currentSize ?? .zero }
 
-            panel.contentView = hosting
+            if Self.filmScale == 1 {
+                panel.contentView = hosting
+            } else {
+                // As the content view, SwiftUI lays out in the enlarged frame and the scale
+                // then doubles that offset: the notch landed off the screen's right edge.
+                // A plain view between them keeps the layout in unscaled points.
+                let stage = NSView(frame: NSRect(origin: .zero, size: windowSize))
+                hosting.frame = stage.bounds
+                hosting.bounds = NSRect(origin: .zero, size: panelSize)
+                stage.addSubview(hosting)
+                panel.contentView = stage
+            }
             panel.orderFrontRegardless()
 
             hosts[uuid] = Host(controller: controller, panel: panel, hosting: hosting)

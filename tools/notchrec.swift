@@ -6,6 +6,8 @@
 // the system volume, and writes it into the same file on the same clock, so the
 // film carries the song exactly as the app heard it.
 //
+// With NOTCHREC_CURSOR=1 the pointer is drawn too, for the gesture loops.
+//
 // usage: notchrec OUT.mov SECONDS X Y W H [AUDIO-BUNDLE-ID]   (points, top-left origin, built-in display)
 import AVFoundation
 import CoreMedia
@@ -85,7 +87,7 @@ Task {
         config.width = Int(w * 2)
         config.height = Int(h * 2)
         config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
-        config.showsCursor = false
+        config.showsCursor = ProcessInfo.processInfo.environment["NOTCHREC_CURSOR"] == "1"
         config.backgroundColor = .black
         config.pixelFormat = kCVPixelFormatType_32BGRA
         config.queueDepth = 8

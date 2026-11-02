@@ -6,13 +6,17 @@ const sound = document.querySelector('[data-demo-sound]');
 const soundLabel = sound.querySelector('[data-demo-sound-label]');
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 
+const moves = document.querySelectorAll('[data-move]');
+
 let wanted = !still.matches;
 let seen = false;
 
 function sync() {
-  // With sound on, the film plays on off screen.
+  // With sound on, the film plays on off screen, and over the loops.
   if (wanted && (seen || !video.muted)) video.play().catch(() => { wanted = false; label(); });
   else video.pause();
+  for (const m of moves) wanted && seen && video.muted ? m.play().catch(() => {}) : m.pause();
+  video.parentNode.toggleAttribute('data-sound', !video.muted);
   label();
 }
 
@@ -39,10 +43,18 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); redraw(); });
 label();
 
+// The trackpad's fingers swipe with the loop's.
+const fingers = document.querySelector('[data-fingers]'), pad = moves[2];
+const touch = (_, f) => {
+  const k = Math.min(1, Math.max(0, (f.mediaTime - 1) / 0.22));
+  fingers.style.translate = `${7 * Math.cos(Math.PI * k) - 7}px`;
+  pad.requestVideoFrameCallback(touch);
+};
+pad.requestVideoFrameCallback?.(touch);
+
 // The light and the desktop take the film's song, each drawn into one small
-// canvas from the song's stills (magnetite.css says why not as layers). The song
-// coming in fades in over the one going; both are opaque, so at the film's loop
-// back to the first song that reads as the last one fading out over it.
+// canvas from its stills (magnetite.css says why not as layers). The song coming
+// in fades in over the one going, so at the film's loop the last fades out.
 const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
 const wall = document.querySelector('[data-wall]').getContext('2d');
 const glow = document.querySelector('[data-glow]').getContext('2d');
@@ -50,8 +62,8 @@ const load = (src) => new Promise((done) => { const i = new Image(); i.onload = 
 const art = {};
 let shown = 'pop', went = 'pop', changed = -Infinity, onScreen = false, drawing = 0, lightDue = true;
 
-// The second copy of a field is tinted as hue-rotate(28deg) saturate(1.3): the
-// two filter-effects matrices, multiplied, applied to its pixels once.
+// The tinted copy is hue-rotate(28deg) saturate(1.3): the two filter matrices,
+// multiplied, applied to its pixels once.
 const TINT = [0.986, -0.542, 0.556, 0.056, 1.128, -0.183, -0.512, 0.331, 1.181];
 function tinted(img) {
   const c = new OffscreenCanvas(img.width, img.height), x = c.getContext('2d');
@@ -118,8 +130,8 @@ const clips = new IntersectionObserver((entries) => {
 }, { threshold: 0.4 });
 for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip);
 
-// The dock shows once no Download button is seen. The hero's stays in the window,
-// faded out, while the film holds it, so a faded one does not count.
+// The dock shows once no Download button is seen; the hero's, faded out while
+// the film holds the window, does not count.
 const dock = document.querySelector('[data-dock]');
 const downloads = [...document.querySelectorAll('[data-download]')];
 const inSight = (b) => {

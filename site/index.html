@@ -135,7 +135,9 @@
       <!-- The light behind the MacBook, in the color of the song on its screen.
            site.js draws it from the stills test/bake-glow.py bakes from the film. -->
       <div class="glow" aria-hidden="true"><canvas data-glow width="120" height="80"></canvas></div>
-      <div class="pitch">
+      <!-- Big type's line boxes rise a few px past their box, and the glows behind the
+           clips bleed on purpose: allowed here, with the text inside still checked. -->
+      <div class="pitch" data-render-check-allow="spills">
         <h1 class="hero__title" id="hero-title">Your MacBook’s notch, now a music&nbsp;player.</h1>
         <p class="pitch__lede">Hover it for Spotify or Apple Music controls, with black liquid that moves to the&nbsp;song.</p>
         <div class="pitch__actions">
@@ -162,6 +164,11 @@
                    width="800" height="512" poster="media/demo-poster.webp" aria-describedby="demo-description">
               <source src="media/demo.mp4" type="video/mp4">
             </video>
+            <!-- Each gesture as it is named below: the same window filmed with the
+                 pointer drawn while tools/gesturetake does it for real. -->
+            <video class="mac__film mac__move" data-move muted loop playsinline preload="none" width="800" height="512" src="media/move-hover.mp4" aria-hidden="true"></video>
+            <video class="mac__film mac__move" data-move muted loop playsinline preload="none" width="800" height="512" src="media/move-drag.mp4" aria-hidden="true"></video>
+            <video class="mac__film mac__move" data-move="swipe" muted loop playsinline preload="none" width="800" height="512" src="media/move-swipe.mp4" aria-hidden="true"></video>
             <span class="mac__notch" aria-hidden="true"></span>
           </div>
         </div>
@@ -193,7 +200,7 @@
       <ol class="moves" aria-label="How it works" data-render-check-ignore>
         <li><b>Hover</b> the notch to open the player.</li>
         <li><b>Drag</b> its bottom edge to seek.</li>
-        <li><b>Swipe</b> two fingers to skip or pause.</li>
+        <li><svg class="pad" viewBox="0 0 64 40" aria-hidden="true"><rect x="1" y="1" width="62" height="38" rx="6"/><g data-fingers><circle cx="27" cy="20" r="4"/><circle cx="37" cy="17" r="4"/></g></svg><b>Swipe</b> two fingers to skip or pause.</li>
       </ol>
 
       <div class="stage__foot">
@@ -209,34 +216,35 @@
   <!-- What it does, shown in clips filmed for each section from the running app,
        each a crossfade loop (test/bake-glow.py has the glow stills). Every line is a shipped feature or a real
        limit (APP.md, README.md, the M menu). -->
-  <section class="tour" id="features" aria-labelledby="tour-title">
+  <section class="tour" id="features" aria-labelledby="tour-title" data-render-check-allow="spills">
     <h2 class="visually-hidden" id="tour-title">What’s in Magnetite</h2>
 
     <!-- The liquid up close: not a screen recording but the app's own analyser, sim and
-         view fed the film's audio of Pop and drawn at 6x by tools/fluidfilm
-         (FLUIDFILM_SCALE=6, Pop's panel colors), cropped to the notch. -->
-    <figure class="shot shot--liquid">
+         view fed Pop as Spotify played it, its chorus and then the silence once it is
+         paused, drawn at 6x by tools/fluidfilm (FLUIDFILM_SCALE=6, Pop's panel
+         colors), cropped to the notch. It starts and ends on the bare notch, so it loops. -->
+    <figure class="shot shot--liquid" data-render-check-allow="spills">
       <figcaption id="liquid-text"><b>Music becomes liquid.</b> <span>The ink around the notch heaves with whatever your Mac plays, and drains back when it goes quiet.</span></figcaption>
       <div class="shot__media shot__media--pop">
         <video data-clip muted loop playsinline preload="none" width="1760" height="440"
                src="media/liquid.mp4" poster="media/liquid-poster.webp" aria-describedby="liquid-text liquid-more"></video>
       </div>
       <p class="visually-hidden" id="liquid-more">A close-up of the black liquid around the notch, drawn by Magnetite’s own
-        simulation from the sound of Pop by ILLIT: it heaves on each beat, then drains back into the notch as the track goes quiet.</p>
+        simulation from the sound of Pop by ILLIT: it heaves on each kick of the chorus, then drains back into the notch once the track is paused.</p>
     </figure>
 
-    <figure class="shot shot--lyrics">
+    <figure class="shot shot--lyrics" data-render-check-allow="spills">
       <figcaption id="lyrics-text"><b>Lyrics, in time.</b> <span>Synced lyrics from LRCLIB scroll under the controls, if you want them.</span></figcaption>
       <div class="shot__media shot__media--hush">
-        <video data-clip muted loop playsinline preload="none" width="800" height="512"
+        <video data-clip muted loop playsinline preload="none" width="1600" height="1024"
                src="media/lyrics.mp4" poster="media/lyrics-poster.webp" aria-describedby="lyrics-text"></video>
       </div>
     </figure>
 
-    <figure class="shot shot--closed">
+    <figure class="shot shot--closed" data-render-check-allow="spills">
       <figcaption id="closed-text"><b>Folded, still playing.</b> <span>Move away and it tucks back into the notch, keeping the cover, the elapsed time and the liquid beside the camera.</span></figcaption>
       <div class="shot__media shot__media--artdeco">
-        <video data-clip muted loop playsinline preload="none" width="640" height="72"
+        <video data-clip muted loop playsinline preload="none" width="1920" height="216"
                src="media/closed.mp4" poster="media/closed-poster.webp" aria-describedby="closed-text"></video>
       </div>
     </figure>
