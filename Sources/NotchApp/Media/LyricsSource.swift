@@ -171,8 +171,9 @@ enum LyricsSource {
     private static func cacheFile(title: String, artist: String, album: String,
                                   duration: Double) -> URL {
         // The leading tag changes whenever lookup improves, so misses cached by an
-        // older build are asked again instead of waiting out their three days.
-        let key = ["v4", title, artist, album, String(Int(duration.rounded()))]
+        // older build are asked again instead of waiting out their three days, and a
+        // wrong song kept by one (v4 took any title) is not kept for good.
+        let key = ["v5", title, artist, album, String(Int(duration.rounded()))]
             .map(LyricsRecord.fold).joined(separator: "\u{1}")
         let digest = SHA256.hash(data: Data(key.utf8)).prefix(16)
             .map { String(format: "%02x", $0) }.joined()

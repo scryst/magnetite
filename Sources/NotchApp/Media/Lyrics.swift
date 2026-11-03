@@ -157,6 +157,7 @@ struct LyricsRecord: Codable, Equatable, Sendable {
             guard let d = r.duration else { return false }
             guard abs(d - duration) <= tolerance || duration <= 0 || r.lengthIsGuessed(within: duration)
             else { return false }
+            guard isSameSong(r.trackName ?? "", title) else { return false }
             return r.instrumental == true || !(r.syncedLyrics ?? "").isEmpty
         }
         return usable.min { ranks($0, before: $1, duration: duration, album: album, title: title) }
@@ -196,6 +197,18 @@ struct LyricsRecord: Codable, Equatable, Sendable {
         guard let d = duration, d < track, track - d <= slack,
               let last = SyncedLyrics.lastStamp(syncedLyrics ?? "") else { return false }
         return d <= last + 1 && last <= track
+    }
+
+    /// Whether a record's title names the player's song: it holds every word of the
+    /// plain title and adds none the player's whole title lacks, so "Too late" and
+    /// "Hotel California (Live)" are the song and "Cecilia" or "Before It's Too Late" are
+    /// not. A search answers with the artist's other songs, and length alone let Shye's
+    /// "Cecilia" (238 s) stand in for her "Too Late" (240 s). An empty title asks nothing.
+    static func isSameSong(_ record: String, _ title: String) -> Bool {
+        let plain = words(searchTitle(title))
+        guard !plain.isEmpty else { return true }
+        let named = words(searchTitle(record))
+        return plain.isSubset(of: named) && named.isSubset(of: words(title))
     }
 
     /// Words the record's title shares with the player's, less the words it adds: a
@@ -305,9 +318,10 @@ enum NetEaseLyrics {
         }
     }
 
-    /// Songs worth asking for words, best first: credited to the track's first artist
-    /// and within `tolerance` seconds of its length. A search for a title by an artist
-    /// also returns covers, remixes and live takes by others.
+    /// Songs worth asking for words, best first: the track's title, credited to its first
+    /// artist and within `tolerance` seconds of its length. A search for a title by an
+    /// artist also returns covers, remixes and live takes by others, and the artist's
+    /// other songs.
     static func candidates(_ songs: [Song], artist: String, duration: Double, album: String,
                            title: String, tolerance: Double = 3) -> [Song] {
         let wanted = LyricsRecord.fold(LyricsRecord.searchArtist(artist))
@@ -317,6 +331,7 @@ enum NetEaseLyrics {
             let credited = (song.record.artistName ?? "").components(separatedBy: ", ")
                 .map(LyricsRecord.fold)
             return !wanted.isEmpty && credited.contains(wanted)
+                && LyricsRecord.isSameSong(song.record.trackName ?? "", title)
         }
         .sorted { LyricsRecord.ranks($0.record, before: $1.record, duration: duration,
                                      album: album, title: title) }

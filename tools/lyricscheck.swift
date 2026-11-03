@@ -23,6 +23,7 @@ enum LyricsCheck {
         creditsAndLabelsAreNotSung()
         aDownLRCLIBFallsBackToNetEase()
         netEaseIsHeldToTheArtistAndLength()
+        anotherSongOfTheSameLengthIsNotTheSong()
         if failures > 0 { exit(1) }
         print("lyricscheck: all checks passed")
     }
@@ -267,5 +268,38 @@ enum LyricsCheck {
         require(NetEaseLyrics.candidates(duet, artist: "ROSÉ, Bruno Mars", duration: 170, album: "APT.",
                                          title: "APT.").map(\.id) == [8],
                 "the first credited artist must be on the song, accent folded")
+    }
+
+    /// 2026-11-03 Shye's "Too Late" played with "Cecilia"'s words. Spotify's album edit
+    /// runs 240 s and every timed "Too Late" is 249 s, so LRCLIB missed and NetEase's
+    /// search for "Too Late Shye" offered her whole album; "Cecilia" (238 s) was the
+    /// first by her within 3 s, and nothing asked for its title.
+    static func anotherSongOfTheSameLengthIsNotTheSong() {
+        func song(_ id: Int, _ name: String, _ d: Double) -> NetEaseLyrics.Song {
+            NetEaseLyrics.Song(id: id, record: LyricsRecord(trackName: name, artistName: "Shye",
+                                                            albumName: "The Doves Came Home", duration: d,
+                                                            instrumental: nil, syncedLyrics: nil))
+        }
+        let found = [song(3375205164, "Too Late", 249.107), song(535570356, "Before It's Too Late", 211.066),
+                     song(3375205165, "Eclipse", 236.4), song(3375206881, "If Today Was Yesterday", 248.47),
+                     song(3375205162, "Cecilia", 238.285)]
+        let picks = NetEaseLyrics.candidates(found, artist: "Shye", duration: 240.015,
+                                             album: "The Doves Came Home", title: "Too Late")
+        require(picks.isEmpty, "only a 'Too Late' near 240 s is the song: \(picks.map(\.record.trackName))")
+        require(NetEaseLyrics.candidates(found, artist: "Shye", duration: 249,
+                                         album: "The Doves Came Home", title: "Too Late").map(\.id) == [3375205164],
+                "the 249 s single is found by its title")
+        func r(_ name: String) -> LyricsRecord {
+            LyricsRecord(trackName: name, artistName: "Shye", albumName: "x", duration: 240,
+                         instrumental: false, syncedLyrics: "[00:01.00]x")
+        }
+        require(LyricsRecord.best(of: [r("Cecilia"), r("Before It's Too Late"), r("Late")],
+                                  duration: 240, album: "x", title: "Too Late") == nil,
+                "LRCLIB's search is held to the title too")
+        for (name, title) in [("Too late", "Too Late"), ("Hotel California (Live)", "Hotel California - Live"),
+                              ("Hotel California", "Hotel California - Live"), ("Seesaw (ft. IU)", "seesaw (Feat. IU)"),
+                              ("Misty", "Misty (MINA)"), ("I’LL LIKE YOU", "I'LL LIKE YOU")] {
+            require(LyricsRecord.isSameSong(name, title), "\(name) is \(title)")
+        }
     }
 }
