@@ -25,9 +25,9 @@
 	<key>CFBundleIconFile</key>
 	<string>Magnetite</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.15</string>
+	<string>0.1.16</string>
 	<key>CFBundleVersion</key>
-	<string>20</string>
+	<string>21</string>
 	<!-- Finder's Get Info and crash reports are the two places a downloaded
 	     app states its publisher; without this key both say nothing. The full
 	     terms ride along in Resources/LICENSE. -->
@@ -59,7 +59,7 @@
 		</dict>
 	</array>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Magnetite needs permission to read system audio so the visualiser can react to what you are playing.</string>
+	<string>Magnetite needs permission to read system audio so the visualizer can react to what you are playing.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Magnetite needs permission to read and control your music so it can show what is playing.</string>
 </dict>
