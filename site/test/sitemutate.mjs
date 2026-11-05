@@ -89,6 +89,8 @@ const MUTATIONS = [
   ['loops', 'a gesture loop autoplays', 'site/index.html', 'data-move muted loop playsinline preload="none"', 'data-move muted loop playsinline autoplay preload="none"'],
   ['loops', 'the swipe loop is read aloud', 'site/index.html', 'src="media/move-swipe.mp4" aria-hidden="true"', 'src="media/move-swipe.mp4"'],
   ['loops', 'the trackpad stops following the loop', 'site/js/site.js', 'pad.requestVideoFrameCallback?.(touch);', ''],
+  ['loops', 'the fingers swipe left', 'site/js/site.js', 'x: 16 * (e(1, 1.22)', 'x: -16 * (e(1, 1.22)'],
+  ['loops', 'the fingers snap back while seen', 'site/js/site.js', 'o: 1 - e(1.4, 1.55) + e(1.75, 1.95)', 'o: 1'],
   ['clips', 'a clip plays off screen and under Reduce Motion', 'site/index.html', 'data-clip muted loop playsinline preload="none" width="1600"', 'data-clip muted loop playsinline autoplay preload="none" width="1600"'],
   ['clips', 'the folded clip box is not its size', 'site/index.html', 'width="1920" height="216"', 'width="1920" height="240"'],
   ['clips', 'a clip names a description that is not on the page', 'site/index.html', 'aria-describedby="liquid-text liquid-more"', 'aria-describedby="liquid-text liquid-gone"'],

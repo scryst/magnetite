@@ -308,6 +308,22 @@ const CHECKS = {
     }
     // Started once, then re-armed from each frame: a callback fires only once.
     if ((read('js/site.js').match(/requestVideoFrameCallback\??\.?\(touch\)/g) ?? []).length < 2) out.push('the trackpad no longer follows the swipe loop');
+    // the owner 11-05: the fingers swiped left (the film skips forward, a swipe to
+    // the right) and snapped back at the loop's start. Sample the curve over the
+    // loop and across its seam at 60 fps: the stroke goes right, and a finger
+    // you can see never moves more than a smooth step in one frame.
+    const src = read('js/site.js').match(/const swipeAt = (\(t\) => \{[\s\S]*?\n\};)/)?.[1];
+    if (!src) return [...out, 'site.js has no swipeAt(t) curve for the trackpad fingers'];
+    const swipeAt = new Function(`return ${src.slice(0, -1)}`)();
+    const loop = 149 / 60, at = (i) => swipeAt((i / 60) % loop);
+    const swiped = swipeAt(1.3).x - swipeAt(0.9).x;
+    if (!(swiped > 8)) out.push(`the trackpad's fingers move ${swiped.toFixed(1)} across the skip; they swipe right, as the film skips forward`);
+    let worst = 0;
+    for (let i = 0; i < 2 * 149; i++) {
+      const a = at(i), b = at(i + 1);
+      if (Math.min(a.o, b.o) > 0.05) worst = Math.max(worst, Math.abs(b.x - a.x));
+    }
+    if (worst > 2) out.push(`a visible finger jumps ${worst.toFixed(1)} in one frame; it moves back only while lifted`);
     return out;
   },
 

@@ -1,8 +1,9 @@
 // The film plays muted while on screen; Reduce Motion holds its first frame
 // until Play is pressed. Sound is offered, never assumed.
-const video = document.querySelector('[data-demo]');
-const play = document.querySelector('[data-demo-play]');
-const sound = document.querySelector('[data-demo-sound]');
+const $ = (q) => document.querySelector(q);
+const video = $('[data-demo]');
+const play = $('[data-demo-play]');
+const sound = $('[data-demo-sound]');
 const soundLabel = sound.querySelector('[data-demo-sound-label]');
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -43,21 +44,25 @@ sound.addEventListener('click', () => {
 still.addEventListener('change', () => { wanted = !still.matches; sync(); redraw(); });
 label();
 
-// The trackpad's fingers swipe with the loop's.
-const fingers = document.querySelector('[data-fingers]'), pad = moves[2];
+// The trackpad's fingers swipe right as the loop skips (1 to 1.22 s), lift,
+// and return unseen (11-05).
+const swipeAt = (t) => {
+  const e = (a, b) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  return { x: 16 * (e(1, 1.22) - e(1.6, 1.7)), o: 1 - e(1.4, 1.55) + e(1.75, 1.95) };
+};
+const fingers = $('[data-fingers]'), pad = moves[2];
 const touch = (_, f) => {
-  const k = Math.min(1, Math.max(0, (f.mediaTime - 1) / 0.22));
-  fingers.style.translate = `${7 * Math.cos(Math.PI * k) - 7}px`;
+  const { x, o } = swipeAt(f.mediaTime);
+  fingers.style.cssText = `translate: ${x}px; opacity: ${o}`;
   pad.requestVideoFrameCallback(touch);
 };
 pad.requestVideoFrameCallback?.(touch);
 
 // The light and the desktop take the film's song, each drawn into one small
-// canvas from its stills (magnetite.css says why not as layers). The song coming
-// in fades in over the one going, so at the film's loop the last fades out.
+// canvas (magnetite.css says why); the song coming in fades in over the last.
 const songs = [[7.4, 'pop'], [20, 'sunsetz'], [37.9, 'artdeco'], [Infinity, 'hush']];
-const wall = document.querySelector('[data-wall]').getContext('2d');
-const glow = document.querySelector('[data-glow]').getContext('2d');
+const wall = $('[data-wall]').getContext('2d');
+const glow = $('[data-glow]').getContext('2d');
 const load = (src) => new Promise((done) => { const i = new Image(); i.onload = () => done(i); i.onerror = () => done(null); i.src = src; });
 const art = {};
 let shown = 'pop', went = 'pop', changed = -Infinity, onScreen = false, drawing = 0, lightDue = true;
@@ -77,9 +82,8 @@ function tinted(img) {
   return c;
 }
 
-// One song's desktop at t seconds: the field turns once in 47 s, its tinted copy,
-// wider, the other way in 76 s, screened over it at 0.7, and the pair swells
-// (1 to 1.18, drifting) and back every 26 s. Sizes are in screen widths and heights.
+// One song's desktop at t s: the field turns once in 47 s, its wider tinted copy
+// the other way in 76 s, screened at 0.7; the pair swells 1 to 1.18 every 26 s.
 const desk = new OffscreenCanvas(160, 104), deskX = desk.getContext('2d');
 function drawDesk(song, t) {
   const { field, tint } = art[song], w = 160, h = 104;
@@ -132,7 +136,7 @@ for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip)
 
 // The dock shows once no Download button is seen; the hero's, faded out while
 // the film holds the window, does not count.
-const dock = document.querySelector('[data-dock]');
+const dock = $('[data-dock]');
 const downloads = [...document.querySelectorAll('[data-download]')];
 const inSight = (b) => {
   const r = b.getBoundingClientRect();
