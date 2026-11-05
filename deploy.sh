@@ -157,6 +157,16 @@ rm -f "$STAGE/serve.py"
 # served from the site so the one-line install has a short, stable URL.
 git show "$REF:install.sh" > "$STAGE/install.sh"
 echo "==> staged $(find "$STAGE" -type f | wc -l | tr -d ' ') public files"
+# Pages serves every file with max-age=600 and no way to change it, so a page
+# from this deploy could load the previous deploy's CSS or JS for ten minutes.
+# Stamp the commit onto each stylesheet and script link in the published HTML
+# (the source keeps plain links). Before 11-05 only the checks below carried ?v=.
+find "$STAGE" -name '*.html' -exec perl -pi -e \
+  's{((?:href|src)="(?:\.\./|/)?(?:css|js)/[^"?#]+\.(?:css|js))"}{$1?v='"$SHORT"'"}g' {} +
+grep -q "css/magnetite.css?v=$SHORT\"" "$STAGE/index.html" &&
+  grep -q "js/site.js?v=$SHORT\"" "$STAGE/index.html" ||
+  refuse "index.html links were not stamped with ?v=$SHORT."
+echo "==> stamped ?v=$SHORT on $(grep -roh "?v=$SHORT\"" "$STAGE" --include='*.html' | wc -l | tr -d ' ') CSS/JS links"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   if [[ $PREFLIGHT_WARNINGS -ne 0 ]]; then
