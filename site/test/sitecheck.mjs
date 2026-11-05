@@ -447,6 +447,12 @@ const CHECKS = {
     if (!range || Number(range[1]) > 6) out.push(`the softening starts at ${range?.[1] ?? '?'}% of the journey; it has to start by 6%`);
     const blur = css.match(/@keyframes soften \{\s*from \{ filter: blur\(0\); \}\s*to \{ filter: blur\(([\d.]+)px\); \}/)?.[1];
     if (!blur || Number(blur) < 3) out.push(`the deck is blurred from blur(0) to ${blur ?? '?'}px; 2px left the moire at 1280 wide, 3px held`);
+    // Blur is applied before projection, so near the hinge the deck's print
+    // still crawled in the margin strip (2026-11-04, real Chrome GPU at
+    // 1280x800@1: 12 hotspots with the fade starting at 21%, 8 at 18%, 0 at 17%).
+    const fadeAt = base[1].split(',').map((a) => a.trim().split(/\s+/)[0]).indexOf('fade');
+    const fade = base[3].split(',')[fadeAt]?.match(/contain ([\d.]+)% contain ([\d.]+)%/);
+    if (fadeAt < 0 || !fade || Number(fade[1]) > 17) out.push(`the deck starts fading at ${fade?.[1] ?? '?'}% of the journey; it has to start by 17%, or its print crawls near the hinge`);
     return out;
   },
 

@@ -93,8 +93,10 @@ Ship a version in this order:
    `origin/main` (after `git fetch origin main`), the release exists and is not a
    draft, and its zip digest equals both the committed zip and the pin in
    `install.sh` at HEAD. It then publishes `git archive` of the committed
-   `site/`, with `install.sh` from git, and polls the live page and installer
-   with a `?v=<commit>` cache-buster for up to three minutes.
+   `site/`, with `install.sh` from git, and polls with a `?v=<commit>`
+   cache-buster for up to three minutes until the page, the installer, every
+   CSS and JS file and every file this publish added or changed are served
+   byte for byte, and every file it deleted is gone.
 
 `./deploy.sh --dry-run` runs the same checks and stages a payload without
 publishing; a failed push or release check is a warning there, an error in a

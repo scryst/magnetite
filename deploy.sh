@@ -195,34 +195,55 @@ else
     --field 'cname=magnetite.app' >/dev/null
 fi
 
-# The page, its styles and script, AND the installer: a deploy that changed only
-# install.sh used to "verify" instantly against the old site, since index.html was
-# all it read, and one that changed only site.js and the CSS did the same (10-30).
-# Every URL carries the commit as a query string so a CDN or browser cache holding
-# the previous deploy cannot answer for this one.
-CHECKED=(index.html install.sh $(cd "$STAGE" && ls css/*.css js/*.js))
-served() {
-  local f sum out=""
-  for f in "${CHECKED[@]}"; do
-    sum="$(curl -fsSL --max-time 20 "$PROD_URL/$f?v=$SHORT" | shasum -a 256 | cut -d' ' -f1)" || return 1
-    out+="$sum+"
+# The page, its styles and script, the installer, AND every file this publish
+# changed: a deploy that changed only install.sh used to "verify" instantly
+# against the old site, since index.html was all it read, and one that changed
+# only site.js and the CSS did the same (10-30); llms.txt, the guides and the
+# films were still checked by hand (finding fl-1-mag-02-1). Every URL carries the
+# commit as a query string so a CDN or browser cache holding the previous deploy
+# cannot answer for this one.
+# Each line is "<sha256> <path>", or "gone <path>" for a file this publish deleted.
+CHECKED="$(
+  {
+    printf '%s\n' index.html install.sh
+    (cd "$STAGE" && ls css/*.css js/*.js)
+    if [[ -n "$REMOTE_HEAD" ]]; then
+      git -C "$STAGE" diff --name-only --no-renames --diff-filter=AM "$REMOTE_HEAD" HEAD
+    else
+      git -C "$STAGE" ls-files
+    fi
+  } | awk 'NF && !seen[$0]++' | while IFS= read -r f; do
+    printf '%s %s\n' "$(shasum -a 256 "$STAGE/$f" | cut -d' ' -f1)" "$f"
   done
-  echo "$out"
-}
-WANT="$(for f in "${CHECKED[@]}"; do printf '%s+' "$(shasum -a 256 "$STAGE/$f" | cut -d' ' -f1)"; done)"
-GOT=""
-# GitHub Pages can take a couple of minutes: 36 tries, 5 seconds apart.
-for _ in {1..36}; do
-  if ! GOT="$(served)"; then GOT=""; fi
-  [[ "$GOT" == "$WANT" ]] && break
+  if [[ -n "$REMOTE_HEAD" ]]; then
+    git -C "$STAGE" diff --name-only --no-renames --diff-filter=D "$REMOTE_HEAD" HEAD | sed 's/^/gone /'
+  fi
+)"
+echo "==> verifying $(printf '%s\n' "$CHECKED" | wc -l | tr -d ' ') served files"
+PENDING="$CHECKED"
+# GitHub Pages can take a couple of minutes: try every 5 seconds for three
+# minutes. A file that matched once is not fetched again.
+DEADLINE=$((SECONDS + 180))
+while :; do
+  STILL=""
+  while IFS=' ' read -r want f; do
+    if [[ "$want" == gone ]]; then
+      curl -fsS -o /dev/null --max-time 20 "$PROD_URL/$f?v=$SHORT" 2>/dev/null || continue
+    else
+      if ! got="$(curl -fsSL --max-time 60 "$PROD_URL/$f?v=$SHORT" | shasum -a 256 | cut -d' ' -f1)"; then got=""; fi
+      [[ "$got" == "$want" ]] && continue
+    fi
+    STILL+="$want $f"$'\n'
+  done <<< "$PENDING"
+  PENDING="${STILL%$'\n'}"
+  [[ -z "$PENDING" || SECONDS -ge DEADLINE ]] && break
   sleep 5
 done
 
-if [[ "$GOT" != "$WANT" ]]; then
-  echo "error: GitHub Pages did not serve $SHORT within three minutes" >&2
-  echo "  commit  $WANT" >&2
-  echo "  serving ${GOT:-unreachable}" >&2
+if [[ -n "$PENDING" ]]; then
+  echo "error: GitHub Pages did not serve $SHORT within three minutes; these differ from the commit:" >&2
+  printf '%s\n' "$PENDING" | sed 's/^gone /still served (deleted): /; s/^[0-9a-f]* /  /' >&2
   exit 1
 fi
 
-echo "==> verified $PROD_URL at $SHORT ($WANT)"
+echo "==> verified $PROD_URL at $SHORT: every changed file is served byte for byte"

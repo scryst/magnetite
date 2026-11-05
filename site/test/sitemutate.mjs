@@ -67,6 +67,7 @@ const MUTATIONS = [
   ['flicker', 'the blur comes on partway down the journey', 'site/css/magnetite.css', 'from { filter: blur(0); }\n  ', ''],
   ['flicker', 'the screen goes back in the lid\'s plane', 'site/css/magnetite.css', "behind the lid's black for a frame. */\n  transform: translateZ(1px);\n", "behind the lid's black for a frame. */\n"],
   ['flicker', 'the deck is not softened', 'site/css/magnetite.css', 'animation: fade linear both, soften linear both, gone linear both;', 'animation: fade linear both, gone linear both;'],
+  ['flicker', 'the deck fades late, near the hinge', 'site/css/magnetite.css', 'animation-range: contain 17% contain 30.5%, contain 6% contain 22%, contain 17% contain 30.5%;', 'animation-range: contain 21% contain 34.5%, contain 6% contain 22%, contain 21% contain 34.5%;'],
   ['compositor', 'the words hide in the same keyframe that fades them', 'site/css/magnetite.css', '  to { opacity: 0; transform: translateY(-24px); }', '  to { opacity: 0; transform: translateY(-24px); visibility: hidden; }'],
   ['compositor', 'the lid\'s rim fades by its box-shadow', 'site/css/magnetite.css', '@keyframes fade {\n  to { opacity: 0; }', '@keyframes fade {\n  to { opacity: 0; box-shadow: none; }'],
   ['compositor', 'the headline fades and returns in two animations', 'site/css/magnetite.css', 'animation: pitch linear both, gone linear both', 'animation: pitch linear both, lift linear forwards, gone linear both'],
