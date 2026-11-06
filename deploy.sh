@@ -167,6 +167,16 @@ grep -q "css/magnetite.css?v=$SHORT\"" "$STAGE/index.html" &&
   grep -q "js/site.js?v=$SHORT\"" "$STAGE/index.html" ||
   refuse "index.html links were not stamped with ?v=$SHORT."
 echo "==> stamped ?v=$SHORT on $(grep -roh "?v=$SHORT\"" "$STAGE" --include='*.html' | wc -l | tr -d ' ') CSS/JS links"
+# Discord, Slack and iMessage keep a link's card by its image URL for weeks, so
+# the share card's URL carries a hash of its bytes: a new card is a new URL
+# (11-06: Discord still showed August's card for magnetite.app).
+OGV="$(shasum -a 256 "$STAGE/og.png" | cut -c1-12)"
+find "$STAGE" -name '*.html' -exec perl -pi -e \
+  's{(content="https://magnetite\.app/og\.png)"}{$1?v='"$OGV"'"}g' {} +
+[[ "$(grep -c "content=\"https://magnetite.app/og.png?v=$OGV\"" "$STAGE/index.html")" -eq 2 ]] &&
+  ! grep -rq 'content="https://magnetite.app/og.png"' "$STAGE" --include='*.html' ||
+  refuse "the share card's URL was not stamped with ?v=$OGV on every page."
+echo "==> share card is og.png?v=$OGV"
 
 if [[ $DRY_RUN -eq 1 ]]; then
   if [[ $PREFLIGHT_WARNINGS -ne 0 ]]; then
