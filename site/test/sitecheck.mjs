@@ -308,7 +308,7 @@ const CHECKS = {
     }
     // Started once, then re-armed from each frame: a callback fires only once.
     if ((read('js/site.js').match(/requestVideoFrameCallback\??\.?\(touch\)/g) ?? []).length < 2) out.push('the trackpad no longer follows the swipe loop');
-    // the owner 11-05: the fingers swiped left (the film skips forward, a swipe to
+    // 11-05: the fingers swiped left (the film skips forward, a swipe to
     // the right) and snapped back at the loop's start. Sample the curve over the
     // loop and across its seam at 60 fps: the stroke goes right, and a finger
     // you can see never moves more than a smooth step in one frame.
@@ -344,7 +344,7 @@ const CHECKS = {
   },
 
   // US spelling in everything a visitor or crawler reads. The British forms of
-  // "license", "notarized" and "visualizer" shipped until the owner caught them (2026-10-29).
+  // "license", "notarized" and "visualizer" shipped until a review caught them (2026-10-29).
   spelling() {
     const out = [];
     const uk = /\b(licence|colour\w*|favourite\w*|notaris\w*|organis\w*|visualis\w*|authoris\w*|normalis\w*|programme|centre[sd]?|behaviour\w*|catalogue|grey)\b/gi; // us-spelling: ok
@@ -357,7 +357,7 @@ const CHECKS = {
 
   // The page has no color of its own: every color in its stylesheets is a
   // neutral, so the recording is the only color on screen. A pink full stop
-  // was added as flair and the owner called it random (2026-10-29).
+  // was added as flair and read as random (2026-10-29).
   accent() {
     const out = [];
     for (const name of ['css/magnetite.css', 'css/legal.css']) {
@@ -374,13 +374,13 @@ const CHECKS = {
   // Close up, the recording is the one color in the window too: the screen's
   // song field drains to gray as the camera arrives, and is gray before the
   // first gesture is named. Behind the player the field read as a brown
-  // gradient, and the owner liked the gray, which makes the player pop (2026-10-29).
+  // gradient; the gray makes the player pop (2026-10-29).
   gray() {
     const wall = css.match(/\.mac__wall \{\s*animation: (\w+) [^}]*animation-timeline: --journey;\s*animation-range: contain ([\d.]+)% contain ([\d.]+)%/);
     if (!wall) return ['.mac__wall has no animation on the journey'];
     const out = [];
     // From grayscale(0), not none: a filter that comes on partway down the journey
-    // rebuilds the layer, and a phone redraws the screen mid-scroll (the owner, 10-30, mobile).
+    // rebuilds the layer, and a phone redraws the screen mid-scroll (10-30, mobile).
     if (!new RegExp(`@keyframes ${wall[1]} \\{\\s*from \\{ filter: grayscale\\(0\\); \\}\\s*to \\{ filter: grayscale\\(1\\); \\}`).test(css)) out.push(`@keyframes ${wall[1]} has to run from filter: grayscale(0) to grayscale(1)`);
     const first = css.match(/\.moves li:nth-child\(1\) \{[^}]*animation-range: contain ([\d.]+)%/);
     if (!first) out.push('no range for the first gesture');
@@ -391,12 +391,12 @@ const CHECKS = {
   // The MacBook is drawn to Apple's measurements, not by eye. These are read
   // off Apple's top-down store photo of the 14-inch (mbp14-spaceblack-gallery2,
   // the body 1298 px wide) in hundredths of the body's width. The grilles were
-  // drawn at half their width and the owner caught it (2026-10-29).
+  // drawn at half their width until a review caught it (2026-10-29).
   // Song changes. As the page's layers (four lights, four desktops, each
   // desktop's two turning copies wider than the screen) the songs held some
   // 500-700 MB on a phone (412 wide), past what Android Chrome keeps drawn, and
   // it dropped their tiles mid-scroll: blocks of the light and the screen
-  // blinking out, the "spazzing" the owner caught three passes running (10-30). Now
+  // blinking out, the "spazzing" seen three passes running (10-30). Now
   // each is one canvas at its stills' size, drawn while on screen. The song
   // going stays whole under the one coming in, so the light never dims
   // mid-change. Every glow is opaque color under glow-mask.webp: the tour's lost

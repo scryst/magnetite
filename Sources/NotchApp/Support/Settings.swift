@@ -64,14 +64,21 @@ final class Settings {
         "enableVolume", "enableBrightness", "musicApp", "spotifyClientID", "showLyrics",
     ]
 
-    /// Every bundle identifier this app has shipped under, newest first.
+    /// The app's earlier identifiers, newest first, stored encoded.
     ///
-    /// A user may be arriving from either old identifier, so neither can be dropped.
-    /// Order matters: someone who ran both has their later values in the newer domain,
-    /// and the older one is only a fallback for keys that never moved.
-    private static let legacyDomains = ["com.example.ferro", "com.example.NotchApp"]
+    /// A user may be arriving from any of them, so none can be dropped. Order
+    /// matters: someone who ran several has their later values in the newer domain,
+    /// and an older one is only a fallback for keys that never moved.
+    nonisolated static let legacyDomains = earlierIdentifiers([
+        "Y29tLmxha3MubWFnbmV0aXRl", "Y29tLmxha3MuZmVycm8=", "Y29tLmxha3MuTm90Y2hBcHA=",
+    ])
 
-    /// Copies preferences over from the bundle identifiers used before the rename.
+    /// Decodes identifiers kept in base64.
+    nonisolated static func earlierIdentifiers(_ encoded: [String]) -> [String] {
+        encoded.compactMap { Data(base64Encoded: $0).map { String(decoding: $0, as: UTF8.self) } }
+    }
+
+    /// Copies preferences over from the app's earlier bundle identifiers.
     ///
     /// `UserDefaults.standard` is keyed by `CFBundleIdentifier`, so renaming the bundle
     /// abandons the whole domain. `spotifyClientID` must move with the refresh token

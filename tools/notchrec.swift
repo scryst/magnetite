@@ -79,7 +79,7 @@ Task {
     do {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         guard let display = content.displays.first(where: { CGDisplayIsBuiltin($0.displayID) != 0 }),
-              let app = content.applications.first(where: { $0.bundleIdentifier == "com.example.magnetite" })
+              let app = content.applications.first(where: { $0.bundleIdentifier == "app.magnetite.Magnetite" })
         else { FileHandle.standardError.write(Data("no built-in display or Magnetite\n".utf8)); exit(2) }
         let filter = SCContentFilter(display: display, including: [app], exceptingWindows: [])
         let config = SCStreamConfiguration()

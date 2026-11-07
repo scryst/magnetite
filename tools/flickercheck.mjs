@@ -60,7 +60,6 @@ import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, createReadStream } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve, extname, normalize, sep } from 'node:path';
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { decodePNG, encodePNG, newImage, blit, drawText, textWidth, fillRect } from './lib/png.mjs';
 
@@ -95,6 +94,7 @@ function parseSizes(s) {
 
 // ---- Playwright, wherever it lives --------------------------------------------------------
 async function loadPlaywright() {
+  // Set PLAYWRIGHT_DIR to any folder with playwright installed.
   const roots = [process.env.PLAYWRIGHT_DIR, process.cwd(), HERE].filter(Boolean);
   const require = createRequire(import.meta.url);
   for (const r of roots) {

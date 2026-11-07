@@ -77,6 +77,8 @@ if [[ "$MODE" == mutations ]]; then
     '[ ! -e "${TARGET:-}" ]' 'false'
   mutate "running copy never signalled" running_copy \
     'kill -TERM "$PID" 2>/dev/null || true' ':'
+  mutate "a copy under the earlier identifier is not found" running_copy \
+    'for _id in "$BUNDLE_ID" "$EARLIER_ID"; do' 'for _id in "$BUNDLE_ID"; do'
   mutate "no rollback when the new app does not start" launch_failure \
     '[ "$LAUNCHED" -eq 0 ] && [ "$UPDATING" -eq 1 ]' 'false'
   mutate "existing ~/Applications copy ignored (second copy installed)" update_in_place \
@@ -124,12 +126,12 @@ PLIST
 }
 sha() { shasum -a 256 "$1" | awk '{print $1}'; }
 
-mkapp good        com.example.magnetite $VERSION       arm64  0
-mkapp other       com.example.magnetite $OTHER_VERSION arm64  0
+mkapp good        app.magnetite.Magnetite $VERSION       arm64  0
+mkapp other       app.magnetite.Magnetite $OTHER_VERSION arm64  0
 mkapp wrongid     com.example.other  $VERSION       arm64  0
-mkapp wrongver    com.example.magnetite 9.9.9          arm64  0
-mkapp intel       com.example.magnetite $VERSION       x86_64 0
-mkapp tampered    com.example.magnetite $VERSION       arm64  1
+mkapp wrongver    app.magnetite.Magnetite 9.9.9          arm64  0
+mkapp intel       app.magnetite.Magnetite $VERSION       x86_64 0
+mkapp tampered    app.magnetite.Magnetite $VERSION       arm64  1
 GOOD_SHA="$(sha "$T/zips/good.zip")"
 # A second, different, perfectly valid archive: what a swapped download looks like.
 SWAP_ZIP="$T/zips/swapped.zip"; cp "$T/zips/other.zip" "$SWAP_ZIP"
@@ -163,7 +165,10 @@ echo "lsappinfo $*" >> "$FAKE_LOG"
 pid=""; [ -f "$FAKE_DIR/pid" ] && pid="$(cat "$FAKE_DIR/pid")"
 alive() { [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; }
 case "$1" in
-  find) alive && echo 'ASN:0x0-0x1234-"Magnetite":' ;;
+  # A running copy may carry a given identifier (FAKE_DIR/bundleid); without
+  # one it answers for any.
+  find) [ -f "$FAKE_DIR/bundleid" ] && [ "bundleid=$(cat "$FAKE_DIR/bundleid")" != "$2" ] && exit 0
+        alive && echo 'ASN:0x0-0x1234-"Magnetite":' ;;
   info) alive && printf '    pid = %s !cgsConnection\n' "$pid" ;;
 esac
 exit 0
@@ -350,6 +355,12 @@ if want running_copy; then
   runsh "$S" "$D" FAKE_ZIP="$T/zips/good.zip"; rc=$?
   check "a copy that will not quit: fails with the M-menu advice" bash -c "[ $rc -ne 0 ] && grep -q 'Quit it from the M in your menu bar' '$OUT'"
   check "  ...and the existing app is untouched" old_intact "$D"
+  kill "$pid" 2>/dev/null
+  reset "$D"; seed_old "$D"
+  pid="$(start_sleeper)"; echo "$pid" > "$T/fake/pid"
+  printf %s Y29tLmxha3MubWFnbmV0aXRl | base64 -D > "$T/fake/bundleid"
+  runsh "$S" "$D" FAKE_ZIP="$T/zips/good.zip"; rc=$?
+  check "a copy under the earlier identifier is quit too" bash -c "[ $rc -eq 0 ] && ! kill -0 $pid 2>/dev/null"
   kill "$pid" 2>/dev/null
 fi
 

@@ -558,7 +558,7 @@ enum FluidCheck {
                 "real music never raised three crowns at once")
     }
 
-    /// Each hit is its own move and quiet passages stay calm (the owner, 2026-10-28: keep
+    /// Each hit is its own move and quiet passages stay calm (2026-10-28: keep
     /// 0.1.8's tight choreography). On the capture, replayed with fixed offsets: a few
     /// crowns stand at once (6.6 on average here, 7.1 with no gate under small hits, 7.7
     /// with no limit on how many stand), the lobes travel 1.4 of a full height per
@@ -611,7 +611,7 @@ enum FluidCheck {
 
     /// The ink must feel responsive: a hit brings the crown and the body to nine tenths
     /// of their peak within seven frames, about 115 ms, or the motion reads as sluggish
-    /// however smooth it is (the owner, 2026-10-28, of a follower that took 130 ms to peak on
+    /// however smooth it is (2026-10-28, of a follower that took 130 ms to peak on
     /// real music and held a big hit for 230 ms). Measured from the frame the hit lands,
     /// on one strong bass hit out of a steady floor, the slowest case.
     @MainActor

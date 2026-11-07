@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Magnetite</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.example.magnetite</string>
+	<string>app.magnetite.Magnetite</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -25,9 +25,9 @@
 	<key>CFBundleIconFile</key>
 	<string>Magnetite</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.16</string>
+	<string>0.1.17</string>
 	<key>CFBundleVersion</key>
-	<string>21</string>
+	<string>22</string>
 	<!-- Finder's Get Info and crash reports are the two places a downloaded
 	     app states its publisher; without this key both say nothing. The full
 	     terms ride along in Resources/LICENSE. -->
@@ -51,7 +51,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.example.magnetite</string>
+			<string>app.magnetite.Magnetite</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>magnetite</string>

@@ -55,6 +55,14 @@ echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Magnetite"
+# Drop the debug stabs: they name every object file by its absolute build path,
+# which carries the builder's home folder into the shipped binary.
+strip -S "$APP/Contents/MacOS/Magnetite"
+# Every release up to 0.1.16 shipped those paths; refuse a binary that still does.
+if LC_ALL=C grep -qaF "/Users/" "$APP/Contents/MacOS/Magnetite"; then
+  echo "error: the binary still contains a /Users/ path" >&2
+  exit 1
+fi
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # Before signing, not after: resources are part of what the signature covers, so
 # an icon copied in afterwards invalidates it.

@@ -132,7 +132,7 @@ echo "==> films"
 for film in site/media/*.mp4; do
   node tools/filmcheck.mjs "$film" --out=.build/checks/film >/dev/null </dev/null
 done
-git show 9b3b619:site/media/demo.mp4 > .build/checks/film-0.1.13.mp4
+git show 8b8774d:site/media/demo.mp4 > .build/checks/film-0.1.13.mp4
 if node tools/filmcheck.mjs .build/checks/film-0.1.13.mp4 --out=.build/checks/film >/dev/null </dev/null; then
   echo "filmcheck passed 0.1.13's jumping demo film" >&2
   exit 1

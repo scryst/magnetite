@@ -68,7 +68,7 @@ anchor: it carries `PIN_VERSION` and `PIN_SHA256`, the fingerprint of the one
 release it installs, so a swapped release zip cannot also swap its checksum. A
 default install downloads that version only, checks it against the pin and
 refuses a mismatch. Before copying anything it also checks the unpacked bundle:
-identifier `com.example.magnetite`, the expected version, an `arm64` slice and a
+identifier `app.magnetite.Magnetite`, the expected version, an `arm64` slice and a
 valid signature. `MAGNETITE_VERSION=<other>` falls back to the `.sha256` beside
 that release and warns that this only catches a damaged download.
 
@@ -129,8 +129,12 @@ and the `Notch*` types name the surface; renaming them would only churn paths.
 `build.sh` names the bundle executable Magnetite. `Ferrofluid*` refers to the
 physics.
 
-Keep both migrations: preferences moved `com.example.NotchApp` → `com.example.ferro`
-→ `com.example.magnetite`; the Application Support directory moved `NotchApp` →
-`Ferro` → `Magnetite`. Old names are read newest-first because users may arrive
-from either. The URL scheme deliberately retains no old alias, avoiding two
+Keep both migrations: preferences moved through three earlier bundle
+identifiers to `app.magnetite.Magnetite`; the Application Support directory
+moved `NotchApp` → `Ferro` → `Magnetite`. Old names are read newest-first
+because users may arrive from any of them. The earlier identifiers are kept
+base64-encoded (`Settings.legacyDomains`, `EARLIER_ID` in `install.sh`), and
+`tools/controllercheck.swift` decodes them to check none was dropped. The
+identifier change in 0.1.17 makes macOS ask once more for Automation and
+system audio recording. The URL scheme deliberately retains no old alias, avoiding two
 installed apps claiming the same global registration.

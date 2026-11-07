@@ -23,12 +23,14 @@
 #                      fingerprint, so it is checked against the checksum file
 #                      published beside it, which catches a damaged download but
 #                      not a tampered release.
-PIN_VERSION="0.1.16"
-PIN_SHA256="5555279eca312fb0f7f3a8abf046ff4115ad94f98da0fa44ad44d438da151bab"
+PIN_VERSION="0.1.17"
+PIN_SHA256="5e8c1d93008f4ebf8c558f551e39ba8dd458c795d37f3c56e12df1943d1fd5ca"
 set -eu
 
 REPO="scryst/magnetite-releases"
-BUNDLE_ID="com.example.magnetite"
+BUNDLE_ID="app.magnetite.Magnetite"
+# The app's earlier identifier, so a copy from before the change is found and quit.
+EARLIER_ID="$(printf %s Y29tLmxha3MubWFnbmV0aXRl | base64 -D)"
 APP="Magnetite.app"
 # Only tests change this: it keeps installcheck.sh away from the real /Applications.
 SYSTEM_APPS="${MAGNETITE_SYSTEM_APPS:-/Applications}"
@@ -42,10 +44,13 @@ fetch() { curl -fsSL --proto '=https' --tlsv1.2 --connect-timeout 15 --max-time 
 # The pid of the running Magnetite, or nothing. Asks LaunchServices directly, so
 # no Apple Event is sent and macOS shows no Automation prompt for the terminal.
 running_pid() {
-  _asn="$(lsappinfo find "bundleid=$BUNDLE_ID" 2>/dev/null | sed -n 1p || true)"
-  [ -n "$_asn" ] || return 0
-  lsappinfo info -only pid "$_asn" 2>/dev/null \
-    | grep -Eo '"?pid"? *= *[0-9]+' | sed -n 1p | grep -Eo '[0-9]+$' || true
+  for _id in "$BUNDLE_ID" "$EARLIER_ID"; do
+    _asn="$(lsappinfo find "bundleid=$_id" 2>/dev/null | sed -n 1p || true)"
+    [ -n "$_asn" ] || continue
+    lsappinfo info -only pid "$_asn" 2>/dev/null \
+      | grep -Eo '"?pid"? *= *[0-9]+' | sed -n 1p | grep -Eo '[0-9]+$' || true
+    return 0
+  done
 }
 
 # plist_value <app> <key>

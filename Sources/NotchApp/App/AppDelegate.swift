@@ -15,8 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // One Magnetite per session: a second copy would draw a second panel, answer
         // every swipe twice, run a second audio tap and lose the Spotify callback port.
-        if let id = Bundle.main.bundleIdentifier,
-           NSRunningApplication.runningApplications(withBundleIdentifier: id)
+        // A copy from before the identifier changed counts too.
+        let ids = [Bundle.main.bundleIdentifier].compactMap { $0 } + Settings.legacyDomains
+        if ids.flatMap(NSRunningApplication.runningApplications(withBundleIdentifier:))
                .contains(where: { $0 != .current && !$0.isTerminated }) {
             FileHandle.standardError.write(Data(
                 "[launch] Magnetite is already running; quit it first to run this copy.\n".utf8))

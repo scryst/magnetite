@@ -181,7 +181,7 @@ enum LyricsCheck {
     }
 
     static func creditsAndLabelsAreNotSung() {
-        // The tail of LRCLIB's ILLIT "Pop Pop", as the owner saw it under the player.
+        // The tail of LRCLIB's ILLIT "Pop Pop", as it showed under the player.
         let tail = SyncedLyrics(lrc: """
             [02:16.00]Pop Pop
             [02:21.00]

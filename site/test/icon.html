@@ -389,7 +389,7 @@ document.getElementById('save').addEventListener('click', () => {
 
 draw();
 
-// Exposed so the build/agent can pull the bytes without a download dialog.
+// Exposed so a build script can pull the bytes without a download dialog.
 globalThis.iconDataURL = () => icon.toDataURL('image/png');
 globalThis.drawIcon = draw;
 

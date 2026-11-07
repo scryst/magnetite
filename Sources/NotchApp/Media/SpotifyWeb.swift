@@ -1022,7 +1022,7 @@ enum TokenStore {
         await off {
             _ = SecItemDelete([
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: "com.example.NotchApp",
+                kSecAttrService as String: Settings.legacyDomains.last ?? "",
                 kSecAttrAccount as String: "spotify-refresh-token",
             ] as CFDictionary)
         }

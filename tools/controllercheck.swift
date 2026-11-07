@@ -266,7 +266,9 @@ enum ControllerCheck {
 
         // Written down here on purpose: the lists in the source say what is
         // migrated, and only an independent record says what should be.
-        let shippedIDs = ["com.example.NotchApp", "com.example.ferro"]
+        // The app's earlier identifiers, base64 as in the source.
+        let shippedIDs = ["Y29tLmxha3MuTm90Y2hBcHA=", "Y29tLmxha3MuZmVycm8=", "Y29tLmxha3MubWFnbmV0aXRl"]
+            .compactMap { Data(base64Encoded: $0).map { String(decoding: $0, as: UTF8.self) } }
         let shippedDirectories = ["NotchApp", "Ferro"]
 
         check(list: "legacyDomains",
@@ -297,13 +299,18 @@ enum ControllerCheck {
             return
         }
         let listed = String(code[open.upperBound..<close.lowerBound])
+        // An entry is named as written or base64-encoded (the earlier identifiers).
+        let quoted = capturedGroups(#""([^"]*)""#, in: listed)
+        let names = Set(quoted + quoted.compactMap {
+            Data(base64Encoded: $0).map { String(decoding: $0, as: UTF8.self) }
+        })
 
         for old in expected {
-            require(listed.contains("\"\(old)\""),
+            require(names.contains(old),
                     "\(old) is a \(what) this app shipped under and \(name) no "
                     + "longer names it, so anyone upgrading from it loses \(loses)")
         }
-        require(!listed.contains("\"\(current)\""),
+        require(!names.contains(current),
                 "\(name) names the CURRENT \(what) \(current), which reads the "
                 + "domain it is already writing to — a no-op that still looks "
                 + "like a migration, and hides a name that is genuinely missing")

@@ -86,7 +86,7 @@ Notchless displays get a floating pill. It hides on lock, screensaver and detect
 <details>
 <summary><b>How do I update or uninstall?</b></summary>
 
-Rerun the installer or replace the app with the latest release. To uninstall, disconnect Spotify if connected, quit from the **M** menu, then delete Magnetite.app. Optional settings cleanup: remove `~/Library/Application Support/Magnetite` and run `defaults delete com.example.magnetite` in Terminal.
+Rerun the installer or replace the app with the latest release. To uninstall, disconnect Spotify if connected, quit from the **M** menu, then delete Magnetite.app. Optional settings cleanup: remove `~/Library/Application Support/Magnetite` and run `defaults delete app.magnetite.Magnetite` in Terminal.
 
 </details>
 

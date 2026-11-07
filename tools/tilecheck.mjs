@@ -3,7 +3,7 @@
 //
 // Android Chrome keeps only so much of a page drawn. Past that budget it skips tiles, and on the
 // site they showed as rectangles and diagonal strips of the light, the screen and the deck
-// blinking out while the journey scrolled: the "spazzing" the owner caught three passes running
+// blinking out while the journey scrolled: the "spazzing" seen three passes running
 // (10-30). The songs were the cost: four lights and four desktops, each desktop with two turning
 // copies wider than the screen, some 500-700 MB at 412 px wide. No DOM or style check sees a
 // dropped tile, so this one compares pixels.
@@ -20,7 +20,6 @@ import { createServer } from 'node:http';
 import { existsSync, statSync, createReadStream, mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve, extname, normalize, sep } from 'node:path';
-import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { decodePNG } from './lib/png.mjs';
 
@@ -30,6 +29,7 @@ const MB = +arg('mb', 24), OUT = arg('out', '');
 
 const require = createRequire(import.meta.url);
 const pw = (() => {
+  // Set PLAYWRIGHT_DIR to any folder with playwright installed.
   for (const r of [process.env.PLAYWRIGHT_DIR, process.cwd(), HERE].filter(Boolean)) {
     try { return require(require.resolve('playwright', { paths: [r] })); } catch { /* next */ }
   }

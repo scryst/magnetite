@@ -219,7 +219,7 @@ fi
 # changed: a deploy that changed only install.sh used to "verify" instantly
 # against the old site, since index.html was all it read, and one that changed
 # only site.js and the CSS did the same (10-30); llms.txt, the guides and the
-# films were still checked by hand (finding fl-1-mag-02-1). Every URL carries the
+# films were still checked by hand. Every URL carries the
 # commit as a query string so a CDN or browser cache holding the previous deploy
 # cannot answer for this one.
 # Each line is "<sha256> <path>", or "gone <path>" for a file this publish deleted.
