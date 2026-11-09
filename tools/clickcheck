@@ -19,13 +19,9 @@ merged.write_text((repo / "Sources/NotchApp/UI/NotchView.swift").read_text()
 sources = [repo / "Sources/NotchApp" / p for p in [
     "UI/FerrofluidView.swift", "UI/MarqueeText.swift", "Notch/NotchShape.swift",
     "Notch/NotchPanel.swift", "Notch/SwipeRecogniser.swift", "Support/ChromeRules.swift",
-    "Support/ViewState.swift", "Media/ArtworkPalette.swift", "Media/Lyrics.swift"]]
-# Pure credit formatting only, as in tools/snapshot.
-credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
-pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]
-credit_source = build / "ClickCredits.swift"
-credit_source.write_text("import Foundation\n" + pure + "}\n")
-sources += [credit_source, repo / "tools/snapshot-doubles.swift"]
+    "Support/ViewState.swift", "Media/ArtworkPalette.swift", "Media/Lyrics.swift",
+    "Media/ArtistCredit.swift"]]
+sources.append(repo / "tools/snapshot-doubles.swift")
 subprocess.run(["swiftc", "-parse-as-library", "-module-cache-path", str(build / "ModuleCache"),
                 "-target", "arm64-apple-macosx26.0",
                 *map(str, sources), str(merged), "-o", str(build / "clickcheck")],

@@ -56,6 +56,7 @@ swiftc -O -parse-as-library tools/gesturecheck.swift \
 swiftc -O -parse-as-library tools/mediacheck.swift \
   Sources/NotchApp/Media/MediaManager.swift \
   Sources/NotchApp/Media/MediaBridge.swift \
+  Sources/NotchApp/Media/ArtistCredit.swift \
   Sources/NotchApp/Media/SpotifyWeb.swift \
   Sources/NotchApp/Media/ScriptingBridgeProtocols.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
@@ -67,6 +68,7 @@ swiftc -O -parse-as-library tools/mediacheck.swift \
 swiftc -O -parse-as-library tools/librarycheck.swift tools/librarycheck-doubles.swift \
   Sources/NotchApp/Media/MediaManager.swift \
   Sources/NotchApp/Media/MediaBridge.swift \
+  Sources/NotchApp/Media/ArtistCredit.swift \
   Sources/NotchApp/Media/ScriptingBridgeProtocols.swift \
   Sources/NotchApp/Media/ArtworkPalette.swift \
   Sources/NotchApp/Media/Lyrics.swift \

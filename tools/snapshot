@@ -30,12 +30,8 @@ for path in paths:
     copied = build / ("Snapshot" + Path(path).name)
     copied.write_text(source("Sources/NotchApp/" + path))
     sources.append(copied)
-# Reuse pure credit formatting, excluding the network resolver and media bridge.
-credits = (repo / "Sources/NotchApp/Media/MediaBridge.swift").read_text()
-pure = credits[credits.index("struct ArtistCredit:"):credits.index("    func resolveMusicURL()")]
-credit_source = build / "SnapshotCredits.swift"
-credit_source.write_text("import Foundation\n" + pure + "}\n")
-sources += [credit_source, repo / "tools/snapshot-doubles.swift"]
+# Pure credit formatting, without the network resolver and media bridge.
+sources += [repo / "Sources/NotchApp/Media/ArtistCredit.swift", repo / "tools/snapshot-doubles.swift"]
 subprocess.run(["swiftc", "-parse-as-library", "-module-cache-path", str(build / "ModuleCache"),
                 "-target", "arm64-apple-macosx26.0",
                 *map(str, sources), str(merged), "-o", str(build / "snapshot")],
