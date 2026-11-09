@@ -36,7 +36,8 @@ body {
 
 h1 {
   margin: 0 0 12px;
-  font: 600 clamp(44px, 9vw, 80px)/1 'Geist', -apple-system, system-ui, sans-serif;
+  /* A guide's title runs to 49 characters: at 80px it took five lines and half the screen. */
+  font: 600 clamp(34px, 6vw, 48px)/1.05 'Geist', -apple-system, system-ui, sans-serif;
   letter-spacing: -0.045em;
 }
 
