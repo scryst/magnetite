@@ -6,6 +6,6 @@ Sitemap: https://magnetite.app/sitemap.xml
 # The build itself is not something a crawler should be indexing as a document.
 Disallow: /downloads/
 
-# The share-card generator and the site checks. Neither is
-# a page anyone should arrive at from a search result.
+# The share-card generator and the site checks. deploy.sh leaves test/ out of
+# the published site, so this rule only matters if that ever changes.
 Disallow: /test/
