@@ -692,10 +692,14 @@ const CHECKS = {
   },
 
   // The sitemap lists every page a search engine may index and nothing else: each
-  // entry is a file that ships, and each indexable file is listed.
+  // entry is a file that ships, and each indexable file is listed. No <lastmod>:
+  // hand-kept dates sat at 10-31 while six pages changed through 11-06, and a
+  // crawler that finds lastmod wrong stops trusting it.
   sitemap() {
     const out = [];
-    const locs = [...read('sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const xml = read('sitemap.xml');
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    if (xml.includes('<lastmod>')) out.push('sitemap.xml carries a hand-kept <lastmod>; drop it');
     const want = indexable().map((f) => (f === 'index.html' ? 'https://magnetite.app/' : `https://magnetite.app/${f}`));
     for (const w of want) if (!locs.includes(w)) out.push(`${w} is not in sitemap.xml`);
     for (const l of locs) {
