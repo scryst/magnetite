@@ -2,7 +2,10 @@
 """Render real SwiftUI views linked ONLY to inert fixtures, without opening windows.
 
 Usage: tools/snapshot OUTPUT [REVISION]
-Optional revision supplies the old UI sources for before/after comparison.
+Optional revision supplies the old UI sources for before/after comparison: NotchView
+and the files in `paths` come from REVISION; the harness (snapshot.swift, its doubles
+and ArtistCredit.swift) is always the working tree's. So REVISION must hold every file
+in `paths` (Lyrics.swift arrived in 40a3a8d), and both render checks must fail on it.
 This is a rasterizer, not an alternative launcher for the app's check suites.
 """
 import base64
@@ -17,7 +20,11 @@ build.mkdir(parents=True, exist_ok=True)
 merged = build / "SnapshotView.swift"
 def source(path):
     if len(sys.argv) > 2:
-        return subprocess.check_output(["git", "show", f"{sys.argv[2]}:{path}"], cwd=repo, text=True)
+        revision = sys.argv[2]
+        if subprocess.run(["git", "cat-file", "-e", f"{revision}:{path}"], cwd=repo,
+                          stderr=subprocess.DEVNULL).returncode != 0:
+            sys.exit(f"{revision} has no {path}; REVISION must be a baseline holding every snapshot source")
+        return subprocess.check_output(["git", "show", f"{revision}:{path}"], cwd=repo, text=True)
     return (repo / path).read_text()
 
 merged.write_text(source("Sources/NotchApp/UI/NotchView.swift")
