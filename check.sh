@@ -14,9 +14,13 @@ mkdir -p .build/checks
 # them, lint the plists, and run the installer against a sandbox with a fake
 # release. installcheck.sh touches no real Applications folder, network or app.
 echo "==> scripts"
+# The repository is public: no person, private machine, AI tool or task ID in a
+# tracked file or an unpushed commit, and the self-test proves each part still bites.
+./tools/tracecheck.sh --self-test </dev/null
+./tools/tracecheck.sh </dev/null
 sh -n install.sh </dev/null
 sh -n tools/pin-installer.sh </dev/null
-for script in build.sh deploy.sh check.sh tools/installcheck.sh; do
+for script in build.sh deploy.sh check.sh tools/installcheck.sh tools/tracecheck.sh; do
   bash -n "$script" </dev/null
 done
 plutil -lint Resources/Info.plist Resources/*.entitlements </dev/null

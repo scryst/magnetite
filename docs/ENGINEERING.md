@@ -14,7 +14,10 @@ SwiftPM builds against the Command Line Tools, without an Xcode project.
 ./tools/check-runtime /usr/bin/python3 -I tools/runtimecheck.py
 ```
 
-`./check.sh` first checks the shell scripts: `sh -n install.sh`, `bash -n` on the
+`./check.sh` first runs `tools/tracecheck.sh`, which refuses a tracked file or an
+unpushed commit that names a person, a private machine or folder, an AI tool or
+an internal task ID, or that another author wrote (`--self-test` proves each part
+still catches a seeded case). Then it checks the shell scripts: `sh -n install.sh`, `bash -n` on the
 build, deploy and check scripts, `plutil -lint` on the plists, and
 `tools/installcheck.sh`, which runs `install.sh` against a fake release in a
 throwaway folder (shimmed `curl`, `lsappinfo`, `open`; no network, no real
@@ -60,6 +63,23 @@ python3 site/serve.py 4173
 
 Look at the site in a real browser at desktop and phone widths too; the tests
 can't judge readability, the film, audio timing or notch alignment.
+
+On-demand tools, run by hand rather than by `./check.sh` (each file's header
+gives its options):
+
+| Tool | What it is for |
+| --- | --- |
+| `tools/snapshot` | Renders the real panel views to PNG without a live player |
+| `tools/notchruler` | Prints the notch metrics macOS reports for each display |
+| `tools/notchrec`, `tools/notchtake` | Film the running app alone for the site's film |
+| `tools/gesturetake` | Films one gesture loop for the site's journey |
+| `tools/fluidfilm` | Films the ink off screen from real audio through the shipping analyser |
+| `tools/filmcheck.mjs` | Finds jumps in a site film (`./check.sh` runs it on every shipped film) |
+| `tools/filmocr.swift` | Prints the text macOS reads in each frame, to catch private text in a film |
+| `tools/flickercheck.mjs` | Measures pops in the site's 3D scene while the camera moves |
+| `tools/tilecheck.mjs` | Checks whether a phone drops the page's tiles mid-scroll |
+
+The browser tools need Playwright; set `PLAYWRIGHT_DIR` to a folder that has it.
 
 ## Release mechanics
 

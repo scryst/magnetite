@@ -25,7 +25,7 @@ Prefer to skip the warning? [Read the installer](https://github.com/scryst/magne
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
-The installer checks the published SHA-256 and code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. The checksum and signature confirm the download is intact; Apple hasn't reviewed it. Run it again to update.
+The installer downloads the release it is pinned to, checks it against the fingerprint built into the installer and its code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. The checksum and signature confirm the download is intact; Apple hasn't reviewed it. Run it again to update.
 
 ## See what it does
 
