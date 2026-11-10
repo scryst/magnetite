@@ -24,7 +24,16 @@ final class AudioLevels {
 
     private(set) var bands = [Float](repeating: 0, count: AudioTap.bandCount)
     private(set) var isLive = false
-    private(set) var permissionNote: String?
+    private(set) var permissionNote: String? {
+        didSet {
+            guard permissionNote != oldValue else { return }
+            if let note = permissionNote {
+                Diagnostics.log.error("audio: \(note, privacy: .public)")
+            } else {
+                Diagnostics.log.notice("audio: capturing")
+            }
+        }
+    }
 
 
     private let tap = AudioTap()

@@ -16,10 +16,19 @@ Describe the actual result and what you expected.
 2.
 3.
 
+## Diagnostics
+
+Choose **Copy Diagnostics** in the **M** menu right after the problem and paste
+it here. It holds the version, macOS, the music source and the last 200 log
+lines, with your name, folders, computer name and the song left out. Read it
+before you post.
+
+```
+paste here
+```
+
 ## Setup
 
-- Magnetite version:
-- macOS version and Mac model:
 - Display(s), notch and automatic menu-bar hiding:
 - Spotify or Music; playing, paused or closed:
 - Website only: browser and viewport width:

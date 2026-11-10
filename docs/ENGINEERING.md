@@ -26,7 +26,7 @@ truncated download, a wrong bundle, a running copy and a failed launch;
 `installcheck.sh --mutations` breaks temporary copies of the installer and
 requires the matching case to fail. Every suite command gets `</dev/null`, so
 none can swallow the script `check.sh` feeds the sandbox. After that it runs
-eight app suites, two site suites and the site mutation harness. It builds
+nine app suites, two site suites and the site mutation harness. It builds
 normally, then executes tests through the macOS sandbox. Home-directory
 contents outside the checkout and selected Node executable, credential and
 preference services, Apple Events and network access are blocked. Toolchain and
@@ -50,6 +50,7 @@ alongside inert test doubles; neither exercises a live player.
 | `chromecheck` | Layout, type, controls and marquee |
 | `controllercheck` | Window lifecycle, hover, pinning and visibility |
 | `palettecheck` | Artwork palette contrast against the app's own type |
+| `diagnosticscheck` | Copy Diagnostics leaves out names, paths and the song, and reads the newest log lines |
 | `sitecheck` | The page's release, size, requirements, credit, film, mark and links |
 | `sitemutate` | Each site check rejects a named broken copy of the page |
 

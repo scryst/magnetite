@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Menu-bar only. LSUIElement covers the bundled case; this makes `swift run`
         // behave the same.
         NSApp.setActivationPolicy(.accessory)
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        Diagnostics.log.notice("launched \(version, privacy: .public) (build \(build, privacy: .public))")
 
         // One Magnetite per session: a second copy would draw a second panel, answer
         // every swipe twice, run a second audio tap and lose the Spotify callback port.
@@ -177,6 +181,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(action("Check for Updates…", key: "") {
             NSWorkspace.shared.open(Self.releasesURL)
         })
+        let diagnostics = action("Copy Diagnostics", key: "") { [weak self] in
+            self?.copyDiagnostics()
+        }
+        diagnostics.toolTip = "Copies the version, macOS, music source and recent log lines "
+            + "for a bug report. Names, paths and the song are left out."
+        menu.addItem(diagnostics)
         menu.addItem(action("Quit Magnetite", key: "q") { NSApp.terminate(nil) })
     }
 
@@ -232,6 +242,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             note(text,"The library connection is set up but the last request failed.")
         }
         return items
+    }
+
+    // MARK: Diagnostics
+
+    /// The facts are read here on the main actor; the log is read off it, since a
+    /// long session holds thousands of entries.
+    private func copyDiagnostics() {
+        let settings = Settings.shared
+        let media = coordinator?.media
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "?") "
+            + "(build \(info?["CFBundleVersion"] as? String ?? "?"))"
+        let choice = ["automatic": "Automatic", "spotify": "Spotify", "music": "Apple Music"][settings.musicApp]
+            ?? settings.musicApp
+        let library: String
+        if let web = media?.spotify {
+            library = web.isConnected ? "connected" : web.clientID.isEmpty ? "not set up" : "not connected"
+        } else {
+            library = "not set up"
+        }
+        let facts = Diagnostics.Facts(
+            version: version,
+            macOS: ProcessInfo.processInfo.operatingSystemVersionString,
+            model: Diagnostics.machineModel(),
+            source: "\(choice), reading \(media?.source?.displayName ?? "no player")",
+            spotifyLibrary: library,
+            problems: problemItems().filter { !$0.isEnabled }.map(\.title),
+            settings: [("Open on Hover", settings.expandNotchOnHover),
+                       ("Mini Player When Closed", settings.showsMiniPlayer),
+                       ("Lyrics in Player", settings.showsLyrics),
+                       ("Swipe to Skip and Pause", settings.enableGestures),
+                       ("Volume Indicator", settings.enableVolume),
+                       ("Brightness Indicator", settings.enableBrightness),
+                       ("Hide from Screen Recordings", settings.hideFromScreenCapture)])
+        let song = [media?.title ?? "", media?.artist ?? ""] + (media?.artists.map(\.name) ?? [])
+        Task.detached {
+            let text = Diagnostics.report(facts, log: Diagnostics.recentLog(), redacting: song)
+            await MainActor.run {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+            }
+        }
     }
 
     // MARK: About

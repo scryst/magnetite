@@ -29,7 +29,13 @@ final class MediaManager {
     private(set) var isPlaying = false
     private(set) var duration: Double = 0
     private(set) var position: Double = 0
-    private(set) var source: MusicSource?
+    private(set) var source: MusicSource? {
+        didSet {
+            if source != oldValue {
+                Diagnostics.log.notice("source: \(self.source?.displayName ?? "none", privacy: .public)")
+            }
+        }
+    }
     private(set) var artwork: NSImage?
     private(set) var palette: ArtworkPalette = .fallback
     private(set) var hasTrack = false
@@ -61,12 +67,25 @@ final class MediaManager {
     @ObservationIgnored private var lyricsIdentity = ""
     @ObservationIgnored private var lastSnapshot: TrackSnapshot?
     /// Set when a player is running but every snapshot comes back empty.
-    private(set) var automationNote: String?
+    private(set) var automationNote: String? {
+        didSet { if automationNote != oldValue { Self.logNote("automation", automationNote) } }
+    }
     private var emptyReads = 0
     /// Set when a player is running and taking events without answering them.
     /// No grant is missing in that case, so no settings pane can help.
-    private(set) var stalledNote: String?
+    private(set) var stalledNote: String? {
+        didSet { if stalledNote != oldValue { Self.logNote("player", stalledNote) } }
+    }
     private var stalledReads = 0
+
+    /// Notes name only the player ("Spotify isn't answering"), never a track.
+    private static func logNote(_ kind: String, _ note: String?) {
+        if let note {
+            Diagnostics.log.error("\(kind, privacy: .public): \(note, privacy: .public)")
+        } else {
+            Diagnostics.log.notice("\(kind, privacy: .public): recovered")
+        }
+    }
 
     /// How many consecutive unanswered polls before a stalled player is called
     /// one. The note and the clearing of the panel share this number so they

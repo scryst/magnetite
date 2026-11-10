@@ -366,6 +366,7 @@ final class AudioTap: @unchecked Sendable {
     /// useful fact when the visualiser looks wrong.
     private func log(_ message: String) {
         FileHandle.standardError.write("[audio] \(message)\n".data(using: .utf8)!)
+        Diagnostics.log.notice("audio: \(message, privacy: .public)")
     }
 
     private func defaultOutputDeviceUID() -> String? {

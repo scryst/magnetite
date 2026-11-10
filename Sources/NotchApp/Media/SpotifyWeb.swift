@@ -55,8 +55,17 @@ final class SpotifyWeb {
     static let callbackPort: UInt16 = 8888
     static let registeredRedirect = "http://127.0.0.1:8888/callback"
 
-    private(set) var isConnected = false
-    private(set) var lastError: String?
+    private(set) var isConnected = false {
+        didSet { if isConnected != oldValue { Diagnostics.log.notice("spotify library: \(self.isConnected ? "connected" : "not connected", privacy: .public)") } }
+    }
+    /// Fixed messages or a system error description; never a token or an account.
+    private(set) var lastError: String? {
+        didSet {
+            if let lastError, lastError != oldValue {
+                Diagnostics.log.error("spotify library: \(lastError, privacy: .public)")
+            }
+        }
+    }
 
     private var accessToken: String?
     private var expiry = Date.distantPast

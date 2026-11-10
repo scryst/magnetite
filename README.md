@@ -6,7 +6,7 @@
 
 <p align="center">Spotify and Apple Music in your MacBook notch, with black ferrofluid that moves to the music.<br>Free and open source.</p>
 
-<p align="center"><a href="https://github.com/scryst/magnetite-releases/releases/latest"><b>Download for Mac</b></a><br>725 KB. Needs macOS 26 on Apple silicon.</p>
+<p align="center"><a href="https://github.com/scryst/magnetite-releases/releases/latest"><b>Download for Mac</b></a><br>744 KB. Needs macOS 26 on Apple silicon.</p>
 
 ## Hover to open
 
@@ -94,6 +94,8 @@ No account, analytics, telemetry or crash reporter. Audio is processed in memory
 Spotify sign-in uses PKCE without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. [Full privacy details](https://magnetite.app/privacy.html).
 
 ## FAQ and troubleshooting
+
+To report a bug, choose **Copy Diagnostics** in the **M** menu right after it happens and paste the result into a [bug report](https://github.com/scryst/magnetite/issues/new?template=bug_report.md). It holds the version, macOS, the music source and the last 200 log lines, with your name, folders, computer name and the song left out.
 
 <details>
 <summary><b>macOS blocked the first launch. What now?</b></summary>
