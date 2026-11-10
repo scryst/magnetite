@@ -1,46 +1,60 @@
-# Magnetite
+<p align="center">
+  <img src="docs/media/hero.webp" width="640" alt="Magnetite open under the MacBook notch playing Art Deco by Lana Del Rey, the lyric line under the controls, black ferrofluid pulling down from the notch in time with the song">
+</p>
 
-Spotify and Apple Music in your MacBook notch, with black ferrofluid that moves to the music. Free and open source.
+<h1 align="center">Magnetite</h1>
 
-<img src="docs/media/hero.webp" width="640" alt="Magnetite open under the MacBook notch playing Art Deco by Lana Del Rey, the lyric line under the controls, black ferrofluid pulling down from the notch in time with the song">
+<p align="center">Spotify and Apple Music in your MacBook notch, with black ferrofluid that moves to the music.<br>Free and open source.</p>
 
-**[Download for Mac](https://github.com/scryst/magnetite-releases/releases/latest)**, 725 KB. Needs macOS 26 on Apple silicon.
+<p align="center"><a href="https://github.com/scryst/magnetite-releases/releases/latest"><b>Download for Mac</b></a><br>725 KB. Needs macOS 26 on Apple silicon.</p>
 
 ## Hover to open
 
 Bring the pointer to the notch and the player unfolds out of it. Move away and it folds back. Featured artists show beside the lead, and each name opens that artist in Spotify or Music.
 
-<img src="docs/media/hover.webp" width="560" alt="The pointer reaches the notch and the player unfolds from it, playing Pop by ILLIT">
+<p align="center">
+  <img src="docs/media/hover.webp" width="560" alt="The pointer reaches the notch and the player unfolds from it, playing Pop by ILLIT">
+</p>
 
 ## The ink plays the music
 
 The outline around the notch is a ferrofluid simulation driven by whatever your Mac is playing. Each hit flows out, eases to a stop and drains back.
 
-<img src="docs/media/ink.webp" width="560" alt="Hush by The Marías playing, the black ferrofluid swelling down from the notch on the beats and draining back between them">
+<p align="center">
+  <img src="docs/media/ink.webp" width="560" alt="Hush by The Marías playing, the black ferrofluid swelling down from the notch on the beats and draining back between them">
+</p>
 
 ## Swipe to skip
 
 Two fingers sideways change the track. Up or down plays or pauses.
 
-<img src="docs/media/swipe.webp" width="560" alt="A two-finger swipe on the open player skips from Pop to Sunsetz">
+<p align="center">
+  <img src="docs/media/swipe.webp" width="560" alt="A two-finger swipe on the open player skips from Pop to Sunsetz">
+</p>
 
 ## Drag the edge to seek
 
 The player's bottom outline is the progress bar. Drag along it to move through the song.
 
-<img src="docs/media/drag.webp" width="560" alt="The pointer drags along the player's bottom edge and the elapsed time follows">
+<p align="center">
+  <img src="docs/media/drag.webp" width="560" alt="The pointer drags along the player's bottom edge and the elapsed time follows">
+</p>
 
 ## Lyrics in time
 
 Synced lyrics from LRCLIB scroll under the controls, line by line. Turn them off in the **M** menu.
 
-<img src="docs/media/lyrics.webp" width="480" alt="Hush by The Marías, its lyric lines advancing under the controls">
+<p align="center">
+  <img src="docs/media/lyrics.webp" width="480" alt="Hush by The Marías, its lyric lines advancing under the controls">
+</p>
 
 ## Folded, it stays out of the way
 
 Closed, the player is a strip either side of the camera: the cover on one side, the time on the other. Turn off **Mini Player When Closed** in the **M** menu for a bare notch.
 
-<img src="docs/media/closed.webp" width="720" alt="The folded strip around the notch, the cover on the left, the elapsed time on the right, ink moving at the camera's edges">
+<p align="center">
+  <img src="docs/media/closed.webp" width="720" alt="The folded strip around the notch, the cover on the left, the elapsed time on the right, ink moving at the camera's edges">
+</p>
 
 Every loop on this page is a screen recording of the shipping app. The songs are “Pop” by ILLIT, “Sunsetz” by Cigarettes After Sex, “Art Deco” by Lana Del Rey and “Hush” by The Marías.
 
