@@ -7,14 +7,15 @@ import SystemConfiguration
 ///
 /// The report holds the version, macOS, the Mac's model, the music source, the
 /// problems the menu would show and the last `lineLimit` log entries of this
-/// process. Every line is scrubbed of the home folder, the account and full name,
+/// process that matter: the app's own and the frameworks' errors. Every line is scrubbed of the home folder, the account and full name,
 /// the computer's name, email addresses and the playing track's title and
-/// artist. Times are UTC, so no time zone hints at a place.
+/// artist, and URLs lose their queries. Times are UTC, so no time zone hints at
+/// a place.
 enum Diagnostics {
     /// The app's own log: states and error texts only, marked public so the
     /// report can read them back. Never a track, an account or a token.
-    static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.magnetite.Magnetite",
-                            category: "app")
+    static let subsystem = Bundle.main.bundleIdentifier ?? "app.magnetite.Magnetite"
+    static let log = Logger(subsystem: subsystem, category: "app")
 
     static let lineLimit = 200
 
@@ -65,18 +66,29 @@ enum Diagnostics {
         for word in identifying(extra: extra) where word != home {
             s = s.replacingOccurrences(of: word, with: "<redacted>", options: [.caseInsensitive])
         }
-        return s.replacingOccurrences(of: #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#,
-                                      with: "<email>", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#,
+                                   with: "<email>", options: .regularExpression)
+        // A lookup URL carries the song percent-encoded, past the plain-text
+        // redaction above, so no query or fragment survives.
+        return s.replacingOccurrences(of: #"(https?://[^\s?#]+)[?#][^\s]*"#,
+                                      with: "$1?<query>", options: .regularExpression)
     }
 
-    /// The newest `limit` entries this process has logged, its own and the system
-    /// frameworks', oldest first.
+    /// The newest `limit` entries this process logged that a bug report can use:
+    /// all of the app's own, and errors and faults from the system frameworks.
+    /// A framework's notices (networking, XPC, Spotlight) arrive by the hundred
+    /// an hour and would push the app's lines out. The store filters, so a long
+    /// session reads quickly.
     static func recentLog(limit: Int = lineLimit) -> [String] {
         do {
             let store = try OSLogStore(scope: .currentProcessIdentifier)
+            let wanted = NSPredicate(format: "subsystem == %@ OR messageType >= 16", subsystem)
+            // Twelve hours back is far more than 200 lines need, and spares the
+            // log daemon a scan back to boot.
+            let since = store.position(date: Date().addingTimeInterval(-12 * 3600))
             var ring: [String] = []
             ring.reserveCapacity(limit)
-            for case let entry as OSLogEntryLog in try store.getEntries() {
+            for case let entry as OSLogEntryLog in try store.getEntries(at: since, matching: wanted) {
                 let line = "\(entry.date.formatted(stamp)) \(name(entry.level)) "
                     + "\(entry.subsystem)[\(entry.category)] \(entry.composedMessage)"
                 if ring.count == limit { ring.removeFirst() }

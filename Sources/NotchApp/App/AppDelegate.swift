@@ -277,7 +277,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                        ("Brightness Indicator", settings.enableBrightness),
                        ("Hide from Screen Recordings", settings.hideFromScreenCapture)])
         let song = [media?.title ?? "", media?.artist ?? ""] + (media?.artists.map(\.name) ?? [])
-        Task.detached {
+        // A menu-bar app with no window is napped: without the activity the read
+        // took over half a minute, long enough to paste the old clipboard.
+        Task.detached(priority: .userInitiated) {
+            let activity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiated, .idleSystemSleepDisabled], reason: "Copy Diagnostics")
+            defer { ProcessInfo.processInfo.endActivity(activity) }
             let text = Diagnostics.report(facts, log: Diagnostics.recentLog(), redacting: song)
             await MainActor.run {
                 NSPasteboard.general.clearContents()

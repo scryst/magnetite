@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SystemConfiguration
 
 /// Headless checks for "Copy Diagnostics": the report says what a bug report
@@ -8,11 +9,13 @@ import SystemConfiguration
 enum DiagnosticsCheck {
     static func main() async {
         theScrubberRemovesEveryIdentifier()
+        urlsLoseTheirQueries()
         theReportCarriesTheFacts()
         theReportIsScrubbedWhole()
         timesCarryNoTimeZone()
         await theReaderFindsItsOwnLog()
         await theReaderKeepsOnlyTheNewest()
+        await theReaderSkipsFrameworkChatter()
         print("diagnosticscheck: all checks passed")
     }
 
@@ -47,14 +50,23 @@ enum DiagnosticsCheck {
         expect(!s.contains("Art Deco") && !s.contains("Lana Del Rey"), "the song is redacted")
     }
 
+    static func urlsLoseTheirQueries() {
+        let s = Diagnostics.scrub("GET https://lrclib.net/api/get?track_name=Art%20Deco&artist_name=Lana failed; "
+            + "see https://example.com/a#frag and https://api.spotify.com/v1/me/player")
+        expect(!s.contains("Art%20Deco") && !s.contains("track_name"), "a lookup URL loses its query")
+        expect(s.contains("https://lrclib.net/api/get?<query>") && s.contains("https://example.com/a?<query>"),
+               "the URL keeps its host and path")
+        expect(s.contains("https://api.spotify.com/v1/me/player"), "a URL without a query is untouched")
+    }
+
     static let facts = Diagnostics.Facts(
-        version: "0.1.18 (build 23)", macOS: "Version 26.2 (Build 25C56)", model: "Mac16,1",
+        version: "0.1.19 (build 23)", macOS: "Version 26.2 (Build 25C56)", model: "Mac16,1",
         source: "Automatic, reading Spotify", spotifyLibrary: "not set up", problems: [],
         settings: [("Lyrics in Player", true), ("Volume Indicator", false)])
 
     static func theReportCarriesTheFacts() {
         let r = Diagnostics.report(facts, log: ["line one", "line two"])
-        for want in ["Magnetite 0.1.18 (build 23)", "macOS Version 26.2 (Build 25C56), Mac16,1",
+        for want in ["Magnetite 0.1.19 (build 23)", "macOS Version 26.2 (Build 25C56), Mac16,1",
                      "Music source: Automatic, reading Spotify", "Spotify library: not set up",
                      "Problems: none", "Settings: Lyrics in Player on, Volume Indicator off",
                      "Last 2 log lines:\nline one\nline two"] {
@@ -99,6 +111,19 @@ enum DiagnosticsCheck {
         expect(got.contains { $0.contains(marker) && $0.contains(" error ") && $0.hasSuffix(marker) },
                "the reader returns this process's own entry with its level (got \(got.suffix(3)))")
         expect(got.allSatisfy { $0.first?.isNumber == true || $0.hasPrefix("(") }, "every line starts with its time")
+    }
+
+    /// A framework's notices are dropped, its errors kept, the app's own lines kept.
+    static func theReaderSkipsFrameworkChatter() async {
+        let run = UUID().uuidString.prefix(8)
+        let framework = Logger(subsystem: "com.example.framework", category: "noise")
+        framework.notice("chatter \(run, privacy: .public)")
+        framework.error("broke \(run, privacy: .public)")
+        Diagnostics.log.info("ours \(run, privacy: .public)")
+        let got = await lines(containing: "ours \(run)")
+        expect(got.contains { $0.hasSuffix("ours \(run)") }, "the app's own info line is kept")
+        expect(got.contains { $0.hasSuffix("broke \(run)") }, "a framework's error is kept")
+        expect(!got.contains { $0.hasSuffix("chatter \(run)") }, "a framework's notice is dropped")
     }
 
     static func theReaderKeepsOnlyTheNewest() async {
