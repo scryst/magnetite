@@ -28,15 +28,17 @@ MEDIA = os.path.join(ROOT, 'site', 'media')
 OUT = os.path.join(ROOT, 'docs', 'media')
 DENOISE = 'hqdn3d=3:3:6:6'
 
-# name, film, start, end, crossfade, width, fps, quality, crop
+# name, film, start, end, crossfade, width, fps, quality, crop, first frame
+# (the first frame is rotated to the front, so a still or a slow load shows the
+# player open and settled, not the folded strip or a crossfade)
 LOOPS = [
-    ('hero', 'demo.mp4', 26.3, 31.4, 0.4, 640, 20, 58, ''),
-    ('hover', 'move-hover.mp4', 0, 3.033, 0, 560, 25, 58, ''),
-    ('swipe', 'move-swipe.mp4', 0, 2.483, 0, 560, 25, 58, ''),
-    ('drag', 'move-drag.mp4', 0, 3.1, 0, 560, 25, 58, ''),
-    ('lyrics', 'lyrics.mp4', 0, 11.98, 0, 480, 15, 55, ''),
-    ('closed', 'closed.mp4', 0, 7.98, 0, 720, 20, 60, 'crop=1760:216:80:0'),
-    ('ink', 'demo.mp4', 43.3, 47.3, 0.4, 560, 20, 58, ''),
+    ('hero', 'demo.mp4', 26.3, 31.4, 0.4, 640, 20, 58, '', 0),
+    ('hover', 'move-hover.mp4', 0, 3.033, 0, 560, 25, 58, '', 40),
+    ('swipe', 'move-swipe.mp4', 0, 2.483, 0, 560, 25, 58, '', 40),
+    ('drag', 'move-drag.mp4', 0, 3.1, 0, 560, 25, 58, '', 0),
+    ('lyrics', 'lyrics.mp4', 0, 11.98, 0, 480, 15, 55, '', 30),
+    ('closed', 'closed.mp4', 0, 7.98, 0, 720, 20, 60, 'crop=1760:216:80:0', 0),
+    ('ink', 'demo.mp4', 43.3, 47.3, 0.4, 560, 20, 58, '', 0),
 ]
 
 
@@ -53,7 +55,7 @@ def clear_background(path):
     im.save(path)
 
 
-def build(name, film, a, b, x, width, fps, q, crop):
+def build(name, film, a, b, x, width, fps, q, crop, first):
     src = os.path.join(MEDIA, film)
     pre = f'{crop + "," if crop else ""}fps={fps},scale={width}:-2:flags=lanczos,{DENOISE},format=rgb24'
     out = os.path.join(OUT, f'{name}.webp')
@@ -68,6 +70,7 @@ def build(name, film, a, b, x, width, fps, q, crop):
             cmd = ['ffmpeg', '-v', 'error', '-ss', str(a), '-t', str(b - a), '-i', src, '-vf', pre]
         subprocess.run(cmd + [f'{d}/f%04d.png'], check=True)
         frames = sorted(glob.glob(f'{d}/f*.png'))
+        frames = frames[first:] + frames[:first]
         for f in frames:
             clear_background(f)
 
