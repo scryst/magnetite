@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Rebuild the README's moving pictures in docs/media/ from the site's films.
+
+GitHub does not play a video in a README by itself, so each loop is an animated
+WebP. Every frame goes through cwebp on its own (auto deblocking, sharp YUV):
+an inter-frame encoder turned the films' grain into visible blocks. A light
+hqdn3d denoise keeps the files small. The hero and the ink loop crossfade
+their last 0.4 s into their first frames over a lyric that holds, so the loop has
+no cut; the others are the site's own loops. The black around the player becomes
+transparent, so it sits on GitHub's light and dark themes alike: a dark pixel
+with an unbroken dark run to the left, right or bottom edge is background, while
+the notch and the ink, which reach only the top edge, stay black.
+
+Usage: tools/readme-loops [name...]   (needs ffmpeg, cwebp, webpmux, numpy and Pillow)
+"""
+import glob
+import os
+import subprocess
+import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
+from PIL import Image, ImageFilter
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MEDIA = os.path.join(ROOT, 'site', 'media')
+OUT = os.path.join(ROOT, 'docs', 'media')
+DENOISE = 'hqdn3d=3:3:6:6'
+
+# name, film, start, end, crossfade, width, fps, quality, crop
+LOOPS = [
+    ('hero', 'demo.mp4', 26.3, 31.4, 0.4, 640, 20, 58, ''),
+    ('hover', 'move-hover.mp4', 0, 3.033, 0, 560, 25, 58, ''),
+    ('swipe', 'move-swipe.mp4', 0, 2.483, 0, 560, 25, 58, ''),
+    ('drag', 'move-drag.mp4', 0, 3.1, 0, 560, 25, 58, ''),
+    ('lyrics', 'lyrics.mp4', 0, 11.98, 0, 480, 15, 55, ''),
+    ('closed', 'closed.mp4', 0, 7.98, 0, 720, 20, 60, 'crop=1760:216:80:0'),
+    ('ink', 'demo.mp4', 43.3, 47.3, 0.4, 560, 20, 58, ''),
+]
+
+
+def clear_background(path):
+    rgb = np.asarray(Image.open(path).convert('RGB'), dtype=np.int16)
+    dark = rgb.max(axis=2) < 10
+    run = lambda m: np.cumprod(m, axis=1).astype(bool)
+    left, right = run(dark), run(dark[:, ::-1])[:, ::-1]
+    bottom = np.cumprod(dark[::-1, :], axis=0).astype(bool)[::-1, :]
+    alpha = Image.fromarray(np.where(left | right | bottom, 0, 255).astype(np.uint8))
+    alpha = alpha.filter(ImageFilter.GaussianBlur(0.7))
+    im = Image.fromarray(rgb.astype(np.uint8))
+    im.putalpha(alpha)
+    im.save(path)
+
+
+def build(name, film, a, b, x, width, fps, q, crop):
+    src = os.path.join(MEDIA, film)
+    pre = f'{crop + "," if crop else ""}fps={fps},scale={width}:-2:flags=lanczos,{DENOISE},format=rgb24'
+    out = os.path.join(OUT, f'{name}.webp')
+    with tempfile.TemporaryDirectory() as d:
+        if x > 0:
+            fc = (f'[0:v]{pre},split[s1][s2];'
+                  f'[s1]trim=start={a + x}:end={b + x},setpts=PTS-STARTPTS[main];'
+                  f'[s2]trim=start={a}:end={a + x},setpts=PTS-STARTPTS[head];'
+                  f'[main][head]xfade=transition=fade:duration={x}:offset={b - a - x}[v]')
+            cmd = ['ffmpeg', '-v', 'error', '-i', src, '-filter_complex', fc, '-map', '[v]']
+        else:
+            cmd = ['ffmpeg', '-v', 'error', '-ss', str(a), '-t', str(b - a), '-i', src, '-vf', pre]
+        subprocess.run(cmd + [f'{d}/f%04d.png'], check=True)
+        frames = sorted(glob.glob(f'{d}/f*.png'))
+        for f in frames:
+            clear_background(f)
+
+        def encode(f):
+            subprocess.run(['cwebp', '-quiet', '-q', str(q), '-m', '6', '-af', '-sharp_yuv', '-sns', '0',
+                            '-metadata', 'none', '-alpha_filter', 'best', f, '-o', f[:-4] + '.webp'], check=True)
+
+        with ThreadPoolExecutor(6) as pool:
+            list(pool.map(encode, frames))
+        mux = ['webpmux']
+        for f in frames:
+            mux += ['-frame', f[:-4] + '.webp', f'+{round(1000 / fps)}+0+0+0-b']
+        subprocess.run(mux + ['-loop', '0', '-o', out], check=True, capture_output=True)
+    print(f'docs/media/{name}.webp: {len(frames)} frames, {os.path.getsize(out):,} bytes')
+
+
+if __name__ == '__main__':
+    wanted = set(sys.argv[1:])
+    for loop in LOOPS:
+        if not wanted or loop[0] in wanted:
+            build(*loop)

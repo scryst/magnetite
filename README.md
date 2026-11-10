@@ -1,57 +1,83 @@
 # Magnetite
 
-Free, open-source Spotify and Apple Music controls in your MacBook notch, with ferrofluid that moves to your music.
+Spotify and Apple Music in your MacBook notch, with black ferrofluid that moves to the music. Free and open source.
 
-[![Magnetite open under the MacBook notch, with the song's lyrics scrolling under the controls and black ferrofluid pulling down from the notch](docs/media/player.webp)](https://magnetite.app/media/demo.mp4)
+<img src="docs/media/hero.webp" width="640" alt="Magnetite open under the MacBook notch playing Art Deco by Lana Del Rey, the lyric line under the controls, black ferrofluid pulling down from the notch in time with the song">
 
-The film on [magnetite.app](https://magnetite.app) is a screen recording of the running app, playing “Pop” by ILLIT, “Sunsetz” by Cigarettes After Sex, “Art Deco” by Lana Del Rey and “Hush” by The Marías, with their lyrics.
+**[Download for Mac](https://github.com/scryst/magnetite-releases/releases/latest)**, 725 KB. Needs macOS 26 on Apple silicon.
 
-[![Latest release](https://img.shields.io/github/v/release/scryst/magnetite-releases)](https://github.com/scryst/magnetite-releases/releases/latest) [![macOS 26 or later](https://img.shields.io/badge/macOS-26%2B-222022)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-222022)](LICENSE)
+## Hover to open
+
+Bring the pointer to the notch and the player unfolds out of it. Move away and it folds back. Featured artists show beside the lead, and each name opens that artist in Spotify or Music.
+
+<img src="docs/media/hover.webp" width="560" alt="The pointer reaches the notch and the player unfolds from it, playing Pop by ILLIT">
+
+## The ink plays the music
+
+The outline around the notch is a ferrofluid simulation driven by whatever your Mac is playing. Each hit flows out, eases to a stop and drains back.
+
+<img src="docs/media/ink.webp" width="560" alt="Hush by The Marías playing, the black ferrofluid swelling down from the notch on the beats and draining back between them">
+
+## Swipe to skip
+
+Two fingers sideways change the track. Up or down plays or pauses.
+
+<img src="docs/media/swipe.webp" width="560" alt="A two-finger swipe on the open player skips from Pop to Sunsetz">
+
+## Drag the edge to seek
+
+The player's bottom outline is the progress bar. Drag along it to move through the song.
+
+<img src="docs/media/drag.webp" width="560" alt="The pointer drags along the player's bottom edge and the elapsed time follows">
+
+## Lyrics in time
+
+Synced lyrics from LRCLIB scroll under the controls, line by line. Turn them off in the **M** menu.
+
+<img src="docs/media/lyrics.webp" width="480" alt="Hush by The Marías, its lyric lines advancing under the controls">
+
+## Folded, it stays out of the way
+
+Closed, the player is a strip either side of the camera: the cover on one side, the time on the other. Turn off **Mini Player When Closed** in the **M** menu for a bare notch.
+
+<img src="docs/media/closed.webp" width="720" alt="The folded strip around the notch, the cover on the left, the elapsed time on the right, ink moving at the camera's edges">
+
+Every loop on this page is a screen recording of the shipping app. The songs are “Pop” by ILLIT, “Sunsetz” by Cigarettes After Sex, “Art Deco” by Lana Del Rey and “Hush” by The Marías.
 
 ## Install
 
-**[Download the latest release](https://github.com/scryst/magnetite-releases/releases/latest)** (or [all versions and checksums](https://github.com/scryst/magnetite-releases/releases)), then open it the first time like this:
+1. [Download the ZIP](https://github.com/scryst/magnetite-releases/releases/latest), drag **Magnetite** to Applications and double-click it.
+2. macOS says it can't verify Magnetite. Click **Done**. A free app outside Apple's paid program gets this warning.
+3. Open **System Settings → Privacy & Security**, scroll to **Security** and click **Open Anyway** next to Magnetite.
+4. Look for the **M** in the menu bar. Play something in Spotify or Music, hover the notch and allow the two prompts: one to control the player, one to record system audio for the ink.
 
-1. Open the ZIP, drag **Magnetite** to Applications, then double-click it.
-2. macOS says it can't verify Magnetite. That's expected for a free app that isn't in Apple's paid program. Click **Done**.
-3. Open **System Settings → Privacy & Security** and scroll down to **Security**. Click **Open Anyway** next to Magnetite, then confirm with Touch ID or your password.
-4. Look for the **M** in the menu bar. Play something in Spotify or Music and hover the notch. Allow the two permission prompts: one to control Spotify or Music, one to record system audio for the visualizer.
+You do this once. Magnetite is ad-hoc signed and not notarized by Apple, so only open a copy you downloaded from here. [All versions and checksums](https://github.com/scryst/magnetite-releases/releases).
 
-You only do this once. Magnetite is ad-hoc signed and not notarized by Apple, so only open a download you trust. On macOS 15 and later, right-click → Open no longer skips the warning.
-
-Prefer to skip the warning? [Read the installer](https://github.com/scryst/magnetite/blob/main/install.sh), then paste this into Terminal (Spotlight → Terminal):
+Or [read the installer](install.sh) and run it in Terminal:
 
 ```sh
 curl -fsSL https://magnetite.app/install.sh | sh
 ```
 
-The installer downloads the release it is pinned to, checks it against the fingerprint built into the installer and its code signature, installs into `/Applications` (or `~/Applications` if needed), and opens the app. The checksum and signature confirm the download is intact; Apple hasn't reviewed it. Run it again to update.
-
-## See what it does
-
-- **Music becomes liquid.** The black outline around the notch moves with whatever your Mac is playing.
-- **Hover to open.** Move the pointer to the notch and the player unfolds; move away and it folds into a mini player, the cover and elapsed time either side of the camera. Turn off **Mini Player When Closed** in the **M** menu for a bare notch.
-- **Swipe to skip.** Two fingers sideways change tracks; up or down plays or pauses.
-- **Scrub the edge.** Drag the player's bottom outline to move through a track.
-- **Credited artists.** Featured artists show alongside the lead ("A, B & C"), and each name opens that artist in Spotify or Music. Connected Spotify uses its catalog credits; Apple Music uses the collaborations named in its artist field. Anything unresolved opens a search.
+It downloads the release it is pinned to, checks it against the fingerprint built into the installer and its code signature, installs into `/Applications` (or `~/Applications`) and opens the app. Run it again to update.
 
 ## Requirements
 
-- **macOS 26 or later, Apple silicon.** Intel Macs and earlier macOS versions are unsupported. To check, open Apple menu → About This Mac: it should say Chip Apple M… and macOS 26.
-- **Spotify or Apple Music desktop app** for playback controls. The visualizer responds to system audio.
-- A notched MacBook is the intended home. Displays without a notch use a floating pill.
+- macOS 26 or later on Apple silicon. Intel Macs and earlier macOS versions are not supported.
+- The Spotify or Apple Music desktop app for the controls. The ink follows any sound your Mac plays.
+- A MacBook with a notch is its home. Other displays get a floating pill.
 
 ## Privacy and permissions
 
-No Magnetite account, analytics, telemetry or crash reporter. Audio is processed in memory on your Mac; it is never saved or uploaded.
+No account, analytics, telemetry or crash reporter. Audio is processed in memory on your Mac and never saved or uploaded.
 
-- **Automation / Apple Events** (the same macOS permission used by AppleScript): reads now-playing information and controls the local Spotify or Music app through ScriptingBridge. Ordinary playback needs no Spotify Web API connection.
-- **System audio recording:** a CoreAudio process tap reads the system mix for the ferrofluid visualizer. It does not record your microphone or upload audio.
-- **Artwork downloads:** fetches the current cover from the URL supplied by the music player, then uses its colors in the interface.
-- **Lyrics lookups:** sends the current track's title, artist, album and length to [LRCLIB](https://lrclib.net) for time-synced lyrics, and the title and artist to [NetEase Cloud Music](https://music.163.com) when LRCLIB has none or is down, and caches each answer under `~/Library/Application Support/Magnetite/Lyrics`. Turn off **Lyrics in Player** in the **M** menu to stop lookups.
-- **Optional Spotify connection:** `user-library-read` and `user-library-modify` read/save/remove liked tracks; `user-read-playback-state` and `user-modify-playback-state` support shuffle/repeat; `user-read-private` checks account capability before offering those controls.
+- **Automation (Apple Events):** reads what is playing and controls the local Spotify or Music app. Everyday playback needs no Spotify Web API connection.
+- **System audio recording:** a CoreAudio process tap reads the system mix for the ink. It never records the microphone.
+- **Artwork:** fetches the current cover from the URL the music player gives, and takes the interface's colors from it.
+- **Lyrics:** sends the track's title, artist, album and length to [LRCLIB](https://lrclib.net), and the title and artist to [NetEase Cloud Music](https://music.163.com) when LRCLIB has none or is down. Answers are cached under `~/Library/Application Support/Magnetite/Lyrics`. Turn off **Lyrics in Player** in the **M** menu to stop lookups.
+- **Optional Spotify connection:** `user-library-read` and `user-library-modify` for liked songs, `user-read-playback-state` and `user-modify-playback-state` for shuffle and repeat, `user-read-private` to check the account before offering them.
 
-Spotify authorization uses PKCE, without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. [Full privacy details](https://magnetite.app/privacy.html).
+Spotify sign-in uses PKCE without a client secret. Its refresh token is kept in an owner-only (`0600`) file under `~/Library/Application Support/Magnetite`; disconnecting deletes it. Preferences stay in macOS UserDefaults. [Full privacy details](https://magnetite.app/privacy.html).
 
 ## FAQ and troubleshooting
 
@@ -109,4 +135,4 @@ To build and install into Applications instead, use `./install.sh --from-source`
 
 ## License
 
-[MIT](LICENSE). The Geist font uses the [SIL Open Font License](site/fonts/OFL-Geist.txt). See [media provenance](docs/media/README.md) for the film.
+[MIT](LICENSE). The Geist font uses the [SIL Open Font License](site/fonts/OFL-Geist.txt). See [media provenance](docs/media/README.md) for the films and loops.

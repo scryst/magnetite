@@ -1,9 +1,15 @@
 # Media
 
-`player.webp`, the README's picture, is a frame of `site/media/demo.mp4` with
-lyrics on screen, at its full 800 px, encoded with `cwebp -q 86`.
+The README's loops are animated WebP, because GitHub does not play a video in a
+README on its own. `tools/readme-loops` rebuilds all of them from the site's films
+in `site/media/`: `hero` and `ink` are stretches of `demo.mp4` over a held lyric
+whose last 0.4 s crossfade into their first frames; `hover`, `swipe`, `drag`,
+`lyrics` and `closed` are the site's own loops, cropped and scaled. The black
+around the player is made transparent so it sits on either GitHub theme. Each frame is encoded on its own with
+`cwebp` (auto deblocking, sharp YUV) after a light denoise, which keeps the films'
+grain from turning into blocks.
 
-The film is a screen recording of the shipping app playing a "Magnetite film"
+The films are screen recordings of the shipping app playing a "Magnetite film"
 Spotify playlist: "Pop" by ILLIT, "Sunsetz" by Cigarettes After Sex, "Art Deco" by
 Lana Del Rey and "Hush" by The Marías. Every one has synced lyrics on LRCLIB, so the
 panel shows its lyrics stage throughout. `tools/notchtake` hovers the notch open,
