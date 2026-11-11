@@ -226,6 +226,12 @@ if [[ "$STAGE_RELEASE" == "--stage-release" ]]; then
   # release: deploy.sh checks the release digest against this pin.
   tools/pin-installer.sh install.sh "$VERSION" "$ARCHIVE_SHA256"
   echo "==> pinned install.sh to $VERSION ($ARCHIVE_SHA256)"
+  # The README names the download's size. Take it from the staged ZIP's byte count (the same
+  # 1000-byte KB the site uses), so the number cannot drift from the asset it names.
+  RELEASE_KB=$(( $(stat -f%z "$RELEASE_ZIP") / 1000 ))
+  sed -i '' -E "s|<br>[0-9]+ KB\. Needs|<br>${RELEASE_KB} KB. Needs|" README.md
+  grep -q "<br>${RELEASE_KB} KB\. Needs" README.md || { echo "error: README.md size line not updated" >&2; exit 1; }
+  echo "==> README download size: ${RELEASE_KB} KB"
 fi
 
 echo
