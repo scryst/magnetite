@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/scryst/magnetite/discussions
     about: Questions and ideas.
   - name: Security report
-    url: mailto:scrystyt@gmail.com
+    url: https://github.com/scryst/magnetite/security/advisories/new
     about: Report vulnerabilities privately. Do not include credentials.

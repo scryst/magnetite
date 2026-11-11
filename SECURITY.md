@@ -2,8 +2,9 @@
 
 ## Report privately
 
-Email [scrystyt@gmail.com](mailto:scrystyt@gmail.com) with the subject
-“Magnetite security report”. Do not post exploitable details in public issues.
+Open a [private security report](https://github.com/scryst/magnetite/security/advisories/new) on GitHub
+(Security › Report a vulnerability). Only you and the maintainer can see it. Do not
+post exploitable details in public issues.
 
 Include the affected version, macOS version, reproduction steps, likely impact
 and a minimal example. Don't send Spotify tokens, passwords, your Application
