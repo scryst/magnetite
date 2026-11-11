@@ -9,6 +9,13 @@ around the player is made transparent so it sits on either GitHub theme. Each fr
 `cwebp` (auto deblocking, sharp YUV) after a light denoise, which keeps the films'
 grain from turning into blocks.
 
+The banner above the name is a print of the same film. `tools/readme-banner` pulls
+the first 26 s of `demo.mp4` through a 3 px line screen in GitHub's blues, three
+inks and one accent on bare paper, so the page shows through wherever there is no
+ink and the print sits on either theme. Each theme has a wide file and a phone
+crop (`banner-dark`, `banner-light`, `banner-phone-dark`, `banner-phone-light`),
+lossless, 8 frames a second, and the loop ends on a skip back to the first song.
+
 The films are screen recordings of the shipping app playing a "Magnetite film"
 Spotify playlist: "Pop" by ILLIT, "Sunsetz" by Cigarettes After Sex, "Art Deco" by
 Lana Del Rey and "Hush" by The Marías. Every one has synced lyrics on LRCLIB, so the

@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""Rebuild the README banner in docs/media/ from the site's hero film.
+
+The banner is the player pulled through a line screen in GitHub's blues with
+one accent: a 3 px triangle screen with a little ranked noise, three inks and
+bare paper, so the page shows through wherever there is no ink and the print
+sits on GitHub's own background in either theme. Each theme gets a wide file
+and a phone crop.
+
+The film is lit shapes on black, so each theme prints it the way it looks:
+on the dark page the light inks go where the film is lit and the notch and the
+fluid stay bare; on the light page the dark inks go where the film is dark,
+the fluid is the one solid navy shape and the white type is bare paper. The
+accent goes on the film's most saturated colour, the heart and the played
+part of the bar.
+
+The panel's light pulses on every hit and the film has grain, and either would
+redraw the whole screen each frame. So the glass prints from its own light
+averaged over each song, the type and the fluid print from how far they stand
+off it, the cover prints against the song's average tone, and each pixel holds
+its tone until the ink around it moves together. The loop wraps on a skip: the last song dissolves into the first the
+way the app changes songs.
+
+Usage: tools/readme-banner [dark|light]   (needs ffmpeg, numpy and Pillow)
+"""
+import os
+import subprocess
+import sys
+
+import numpy as np
+from PIL import Image
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FILM = os.path.join(ROOT, 'site', 'media', 'demo.mp4')
+OUT = os.path.join(ROOT, 'docs', 'media')
+W, H = 1280, 480
+PLAYER = ((W - 750) // 2, 0, 750, 480)   # the film hangs from the top edge, as the notch hangs from the screen's
+SLEEVE = (56, 105, 221, 270)             # the cover's box in the scaled film, corners rounded by 13 px: art, not glass
+PHONE = (280, 1000)                      # what a phone shows: the player, edge to edge
+FPS = 8
+CUT = (0.0, 26.0)                        # Pop, Sunsetz and the start of Art Deco: the part the loops below leave out
+SKIPS = (7.25, 19.9)                     # where the film changes songs inside the cut
+SKIP = 0.5                               # the wrap: the last song dissolves into the first over this long
+CELL = 6                                 # the glass is measured on a 6 px grid
+KEEP = .015                              # how far a pixel's ink must move, with the ink around it, to be redrawn
+DENOISE = 'hqdn3d=3:3:6:6'
+THEMES = {
+    'dark': dict(inks=[(31, 111, 235), (121, 192, 255), (240, 246, 252)], accent=(247, 120, 186)),
+    'light': dict(inks=[(84, 174, 255), (9, 105, 218), (10, 48, 105)], accent=(191, 57, 137)),
+}
+
+
+def blur(a, sigma):
+    """A Gaussian blur with mirrored edges (numpy only, the same numbers as scipy.ndimage.gaussian_filter)."""
+    r = int(4 * sigma + .5)
+    k = np.exp(-.5 * (np.arange(-r, r + 1) / sigma) ** 2)
+    k /= k.sum()
+    for axis in (0, 1):
+        pad = [(r, r) if i == axis else (0, 0) for i in (0, 1)]
+        p = np.pad(a, pad, mode='symmetric')
+        a = sum(w * np.take(p, np.arange(i, i + a.shape[axis]), axis=axis) for i, w in enumerate(k))
+    return a
+
+
+def film(a, b):
+    x, y, w, h = PLAYER
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', FILM, '-vf',
+                          f'fps={FPS},trim=start={a}:end={b},{DENOISE},scale={w}:{h}:flags=lanczos',
+                          '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'], check=True, capture_output=True).stdout
+    return np.frombuffer(raw, np.uint8).reshape(-1, h, w, 3)
+
+
+def screens(seed=11):
+    """Static line screens (a 3 px triangle with a little ranked noise), one per ink and one for the accent."""
+    g = np.random.default_rng(seed)
+    yy = np.arange(H)[:, None] + 0 * np.arange(W)[None, :]
+    tri = np.abs(((yy / 3.0) % 1.0) * 2 - 1)
+    out = []
+    for _ in range(4):
+        n = blur(g.random((H, W)), .5)
+        r = np.empty(n.size)
+        r[np.argsort(n, axis=None)] = np.arange(n.size) / n.size
+        out.append(.80 * tri + .20 * r.reshape(H, W))
+    return out
+
+
+def look(rgb):
+    """One frame taken apart: luminance, saturation, where it is lit, where the fluid is, and the panel's tone."""
+    f = rgb.astype(np.float32) / 255
+    lum = f @ np.array([.299, .587, .114], np.float32)
+    sat = f.max(-1) - f.min(-1)
+    # the black around the player has an unbroken dark run to the left, right or bottom edge; the notch and
+    # the fluid reach only the top edge
+    dark = rgb.max(-1) < 10
+    run = lambda m: np.cumprod(m, axis=1).astype(bool)
+    around = run(dark) | run(dark[:, ::-1])[:, ::-1] | np.cumprod(dark[::-1], axis=0).astype(bool)[::-1]
+    lit = ~dark
+    tone = float(np.median(lum[lit])) if lit.any() else .25     # the panel's own tone, whatever the song's colour
+    return lum, sat, lit, dark & ~around, tone
+
+
+def sleeve():
+    """Where the cover is: its box with rounded corners."""
+    x0, y0, x1, y1 = SLEEVE
+    yy, xx = np.mgrid[0:PLAYER[3], 0:PLAYER[2]]
+    dx = np.maximum(np.maximum(x0 + 13 - xx, xx - (x1 - 14)), 0)
+    dy = np.maximum(np.maximum(y0 + 13 - yy, yy - (y1 - 14)), 0)
+    return (xx >= x0) & (xx < x1) & (yy >= y0) & (yy < y1) & (dx * dx + dy * dy <= 13 * 13)
+
+
+def glass(lum, sat, lit, fluid, tone):
+    """How bright the glass is beside the panel's tone, on a coarse grid, with the type and the cover left out."""
+    rel = lum / tone
+    ok = lit & (rel < 1.8)
+    x0, y0, x1, y1 = SLEEVE
+    ok[y0 - 4:y1 + 4, x0 - 4:x1 + 4] = False
+    h, w = lum.shape
+    cells = lambda a: a.reshape(h // CELL, CELL, w // CELL, CELL).sum((1, 3))
+    num, den = cells(rel * ok), cells(ok.astype(np.float32))
+    near, far = blur(num, 2) / np.maximum(blur(den, 2), 1e-3), blur(num, 12) / np.maximum(blur(den, 12), 1e-3)
+    return np.where(blur(den, 2) > 4, near, far).astype(np.float32)      # under the cover: the glass around it
+
+
+def tones(rgb, g, ref, art, theme):
+    """Ink (0 paper .. 1 the heaviest) and accent for one frame, given its song's glass and tone."""
+    lum, sat, lit, fluid, tone = look(rgb)
+    x, y, w, h = PLAYER
+    grid = lambda a: np.asarray(Image.fromarray(a).resize((w, h), Image.BICUBIC))
+    g, now = np.where(art, 1, grid(g)), grid(glass(lum, sat, lit, fluid, tone)) * tone
+    here = np.where(art, ref, g * tone)                                # what each pixel stands off: the glass there,
+    top = np.where(art, ref, np.maximum(1.3 * here, 1.1 * now))        # with room for a pulse and for where this
+    low = np.where(art, ref, np.minimum(.75 * here, .9 * now))         # frame's light has moved, or the song's tone
+    up = np.clip((lum - top) / (.92 - top), 0, 1) ** .6                # 0 the glass .. 1 white type; dimmed type holds
+    down = np.clip(1 - lum / low, 0, 1)                                # 0 the glass .. 1 black
+    if theme == 'dark':
+        base = np.clip(np.where(g < 1, .19 * g ** .5, .19 + .12 * (g - 1)), .13, .34)
+        ink = np.maximum(base * (1 - down), .09) + (1.12 - base) * up
+        ink = np.where(lit, ink, 0)
+    else:
+        base = np.clip(.50 + .40 * (1 - g), .43, .62)                 # .43 keeps the lines through the brightest glass
+        ink = base * (1 - up) + (.64 - base) * down
+        ink = np.where(fluid, 1.2, np.where(lit, ink, 0))
+    T = np.zeros((H, W), np.float32)
+    A = np.zeros((H, W), np.float32)
+    T[y:y + h, x:x + w] = blur(ink, .7)
+    A[y:y + h, x:x + w] = np.clip((sat - .45) / .2, 0, 1) * lit
+    return T, A
+
+
+def pull(T, A, s):
+    idx = np.zeros((H, W), np.uint8)
+    idx[T > .05 + .22 * s[0]] = 1
+    idx[T > .30 + .36 * s[1]] = 2
+    idx[T > .66 + .45 * s[2]] = 3
+    idx[A > .10 + .95 * s[3]] = 4
+    return idx
+
+
+def rgba(idx, theme):
+    c = THEMES[theme]
+    pal = np.array([(0, 0, 0)] + c['inks'] + [c['accent']], np.uint8)
+    return Image.fromarray(np.dstack([pal[idx], np.where(idx > 0, 255, 0).astype(np.uint8)]), 'RGBA')
+
+
+def cut():
+    """The cut's frames with SKIP seconds of lead-in, and each loop frame's glass and tone: its song's average,
+    eased over five frames where the songs change and where the loop wraps."""
+    a, b = CUT
+    n, k = round((b - a) * FPS), round(SKIP * FPS)
+    frames = film(a, b + SKIP)[:n + k]
+    seen = [look(f) for f in frames[k:]]
+    g, ref = np.stack([glass(*s) for s in seen]), np.array([s[4] for s in seen], np.float32)
+    song = np.zeros(n, int)
+    for i, t in enumerate(SKIPS):
+        song[round((t - a - SKIP) * FPS):] = i + 1
+    song[n - k // 2:] = 0
+    for i in set(song):
+        g[song == i], ref[song == i] = g[song == i].mean(0), ref[song == i].mean()
+    ease = lambda v: sum(np.roll(v, s, axis=0) for s in (-2, -1, 0, 1, 2)) / 5
+    return frames, ease(g).astype(np.float32), ease(ref), n, k
+
+
+def looped(frames, g, ref, n, k, theme):
+    """The loop's tones: the last SKIP seconds dissolve into the lead-in, so the end runs into the first frame."""
+    art = sleeve()
+    for i in range(n):
+        T, A = tones(frames[k + i], g[i], ref[i], art, theme)
+        j = i - (n - k)
+        if j >= 0:
+            w = (j + 1) / (k + 1)
+            T2, A2 = tones(frames[j], g[i], ref[i], art, theme)
+            T, A = (1 - w) * T + w * T2, (1 - w) * A + w * A2
+        yield T, A
+
+
+def steady(tone_frames):
+    """Hold each pixel's tone until the ink around it moves by more than KEEP. Two laps, keeping the second,
+    so the first frame holds what the last one left."""
+    held = None
+    for lap in (0, 1):
+        for T, A in tone_frames:
+            if held is None:
+                held = [T.copy(), A.copy()]
+            else:
+                m = blur(np.abs(T - held[0]), 2.5) > KEEP
+                for h, x in zip(held, (T, A)):
+                    h[m] = x[m]
+            if lap:
+                yield held[0].copy(), held[1].copy()
+
+
+def build(theme, frames, g, ref, n, k, s):
+    full = [rgba(pull(T, A, s), theme) for T, A in steady(list(looped(frames, g, ref, n, k, theme)))]
+    for name, ims in ((f'banner-{theme}', full), (f'banner-phone-{theme}', [im.crop((PHONE[0], 0, PHONE[1], H)) for im in full])):
+        path = os.path.join(OUT, name + '.webp')
+        ims[0].save(path, save_all=True, append_images=ims[1:], duration=round(1000 / FPS), loop=0,
+                    lossless=True, method=4, minimize_size=True)
+        print(f'docs/media/{name}.webp: {len(ims)} frames, {os.path.getsize(path):,} bytes')
+
+
+if __name__ == '__main__':
+    wanted = set(sys.argv[1:])
+    shared = (*cut(), screens())
+    for theme in THEMES:
+        if not wanted or theme in wanted:
+            build(theme, *shared)
