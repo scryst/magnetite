@@ -44,6 +44,7 @@ const MUTATIONS = [
   ['crawlable', 'structured data stops parsing', 'site/index.html', '"isAccessibleForFree": true,', '"isAccessibleForFree": true,,'],
   ['crawlable', 'the screenshot points at a deleted file', 'site/index.html', 'media/demo-poster.webp",', 'media/desktop.webp",'],
   ['policies', 'the footer drops Privacy', 'site/index.html', '<a href="privacy.html">Privacy</a>', ''],
+  ['homelinks', 'the home page drops a guide', 'site/index.html', '<a href="lyrics-macbook-notch.html">Synced lyrics</a>', ''],
   ['type', 'the headline falls back to the old face', 'site/css/magnetite.css', "--display: 'Geist'", "--display: 'Gloock'"],
   ['type', 'the font ships without its license', 'site/css/type.css', 'OFL: fonts/OFL-Geist.txt', 'OFL: fonts/OFL-Archivo.txt'],
   ['spelling', 'British spelling comes back', 'site/index.html', 'MIT license', 'MIT licence'], // us-spelling: ok
@@ -100,12 +101,12 @@ const MUTATIONS = [
   ['links', 'a link into test/', 'site/index.html', '<a href="privacy.html">Privacy</a>', '<a href="test/og.html">Privacy</a> <a href="privacy.html">Privacy</a>'],
   ['links', 'an anchor no element carries', 'site/index.html', '<div class="dock" data-dock hidden><a class="button" href="#download">', '<div class="dock" data-dock hidden><a class="button" href="#get">'],
   // The search guides, the share cards and the structured data around them.
-  ['floor', 'a guide names an older release', 'site/music-player-macbook-notch.html', 'Download Magnetite v0.1.19</a>', 'Download Magnetite v0.1.13</a>'],
-  ['download', 'a guide states an old size', 'site/lyrics-macbook-notch.html', '744 KB ZIP', '760 KB ZIP'],
+  ['floor', 'a guide names an older release', 'site/music-player-macbook-notch.html', 'Download Magnetite v0.1.20</a>', 'Download Magnetite v0.1.13</a>'],
+  ['download', 'a guide states an old size', 'site/lyrics-macbook-notch.html', '745 KB ZIP', '760 KB ZIP'],
   ['share', 'the privacy page loses its share title', 'site/privacy.html', '<meta property="og:title" content="Privacy — Magnetite">', ''],
   ['share', 'a guide points its canonical at the home page', 'site/lyrics-macbook-notch.html', '<link rel="canonical" href="https://magnetite.app/lyrics-macbook-notch.html">', '<link rel="canonical" href="https://magnetite.app/">'],
   ['guides', 'a guide answer drops the requirement', 'site/open-unidentified-developer-mac.html', 'It needs macOS 26 on Apple silicon.', 'It needs macOS 26.'],
-  ['guides', 'a guide answer drops the download link', 'site/spotify-apple-music-controls-notch.html', 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.19/Magnetite-0.1.19.zip', 'https://github.com/scryst/magnetite-releases/releases'],
+  ['guides', 'a guide answer drops the download link', 'site/spotify-apple-music-controls-notch.html', 'https://github.com/scryst/magnetite-releases/releases/download/v0.1.20/Magnetite-0.1.20.zip', 'https://github.com/scryst/magnetite-releases/releases'],
   ['guides', 'a guide clip autoplays', 'site/lyrics-macbook-notch.html', '<video controls playsinline preload="none"', '<video controls playsinline autoplay preload="none"'],
   ['guides', 'a guide has two h1 headings', 'site/spotify-apple-music-controls-notch.html', '<h2>What it doesn’t control</h2>', '<h1>What it doesn’t control</h1>'],
   ['guides', 'a guide title drops the product name', 'site/open-unidentified-developer-mac.html', '<title>Open an app from an unidentified developer on Mac — Magnetite</title>', '<title>Open an app from an unidentified developer on Mac</title>'],

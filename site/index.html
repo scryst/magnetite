@@ -42,7 +42,7 @@
   "operatingSystem": "macOS 26 or later",
   "processorRequirements": "Apple silicon",
   "license": "https://github.com/scryst/magnetite/blob/main/LICENSE",
-  "softwareVersion": "0.1.19",
+  "softwareVersion": "0.1.20",
   "image": "https://magnetite.app/og.png",
   "screenshot": "https://magnetite.app/media/demo-poster.webp",
   "isAccessibleForFree": true,
@@ -54,8 +54,8 @@
   ],
   "author": { "@type": "Person", "name": "scryst" },
   "publisher": { "@id": "https://magnetite.app/#scryst" },
-  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/download/v0.1.19/Magnetite-0.1.19.zip",
-  "fileSize": "744 KB",
+  "downloadUrl": "https://github.com/scryst/magnetite-releases/releases/download/v0.1.20/Magnetite-0.1.20.zip",
+  "fileSize": "745 KB",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
 }
 </script>
@@ -141,10 +141,10 @@
         <h1 class="hero__title" id="hero-title">Your MacBook’s notch, now a music&nbsp;player.</h1>
         <p class="pitch__lede">Hover it for Spotify or Apple Music controls, with black liquid that moves to the&nbsp;song.</p>
         <div class="pitch__actions">
-          <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.19/Magnetite-0.1.19.zip"
-             aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.19 ZIP from GitHub</span></a>
+          <a class="button" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.20/Magnetite-0.1.20.zip"
+             aria-describedby="hero-requires"><span data-share-label>Download for Mac</span><span class="visually-hidden">, Magnetite v0.1.20 ZIP from GitHub</span></a>
         </div>
-        <p class="pitch__meta" data-requires id="hero-requires">macOS 26 on Apple silicon, free and <a href="https://github.com/scryst/magnetite" rel="external">open source</a>, 744 KB</p>
+        <p class="pitch__meta" data-requires id="hero-requires">macOS 26 on Apple silicon, free and <a href="https://github.com/scryst/magnetite" rel="external">open source</a>, 745 KB</p>
       </div>
 
       <!-- The MacBook is drawn; the player on its screen is a screen recording of the
@@ -272,15 +272,15 @@
     <div class="get__main">
       <img class="get__icon" src="media/icon.webp" width="128" height="128" loading="lazy" decoding="async" alt="">
       <h2 class="get__title" id="get-title">Get Magnetite</h2>
-      <a class="button button--big" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.19/Magnetite-0.1.19.zip"
-         aria-describedby="requires"><span data-share-label>Download v0.1.19</span><span class="visually-hidden"> ZIP from GitHub</span></a>
-      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon (Apple menu → About This Mac). Free and open source, 744 KB.</p>
+      <a class="button button--big" data-download data-share rel="external" href="https://github.com/scryst/magnetite-releases/releases/download/v0.1.20/Magnetite-0.1.20.zip"
+         aria-describedby="requires"><span data-share-label>Download v0.1.20</span><span class="visually-hidden"> ZIP from GitHub</span></a>
+      <p class="get__requires" data-requires id="requires">Needs macOS 26 on Apple silicon (Apple menu → About This Mac). Free and open source, 745 KB.</p>
       <p class="get__all"><a href="https://github.com/scryst/magnetite-releases/releases" rel="external">All versions and checksums</a></p>
       <div class="get__install" id="install">
         <p>Or paste this into Terminal:</p>
         <!-- render-check: a Terminal command, set in mono on purpose. -->
         <code class="install" data-render-check-ignore>curl -fsSL https://magnetite.app/install.sh | sh</code>
-        <p class="get__aside">It checks the checksum and signature. <a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>.</p>
+        <p class="get__aside">It checks the download against the checksum it carries and skips the Open Anyway step. <a href="https://github.com/scryst/magnetite/blob/main/install.sh" rel="external">Read the installer</a>.</p>
       </div>
     </div>
 
@@ -289,11 +289,12 @@
       <h3 class="first__title">Opening it the first time</h3>
       <ol>
         <li>Open the ZIP, drag Magnetite to Applications and double-click it.</li>
-        <li>macOS can’t verify it, because it isn’t notarized. Click <b>Done</b>.</li>
-        <li>In System Settings → Privacy &amp; Security, click <b>Open Anyway</b>.</li>
-        <li>Play something, hover the notch, and allow the two prompts.</li>
+        <li>macOS can’t verify it, because it isn’t notarized by Apple. Click <b>Done</b>, not Move to Trash.</li>
+        <li>In System Settings → Privacy &amp; Security, click <b>Open Anyway</b> and enter your password.</li>
+        <li>Look for the <b>M</b> in the menu bar: there is no Dock icon. Play something in Spotify or Music,
+          hover the notch and allow the two prompts, one to control the player and one to record system audio for the liquid.</li>
       </ol>
-      <p class="first__once">You only do this once.</p>
+      <p class="first__once">You only do this once. Only open a copy downloaded from this page.</p>
     </div>
 
     <!-- Filmed on a fresh quarantined copy of the release ZIP: the notice, then Done, then Privacy & Security
@@ -313,7 +314,8 @@
       <div>
         <dt>What permissions does it need?</dt>
         <dd><p>Automation, to control Spotify or Music. System audio recording, for the liquid: the sound is read in
-          memory and never saved or sent. No account, no tracking. <a href="privacy.html">Privacy details</a>.</p></dd>
+          memory and never saved or sent. No account, no tracking. Lyrics, on unless you turn them off, look up the
+          song’s title, artist, album and length at LRCLIB, or NetEase when LRCLIB has none. <a href="privacy.html">Privacy details</a>.</p></dd>
       </div>
       <div>
         <dt>Do I need a Spotify account connected?</dt>
@@ -326,7 +328,19 @@
       </div>
       <div>
         <dt>How do I update or uninstall?</dt>
-        <dd><p>Rerun the installer to update. To remove it, quit from the M menu and delete the app.</p></dd>
+        <dd><p>Check for Updates in the M menu shows the newest version; rerun the installer to update. To remove it,
+          quit from the M menu and delete the app.</p></dd>
+      </div>
+      <div>
+        <dt>Where are the settings?</dt>
+        <dd><p>In the M menu: open on hover, the folded player (Mini Player When Closed), lyrics, swipes, volume and
+          brightness, launch at login, and hiding from screen recordings.</p></dd>
+      </div>
+      <div>
+        <dt>Found a bug?</dt>
+        <dd><p>Choose Copy Diagnostics in the M menu right after it happens and paste it into a
+          <a href="https://github.com/scryst/magnetite/issues/new?template=bug_report.md" rel="external">bug report</a>.
+          Your name, folders and songs are left out.</p></dd>
       </div>
     </dl>
   </section>
@@ -340,9 +354,16 @@
   <nav class="foot__links" aria-label="About this project">
     <a href="https://github.com/scryst/magnetite" rel="external">Source on GitHub</a>
     <a href="https://github.com/scryst/magnetite/blob/main/LICENSE" rel="external">MIT license</a>
+    <a href="https://github.com/scryst/magnetite/issues" rel="external">Report a bug</a>
     <a href="mailto:scrystyt@gmail.com">scrystyt@gmail.com</a>
     <a href="privacy.html">Privacy</a>
     <a href="terms.html">Terms</a>
+  </nav>
+  <nav class="foot__links" aria-label="Guides">
+    <a href="music-player-macbook-notch.html">Music player in the notch</a>
+    <a href="spotify-apple-music-controls-notch.html">Spotify and Apple Music controls</a>
+    <a href="lyrics-macbook-notch.html">Synced lyrics</a>
+    <a href="open-unidentified-developer-mac.html">Opening an app macOS can’t verify</a>
   </nav>
   <p class="foot__credit demo__credit" id="songs">The film at the top is a real screen recording on a drawn MacBook. Songs in it:
     <a href="https://open.spotify.com/track/1mre3HoVD50XwY02NvxKZZ" rel="external">“Pop” by ILLIT</a>,

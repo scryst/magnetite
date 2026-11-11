@@ -61,11 +61,11 @@ Every loop on this page is a screen recording of the shipping app. The songs are
 ## Install
 
 1. [Download the ZIP](https://github.com/scryst/magnetite-releases/releases/latest), drag **Magnetite** to Applications and double-click it.
-2. macOS says it can't verify Magnetite. Click **Done**. A free app outside Apple's paid program gets this warning.
-3. Open **System Settings → Privacy & Security**, scroll to **Security** and click **Open Anyway** next to Magnetite.
+2. macOS says it can't verify Magnetite. Click **Done**, not Move to Trash. A free app outside Apple's paid program gets this warning.
+3. Open **System Settings → Privacy & Security**, scroll to **Security** and click **Open Anyway** next to Magnetite and enter your password.
 4. Look for the **M** in the menu bar. Play something in Spotify or Music, hover the notch and allow the two prompts: one to control the player, one to record system audio for the ink.
 
-You do this once. Magnetite is ad-hoc signed and not notarized by Apple, so only open a copy you downloaded from here. [All versions and checksums](https://github.com/scryst/magnetite-releases/releases).
+You do this once. Magnetite is ad-hoc signed and not notarized by Apple, so only open a copy you downloaded from here. Builds are published in [scryst/magnetite-releases](https://github.com/scryst/magnetite-releases/releases), with every version and its checksum; this repository holds the source.
 
 Or [read the installer](install.sh) and run it in Terminal:
 
@@ -144,6 +144,13 @@ open build.noindex/Magnetite.app
 ```
 
 To build and install into Applications instead, use `./install.sh --from-source`.
+
+## Guides
+
+- [Music player in the MacBook notch](https://magnetite.app/music-player-macbook-notch.html)
+- [Control Spotify or Apple Music from the notch](https://magnetite.app/spotify-apple-music-controls-notch.html)
+- [Synced lyrics in the MacBook notch](https://magnetite.app/lyrics-macbook-notch.html)
+- [Open an app from an unidentified developer on Mac](https://magnetite.app/open-unidentified-developer-mac.html)
 
 ## Contributing
 

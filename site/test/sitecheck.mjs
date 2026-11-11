@@ -165,6 +165,20 @@ const CHECKS = {
     return out;
   },
 
+  // Every guide in the sitemap is linked from the home page. For their first ten
+  // days the four guides were reachable only through the sitemap and each other, and
+  // Google left all four "Discovered - currently not indexed" with 0 impressions.
+  homelinks() {
+    const out = [];
+    const sitemap = readFileSync(join(site, 'sitemap.xml'), 'utf8');
+    const pages = [...sitemap.matchAll(/<loc>https:\/\/magnetite\.app\/([a-z-]+\.html)<\/loc>/g)].map((m) => m[1]);
+    if (pages.length < 6) out.push(`the sitemap lists only ${pages.length} pages`);
+    for (const page of pages) {
+      if (!html.includes(`href="${page}"`)) out.push(`the home page does not link ${page}`);
+    }
+    return out;
+  },
+
   // One typeface, self-hosted, with its license. Gloock was the last look and
   // must not come back by a stray font-family.
   type() {

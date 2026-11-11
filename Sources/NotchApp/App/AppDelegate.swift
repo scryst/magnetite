@@ -223,14 +223,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // IOProc or start belongs to the audio system.
         if let text = coordinator?.audioPermissionNote {
             if text.contains("permission") {
-                note("Visualiser can't hear system audio",
+                note("Visualizer can't hear system audio",
                      "Allow Magnetite under Screen & System Audio Recording, then quit and reopen it.")
                 items.append(action("Open Privacy Settings…", key: "") {
                     NSWorkspace.shared.open(URL(string:
                         "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")!)
                 })
             } else {
-                note("Visualiser couldn't start audio capture",
+                note("Visualizer couldn't start audio capture",
                      "Switching the output device or reopening Magnetite usually clears this. (\(text))")
             }
         }

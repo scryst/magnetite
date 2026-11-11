@@ -74,8 +74,9 @@
         check(lyrics: false)
         check(lyrics: true)
         aWideCoverStaysInItsSquare()
+        thePanelNeverSizesItsWindow()
         if failures > 0 { exit(1) }
-        print("clickcheck: with and without lyrics, all 7 controls answer a click, the hit region hides none of them, and nothing under the panel does; a 16:9 cover is cropped to its square")
+        print("clickcheck: with and without lyrics, all 7 controls answer a click, the hit region hides none of them, and nothing under the panel does; a 16:9 cover is cropped to its square; the panel never sizes its own window")
     }
 
     static func check(lyrics: Bool) {
@@ -141,6 +142,22 @@
     /// A music video's cover is a 16:9 still (Spotify sends 640x360). The tile is square
     /// at both sizes, so the still is cropped to it: drawn wider, it ran over the title
     /// in the open card and past the camera in the closed strip.
+    /// The panel's frame is fixed and the shell morphs inside it. A hosting view left
+    /// to size its window makes each shell the panel's minimum size, re-sizing it from
+    /// inside a layout pass (AppKit's layout-recursion warning at launch).
+    static func thePanelNeverSizesItsWindow() {
+        let media = MediaManager()
+        let controller = NotchController()
+        controller.isExpanded = true
+        let (window, _) = host(controller, media, region: nil)
+        let view = window.contentView!
+        require(window.contentMinSize == .zero,
+                "the hosting view set the panel's minimum size to \(window.contentMinSize)")
+        require(view.intrinsicContentSize == NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric),
+                "the hosting view reports an intrinsic size of \(view.intrinsicContentSize)")
+        window.orderOut(nil)
+    }
+
     static func aWideCoverStaysInItsSquare() {
         let wide = NSImage(size: NSSize(width: 160, height: 90), flipped: false) { rect in
             NSColor.white.setFill()

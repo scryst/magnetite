@@ -32,7 +32,7 @@ final class SpotifyWeb {
     static func tokenFailureMessage(_ code: String?) -> String {
         switch code {
         case "invalid_client":
-            return "Spotify didn't recognise that Client ID. Use Change Spotify Client ID…"
+            return "Spotify didn't recognize that Client ID. Use Change Spotify Client ID…"
         case "invalid_grant":
             return "Spotify sign-in expired. Click to connect again."
         default:

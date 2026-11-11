@@ -10,6 +10,20 @@ final class NotchHostingView<Content: View>: NSHostingView<Content> {
     /// Size of the drawn shell, which hangs centred from the view's top edge.
     var shellSize: () -> CGSize = { .zero }
 
+    /// The panel's frame is fixed and the shell morphs inside it, so the view never
+    /// sizes its window. By default a hosting view turns the root's size into the
+    /// window's minimum size and its own intrinsic size, and the root is exactly the
+    /// shell, so each change of shell re-sized a fixed panel from inside a layout pass:
+    /// AppKit logged "It's not legal to call -layoutSubtreeIfNeeded on a view which is
+    /// already being laid out" at launch.
+    required init(rootView: Content) {
+        super.init(rootView: rootView)
+        sizingOptions = []
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
     override var safeAreaInsets: NSEdgeInsets { NSEdgeInsets() }
 
     /// The shell measured from the top edge. A hosting view is flipped, so a region

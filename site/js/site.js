@@ -137,7 +137,7 @@ for (const clip of document.querySelectorAll('[data-clip]')) clips.observe(clip)
 // The dock shows once no Download button is seen; the hero's, faded out while
 // the film holds the window, does not count.
 const dock = $('[data-dock]');
-const downloads = [...document.querySelectorAll('[data-download]')];
+const downloads = [...document.querySelectorAll('[data-download],#download')];
 const inSight = (b) => {
   const r = b.getBoundingClientRect();
   return r.bottom > 0 && r.top < innerHeight

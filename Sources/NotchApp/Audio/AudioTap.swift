@@ -285,7 +285,7 @@ final class AudioTap: @unchecked Sendable {
         // 1. Global stereo mixdown of everything currently playing.
         let desc = CATapDescription(stereoGlobalTapButExcludeProcesses: [])
         desc.uuid = UUID()
-        desc.name = "Magnetite Visualiser Tap"
+        desc.name = "Magnetite Visualizer Tap"
         desc.isPrivate = true
         // Never alter what the user hears.
         desc.muteBehavior = .unmuted
@@ -309,7 +309,7 @@ final class AudioTap: @unchecked Sendable {
         // 2. Private aggregate device carrying the tap, so it can be read.
         let aggUID = UUID().uuidString
         let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "Magnetite Visualiser",
+            kAudioAggregateDeviceNameKey: "Magnetite Visualizer",
             kAudioAggregateDeviceUIDKey: aggUID,
             kAudioAggregateDeviceMainSubDeviceKey: outputUID,
             kAudioAggregateDeviceIsPrivateKey: true,
