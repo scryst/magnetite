@@ -129,7 +129,9 @@ Normal builds do not touch the tracked release copy or `install.sh`. Binaries
 are downloaded from GitHub Releases.
 
 `magnetite://toggle`, `magnetite://expand` and `magnetite://collapse` open and
-close the panel without touching playback, which is handy when testing.
+close the panel without touching playback, which is handy when testing. Any web page can open the scheme, so the verbs that act on the Spotify account (`spotify-connect`, `spotify-disconnect`,
+`like`, `shuffle`, `repeat`) and `state` (it logs the playing track) are refused unless scripted control is on:
+`defaults write app.magnetite.Magnetite scriptedControl -bool true` (use the bundle id in `Resources/Info.plist`).
 
 ## Design notes
 

@@ -206,3 +206,27 @@ final class Settings {
         set { withMutation(keyPath: \.musicApp) { _musicApp = newValue } }
     }
 }
+
+/// Which `magnetite://` verbs any opener may run. The scheme is open to every web page and local app, so only the verbs
+/// that change nothing the person owns are always accepted: open and close the panel. Signing in or out of Spotify,
+/// saving, shuffling or repeating a track, and `state` (which logs the playing title and artist into the diagnostics) run
+/// only when the person has turned scripted control on for their own tests (`defaults write <bundle id> scriptedControl -bool true`).
+enum URLControl {
+    static let safeVerbs: Set<String> = ["toggle", "expand", "collapse"]
+    static let scriptedVerbs: Set<String> = ["spotify-connect", "spotify-disconnect", "like", "shuffle", "repeat", "state"]
+    static let defaultsKey = "scriptedControl"
+
+    static func allows(_ verb: String, scripted: Bool) -> Bool {
+        safeVerbs.contains(verb) || (scripted && scriptedVerbs.contains(verb))
+    }
+
+    /// The verb a `magnetite://` URL asks for, or nil when it is not ours or is refused. The app delegate runs only what
+    /// this returns, so the gate and the check below cannot drift apart.
+    static func verb(for url: URL, scripted: Bool) -> String? {
+        guard url.scheme == "magnetite" else { return nil }
+        let verb = url.host ?? url.path.replacingOccurrences(of: "/", with: "")
+        return allows(verb, scripted: scripted) ? verb : nil
+    }
+
+    static var scriptedEnabled: Bool { UserDefaults.standard.bool(forKey: defaultsKey) }
+}

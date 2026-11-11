@@ -16,6 +16,8 @@ enum MediaCheck {
         aPressHoldsUntilThePlayerAgrees()
         anUnansweredControlIsNotShown()
         aPauseDoesNotTakeTheTogglesAway()
+        aRevokedGrantIsDetected()
+        aWebPageCannotDriveSpotifyThroughTheURLScheme()
         aPauseAsksWhatTheTogglesCanStillDo()
         onlyARealTrackURLIsShareable()
         aCoverArrivesInAnyShapeTheBridgeHands()
@@ -247,6 +249,36 @@ enum MediaCheck {
         music.apply(nil)
         require(music.liked == nil && music.shuffling == nil && music.repeating == nil,
                 "modes outlived the track")
+    }
+
+    /// `refreshFailed` used to look for "invalid_grant" in the menu message, which never contains it, so a revoked
+    /// grant looked connected forever. The refusal now carries the OAuth code.
+    static func aRevokedGrantIsDetected() {
+        require(SpotifyWeb.isRevoked(SpotifyWeb.TokenRefusal(code: "invalid_grant", message: SpotifyWeb.tokenFailureMessage("invalid_grant"))), "invalid_grant must read as revoked")
+        require(SpotifyWeb.TokenRefusal(code: "invalid_grant", message: SpotifyWeb.tokenFailureMessage("invalid_grant")).localizedDescription == SpotifyWeb.tokenFailureMessage("invalid_grant"),
+                "the menu still shows the mapped message")
+        for code in [nil, "invalid_client", "server_error"] {
+            require(!SpotifyWeb.isRevoked(SpotifyWeb.TokenRefusal(code: code, message: SpotifyWeb.tokenFailureMessage(code))), "\(code ?? "no code") must not read as revoked")
+        }
+        require(!SpotifyWeb.isRevoked(URLError(.notConnectedToInternet)), "offline must not drop a good token")
+    }
+
+    /// Any web page can open `magnetite://`: the verbs that act on the Spotify account need scripted control turned on.
+    static func aWebPageCannotDriveSpotifyThroughTheURLScheme() {
+        for verb in ["toggle", "expand", "collapse"] {
+            require(URLControl.allows(verb, scripted: false), "\(verb) is safe and must work by default")
+        }
+        for verb in ["spotify-connect", "spotify-disconnect", "like", "shuffle", "repeat", "state"] {
+            require(!URLControl.allows(verb, scripted: false), "\(verb) must be refused without scripted control")
+            require(URLControl.allows(verb, scripted: true), "\(verb) must work once scripted control is on")
+        }
+        // the handler acts only on what `verb(for:)` returns, so test the URLs themselves
+        require(URLControl.verb(for: URL(string: "magnetite://toggle")!, scripted: false) == "toggle", "toggle URL accepted")
+        require(URLControl.verb(for: URL(string: "magnetite://spotify-disconnect")!, scripted: false) == nil, "disconnect URL refused")
+        require(URLControl.verb(for: URL(string: "magnetite:///like")!, scripted: false) == nil, "path-form like URL refused")
+        require(URLControl.verb(for: URL(string: "magnetite://like")!, scripted: true) == "like", "like URL accepted when scripted")
+        require(URLControl.verb(for: URL(string: "https://toggle")!, scripted: true) == nil, "another scheme is not ours")
+        require(!URLControl.allows("quit", scripted: true) && !URLControl.allows("", scripted: true), "unknown verbs are refused")
     }
 
     /// Pausing Spotify makes `/me/player` answer 204, which arrives as "no

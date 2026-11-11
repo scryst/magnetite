@@ -33,8 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         installStatusItem()
     }
 
-    /// Handles `magnetite://` URLs: `toggle`, `expand`, `collapse`, `spotify-connect`,
-    /// `spotify-disconnect`, `like`, `shuffle`, `repeat` and `state`.
+    /// Handles `magnetite://` URLs: `toggle`, `expand` and `collapse` always; `spotify-connect`,
+    /// `spotify-disconnect`, `like`, `shuffle`, `repeat` and `state` only with `scriptedControl` turned on (`URLControl`),
+    /// because any web page can open this scheme and those verbs change the person's Spotify account.
     ///
     /// Scripted control makes UI states reachable from a shell, which is the practical
     /// way to verify a window that only appears on hover. The scheme is not kept
@@ -42,7 +43,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// registrations for one app can launch the wrong copy.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "magnetite" {
-            switch url.host ?? url.path.replacingOccurrences(of: "/", with: "") {
+            guard let verb = URLControl.verb(for: url, scripted: URLControl.scriptedEnabled) else {
+                FileHandle.standardError.write(Data("[url] refused a magnetite:// verb; scriptedControl is off\n".utf8))
+                continue
+            }
+            switch verb {
             case "toggle":   coordinator?.toggleAll()
             case "expand":   coordinator?.setExpandedAll(true)
             case "collapse": coordinator?.setExpandedAll(false)

@@ -40,6 +40,17 @@ final class SpotifyWeb {
         }
     }
 
+    /// What `post` throws when the token endpoint refuses: the mapped message for the menu, and the OAuth code so
+    /// `refreshFailed` can tell a revoked grant from a transient failure without parsing prose.
+    struct TokenRefusal: LocalizedError {
+        let code: String?
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    /// True only for a refusal that says the grant is gone (`invalid_grant`); offline, a 500 or a timeout are not.
+    static func isRevoked(_ error: Error) -> Bool { (error as? TokenRefusal)?.code == "invalid_grant" }
+
     /// `lastError` as a menu title: most messages already name Spotify.
     var lastErrorTitle: String? {
         lastError.map { $0.hasPrefix("Spotify") ? $0 : "Spotify: \($0)" }
@@ -102,6 +113,9 @@ final class SpotifyWeb {
     func connect() async {
         connectFlow &+= 1
         let flow = connectFlow
+        // A refresh already in flight belongs to the old grant: if it comes back `invalid_grant` it must not delete the
+        // token this consent is about to store, so its reply is discarded like one that lands after a disconnect.
+        authEpoch &+= 1
         lastError = nil
         guard !clientID.isEmpty else {
             lastError = "No client ID — set one from the menu first."
@@ -554,10 +568,10 @@ final class SpotifyWeb {
         // The token endpoint's error bodies carry no credential; tokens appear
         // only in a 200, which does not reach here.
         let described = error.localizedDescription
-        let revoked = described.contains("invalid_grant")
+        let revoked = Self.isRevoked(error)
         log("refresh refused\(revoked ? " (invalid_grant)" : ""): \(described)")
         guard revoked else {
-            lastError = "Spotify could not be reached."
+            lastError = (error as? TokenRefusal)?.message ?? "Spotify could not be reached."
             return
         }
         lastError = "Spotify access was revoked — connect again."
@@ -615,9 +629,7 @@ final class SpotifyWeb {
             // The menu shows the mapped message, not the raw reply body.
             let code = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
             log("token request failed: \(String(data: data, encoding: .utf8) ?? "?")")
-            throw NSError(domain: "SpotifyWeb", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: Self.tokenFailureMessage(code),
-            ])
+            throw TokenRefusal(code: code, message: Self.tokenFailureMessage(code))
         }
         accessToken = access
         expiry = Date().addingTimeInterval((json["expires_in"] as? Double) ?? 3600)
