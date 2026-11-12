@@ -14,7 +14,9 @@ the first 26 s of `demo.mp4` through a 3 px line screen in GitHub's blues, three
 inks and one accent on bare paper, so the page shows through wherever there is no
 ink and the print sits on either theme. Each theme has a wide file and a phone
 crop (`banner-dark`, `banner-light`, `banner-phone-dark`, `banner-phone-light`),
-lossless, 8 frames a second, and the loop ends on a skip back to the first song.
+lossless, 8 frames a second. The loop opens in Sunsetz on its first sung line and wraps
+on a skip, Art Deco into Pop. On the light page the cover prints as a picture, its
+darks in navy and its lights in thin lines, so a pale sleeve keeps its edge on white.
 
 The films are screen recordings of the shipping app playing a "Magnetite film"
 Spotify playlist: "Pop" by ILLIT, "Sunsetz" by Cigarettes After Sex, "Art Deco" by

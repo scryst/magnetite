@@ -3,7 +3,7 @@
     <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/media/banner-phone-dark.webp">
     <source media="(max-width: 600px)" srcset="docs/media/banner-phone-light.webp">
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/banner-dark.webp">
-    <img src="docs/media/banner-light.webp" width="100%" alt="Magnetite's player under the notch, printed in blue lines: Pop by ILLIT plays, a skip brings Sunsetz by Cigarettes After Sex and then Art Deco by Lana Del Rey, the lyric line changing under the controls and the ferrofluid moving with each song.">
+    <img src="docs/media/banner-light.webp" width="100%" alt="Magnetite's player under the notch, printed in blue lines: Sunsetz by Cigarettes After Sex plays, a skip brings Art Deco by Lana Del Rey and then Pop by ILLIT, the lyric line changing under the controls and the ferrofluid moving with each song.">
   </picture>
 </p>
 

@@ -44,6 +44,8 @@ SKIP = 0.5                               # the wrap: the last song dissolves int
 CELL = 6                                 # the glass is measured on a 6 px grid
 KEEP = .015                              # how far a pixel's ink must move, with the ink around it, to be redrawn
 DENOISE = 'hqdn3d=3:3:6:6'
+ART_FLOOR = .16                          # light page: the least ink on the cover, so a pale sleeve keeps its edge
+START = 13.75                            # the loop opens in Sunsetz on its first sung line, "I wanna hear your voice"
 THEMES = {
     'dark': dict(inks=[(31, 111, 235), (121, 192, 255), (240, 246, 252)], accent=(247, 120, 186)),
     'light': dict(inks=[(84, 174, 255), (9, 105, 218), (10, 48, 105)], accent=(191, 57, 137)),
@@ -139,6 +141,8 @@ def tones(rgb, g, ref, art, theme):
     else:
         base = np.clip(.50 + .40 * (1 - g), .43, .62)                 # .43 keeps the lines through the brightest glass
         ink = base * (1 - up) + (.64 - base) * down
+        cover = ART_FLOOR + (1.05 - ART_FLOOR) * np.clip(1 - lum, 0, 1)  # the cover prints as a picture: its darks in
+        ink = np.where(art & lit, cover, ink)                           # navy, its lights in thin lines, never bare
         ink = np.where(fluid, 1.2, np.where(lit, ink, 0))
     T = np.zeros((H, W), np.float32)
     A = np.zeros((H, W), np.float32)
@@ -211,6 +215,8 @@ def steady(tone_frames):
 
 def build(theme, frames, g, ref, n, k, s):
     full = [rgba(pull(T, A, s), theme) for T, A in steady(list(looped(frames, g, ref, n, k, theme)))]
+    first = round((START - CUT[0]) * FPS)
+    full = full[first:] + full[:first]                                 # same loop, opened on another song
     for name, ims in ((f'banner-{theme}', full), (f'banner-phone-{theme}', [im.crop((PHONE[0], 0, PHONE[1], H)) for im in full])):
         path = os.path.join(OUT, name + '.webp')
         ims[0].save(path, save_all=True, append_images=ims[1:], duration=round(1000 / FPS), loop=0,
