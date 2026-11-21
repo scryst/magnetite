@@ -1,6 +1,6 @@
 # Engineering and release notes
 
-The user-facing overview is in [README.md](../README.md). [APP.md](../APP.md)
+The user-facing overview is in [README.md](../README.md). [APP.md](APP.md)
 explains the native app's geometry, physics, lifecycle and design decisions.
 
 ## Build and verification

@@ -9,7 +9,7 @@ binary and `build.sh` wraps it in an app bundle.
 open build.noindex/Magnetite.app
 ```
 
-Testing and releases are covered in [docs/ENGINEERING.md](docs/ENGINEERING.md).
+Testing and releases are covered in [ENGINEERING.md](ENGINEERING.md).
 Design rules are in [PRODUCT.md](PRODUCT.md).
 
 ## Layout
