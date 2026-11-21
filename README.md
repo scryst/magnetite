@@ -163,7 +163,7 @@ To build and install into Applications instead, use `./install.sh --from-source`
 
 ## Contributing
 
-[Bug reports and focused pull requests](.github/CONTRIBUTING.md) are welcome. [PRODUCT.md](docs/PRODUCT.md) has the design principles and [APP.md](docs/APP.md) explains how the app is built. Run `./check.sh` before a PR; [engineering notes](docs/ENGINEERING.md) explain focused checks and release tooling. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+[Bug reports and focused pull requests](.github/CONTRIBUTING.md) are welcome. [PRODUCT.md](docs/PRODUCT.md) has the design principles and [APP.md](docs/APP.md) explains how the app is built. Run `./check.sh` before a PR; [engineering notes](docs/ENGINEERING.md) explain focused checks and release tooling. Report vulnerabilities privately using [SECURITY.md](.github/SECURITY.md).
 
 ## License
 
