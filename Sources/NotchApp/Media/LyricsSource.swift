@@ -31,6 +31,11 @@ enum LyricsSource {
         return "Magnetite \(v) (https://magnetite.app)"
     }()
     private static let missKeptFor: TimeInterval = 3 * 86_400
+    /// A lyrics reply is a few KB; anything bigger is a broken or hostile upstream, so it is refused, not held in memory.
+    private static let maxBody = 256 * 1024
+    /// The cache is rebuildable: a song asked about again after its file is pruned costs one request.
+    private static let cacheMaxAge: TimeInterval = 30 * 86_400
+    private static let cacheMaxFiles = 2_000
     /// No cookies either way. NetEase's first reply sets one (NMTID), and every search
     /// sent with it answers unrelated songs, so only the first track of a session found
     /// its words.
@@ -154,7 +159,7 @@ enum LyricsSource {
         for attempt in 0..<2 {
             do {
                 let (data, response) = try await session.data(for: request)
-                guard let http = response as? HTTPURLResponse else { return nil }
+                guard let http = response as? HTTPURLResponse, data.count <= maxBody else { return nil }
                 if attempt == 0, LyricsRecord.isBusy(status: http.statusCode) {
                     try await Task.sleep(for: .seconds(1.5))
                     continue
@@ -183,5 +188,21 @@ enum LyricsSource {
     private static func store(_ entry: Entry, at file: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(entry) { try? data.write(to: file, options: .atomic) }
+        pruneCache()
+    }
+
+    /// Drops cached answers older than `cacheMaxAge`, then the oldest beyond `cacheMaxFiles`. Runs after each store, so the
+    /// folder cannot grow past the cap by more than the files of one lookup.
+    private static func pruneCache(now: Date = Date()) {
+        let fm = FileManager.default
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+        guard let files = try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: Array(keys)) else { return }
+        var kept: [(url: URL, made: Date)] = []
+        for file in files {
+            let made = (try? file.resourceValues(forKeys: keys))?.contentModificationDate ?? now
+            if now.timeIntervalSince(made) > cacheMaxAge { try? fm.removeItem(at: file) } else { kept.append((file, made)) }
+        }
+        guard kept.count > cacheMaxFiles else { return }
+        for old in kept.sorted(by: { $0.made < $1.made }).prefix(kept.count - cacheMaxFiles) { try? fm.removeItem(at: old.url) }
     }
 }
